@@ -1,0 +1,51 @@
+{
+  "name": "kaito-extension",
+  "version": "1.0.2",
+  "private": true,
+  "description": "Kaito Pulse Chrome extension for zkTLS verification and X signals",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenKaito/KaitoPulseExtension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenKaito/KaitoPulseExtension/issues"
+  },
+  "homepage": "https://github.com/OpenKaito/KaitoPulseExtension#readme",
+  "packageManager": "pnpm@9.10.0",
+  "engines": {
+    "node": "22.23.1",
+    "pnpm": "9.10.0"
+  },
+  "scripts": {
+    "prepare": "wxt prepare",
+    "postinstall": "bash scripts/setup-vendor-config.sh",
+    "build:vendor": "bash scripts/build-vendor.sh",
+    "dev": "bash scripts/ensure-vendor.sh && wxt",
+    "build": "bash scripts/ensure-vendor.sh && wxt build",
+    "zip": "bash scripts/ensure-vendor.sh && wxt zip",
+    "zip:dev": "bash scripts/ensure-vendor.sh && wxt zip --mode development",
+    "zip:upload": "bash scripts/ensure-vendor.sh && UNPINNED_EXTENSION_ID=1 wxt zip",
+    "release": "bash scripts/release.sh",
+    "publish:oss": "bash scripts/publish-oss.sh",
+    "check:public-source": "bash scripts/check-public-source.sh",
+    "verify:artifacts": "node scripts/verify-artifact-equivalence.mjs",
+    "verify:no-mocks": "node scripts/assert-no-mocks.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .wxt .output"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.43",
+    "@wxt-dev/auto-icons": "^1.1.1",
+    "@wxt-dev/module-solid": "^1.1.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "wxt": "^0.20.26"
+  },
+  "dependencies": {
+    "@zumer/snapdom": "^2.24.1",
+    "echarts": "6.1.0",
+    "json-formatter-js": "^2.5.23",
+    "solid-js": "^1.9.15"
+  }
+}

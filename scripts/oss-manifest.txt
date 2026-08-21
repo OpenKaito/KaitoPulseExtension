@@ -1,0 +1,25 @@
+publish .env.example
+publish .github
+publish .gitignore
+publish .gitmodules
+publish .node-version
+publish .npmrc
+publish LICENSE
+publish NOTICE
+publish README.md
+publish SECURITY.md
+publish SUPPORT.md
+publish docs
+publish licenses
+publish modules
+publish package.json
+publish pnpm-lock.yaml
+publish scripts
+publish src
+publish tsconfig.json
+publish vendor
+publish wxt.config.ts
+
+withhold .github/CODEOWNERS
+withhold .github/dependabot.yml
+withhold .impeccable

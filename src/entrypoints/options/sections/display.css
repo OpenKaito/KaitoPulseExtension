@@ -1,0 +1,22 @@
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.group-title { font-size: 14px; font-weight: 600; }
+
+.surface-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 2px 0; }
+.surface-child { margin-left: 26px; }
+.surface-text { display: flex; flex-direction: column; }
+.surface-label { font-size: 13px; }
+.surface-desc { font-size: 12px; color: var(--muted); }
+
+.card input[type="checkbox"] { margin-top: 2px; width: 16px; height: 16px; cursor: pointer; }
+.card input[type="checkbox"]:disabled { cursor: not-allowed; }
+.card .surface-row:has(input:disabled) { opacity: 0.5; }

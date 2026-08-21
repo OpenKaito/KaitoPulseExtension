@@ -1,0 +1,17 @@
+
+[data-signal-cashtag-chip] {
+  white-space: nowrap !important;
+}
+
+[data-signal-cashtag-chip],
+[data-signal-cashtag-chip]:visited {
+  background-image: linear-gradient(148.27278040179624deg, #0d9488 7.6144%, rgb(36, 150, 255) 94.364%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+[data-signal-cashtag-chip="dark"],
+[data-signal-cashtag-chip="dark"]:visited {
+  background-image: linear-gradient(148.27278040179624deg, rgb(38, 228, 196) 7.6144%, rgb(27, 119, 203) 94.364%) !important;
+}

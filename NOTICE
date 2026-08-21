@@ -1,0 +1,82 @@
+Kaito Pulse Extension
+Copyright (c) 2026 Kaito
+
+Kaito-authored materials in this repository are licensed under the Kaito Pulse Proprietary
+License; see LICENSE.
+
+
+Third-party components
+======================
+
+vendor/primus-core — Primus zkTLS core (LGPL-3.0)
+--------------------------------------------------
+
+`vendor/primus-core` is a git submodule reference to
+
+    https://github.com/OpenKaito/primus-extension-fork
+
+a fork of Primus Labs' browser extension
+(https://github.com/primus-labs/primus-extension). That project is distributed
+under the **GNU Lesser General Public License, version 3**; see
+`vendor/primus-core/LICENSE` after initialising the submodule.
+
+The fork's package metadata directs readers to the `LICENSE` file. This
+repository treats that LGPL-3.0 file as governing the Primus portion.
+
+What this repository contains, and what it distributes, are two different
+things, and both matter:
+
+  * This REPOSITORY contains no part of that project's source. It carries a
+    gitlink — a commit id — plus the `.gitmodules` entry that resolves it.
+    `git submodule update --init` fetches the code from the URL above at build
+    time. Kaito-authored files in this repository are under the proprietary licence in `LICENSE`.
+
+  * The BUILT EXTENSION is a combined work. It includes the LGPL-3.0 code from
+    that fork alongside Kaito-authored proprietary code, and `modules/primus.ts`
+    modifies that component's build output while assembling it. Anyone
+    distributing a built artifact is distributing that combined work and carries
+    the LGPL's obligations for the Primus portion.
+
+How those obligations are discharged, and where each part lives:
+
+  * **Complete corresponding source, at the exact built revision.** The gitlink
+    pins one commit of the fork above; `git submodule status` prints it. The
+    pinned fork tracks the `pnpm-lock.yaml` consumed by the parent build, and
+    vendor installation uses `pnpm install --frozen-lockfile`.
+    `.gitmodules` also sets `shallow = true`, and a fork can be force-pushed, so
+    the commit is written as a literal into every release artifact (see below).
+
+  * **Licence texts, inside the distributed artifact.** A NOTICE file in a
+    repository does not automatically reach the recipient of a built artifact.
+    Every build therefore carries `licenses/primus/` — the LGPL-3.0 text taken
+    from the pinned submodule itself, the GPL-3.0 text it incorporates by
+    reference, and `PRIMUS.txt` recording the fork URL, the built commit, and
+    step-by-step instructions for rebuilding or replacing the Primus portion.
+    See `licenses/README.md` and `primusLicenseAssets()` in `modules/primus.ts`.
+
+  * **The modifications.** `modules/primus.ts` in this repository is the complete
+    set of build-time patches applied to that source.
+
+  * **The right to modify and relink.** `LICENSE` expressly preserves the right
+    to modify the LGPL portion, reverse engineer for debugging those changes,
+    and recombine or relink a locally built Extension with that modified portion.
+
+
+Bundled fonts
+-------------
+
+The extension registers web fonts at runtime from bytes baked into the bundle at
+build time (see `src/signal/load-fonts.ts`). Each is distributed under the SIL
+Open Font License 1.1:
+
+  - Inter        — https://github.com/rsms/inter
+  - Geist Mono   — https://github.com/vercel/geist-font
+
+Other dependencies
+------------------
+
+Remaining runtime and build dependencies are declared in `package.json` and
+resolved by `pnpm-lock.yaml`. Before public distribution, generate and review a
+complete dependency licence inventory and add any required notices or licence
+texts to the distributed artifact; this repository does not yet claim that work
+is complete.

@@ -1,0 +1,65 @@
+# Pull-request CI.
+#
+# `pull_request`, never `pull_request_target`. Fork-originated pull requests can
+# execute the submitted code, while
+# `pull_request_target` would run it with the base repository's token and secrets.
+# This workflow holds no secrets and uses the safer `pull_request` event.
+#
+# Third-party actions are pinned by commit SHA. A tag is mutable; a SHA is not.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  vocabulary:
+    name: Vocabulary check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Reject common shapes of inaccessible citations without publishing a
+      # repository-specific denylist. The patterns live in the script because
+      # the release export runs the same check over the whole exported tree;
+      # two copies would drift, and that one's failure cannot be undone.
+      - name: Public-source hygiene
+        run: bash scripts/check-public-source.sh
+
+  build:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The vendored fork is webpack-built separately. Building on Linux also
+      # catches case-sensitive import errors.
+      - run: pnpm build:vendor
+
+      - run: pnpm typecheck
+      - run: pnpm build
+
+      - name: Check the built content script
+        run: |
+          # Both constraints are x.com CSP ones and both fail silently in the
+          # browser, so assert them here instead.
+          f=dist/chrome-mv3/content-scripts/twitter.js
+          grep -q 'data:font/woff2;base64,' "$f" \
+            || { echo "::error::fonts are not inlined into $f"; exit 1; }
+          ! grep -q 'fonts.gstatic.com' "$f" \
+            || { echo "::error::$f references a font CDN; it must be blocked by font-src"; exit 1; }
+          echo "ok"

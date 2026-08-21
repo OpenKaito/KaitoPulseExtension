@@ -1,0 +1,52 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="777.233" height="316.002" viewBox="0 0 777.233 316.002" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="star" opacity="0.6">
+<circle id="Ellipse 231" cx="335.952" cy="12.7663" r="0.797546" fill="#D9D9D9"/>
+<circle id="Ellipse 232" cx="499.138" cy="140.045" r="1.19697" fill="white"/>
+<g id="Ellipse 256" filter="url(#filter0_f_0_14)">
+<circle cx="499.138" cy="140.045" r="1.19697" fill="white"/>
+</g>
+<ellipse id="Ellipse 242" cx="572.95" cy="29.5268" rx="0.79798" ry="2.39394" fill="white"/>
+<circle id="Ellipse 257" cx="629.211" cy="0.398496" r="0.398496" fill="white"/>
+<circle id="Ellipse 258" cx="614.848" cy="71.418" r="0.398496" fill="white"/>
+<circle id="Ellipse 259" cx="634.791" cy="120.094" r="0.398496" fill="white"/>
+<circle id="Ellipse 260" opacity="0.5" cx="626.815" cy="171.168" r="0.398496" fill="white"/>
+<ellipse id="Ellipse 233" cx="503.123" cy="284.441" rx="0.398496" ry="0.358646" fill="#36F9DE"/>
+<ellipse id="Ellipse 236" cx="547.01" cy="277.257" rx="0.398496" ry="0.358646" fill="#36F9DE"/>
+<circle id="Ellipse 244" cx="603.674" cy="130.47" r="1.19697" fill="white"/>
+<circle id="Ellipse 245" cx="109.722" cy="159.994" r="1.19697" fill="white"/>
+<circle id="Ellipse 246" cx="33.111" cy="244.58" r="1.19697" fill="white"/>
+<ellipse id="Ellipse 237" opacity="0.3" cx="524.667" cy="186.878" rx="1.99495" ry="1.74558" fill="white"/>
+<circle id="Ellipse 238" cx="568.559" cy="133.66" r="0.398496" fill="#36F9DE"/>
+<circle id="Ellipse 243" cx="606.859" cy="220.641" r="0.398496" fill="#36F9DE"/>
+<circle id="Ellipse 239" cx="87.3806" cy="65.0368" r="1.19697" fill="#D9D9D9"/>
+<circle id="Ellipse 240" cx="64.2352" cy="159.198" r="1.99495" fill="white"/>
+<circle id="Ellipse 263" cx="773.64" cy="147.228" r="1.19697" fill="white"/>
+<circle id="Ellipse 264" cx="279.691" cy="176.752" r="1.19697" fill="white"/>
+<circle id="Ellipse 265" cx="203.086" cy="261.338" r="1.19697" fill="white"/>
+<ellipse id="Ellipse 266" opacity="0.3" cx="694.643" cy="203.632" rx="1.99495" ry="1.74558" fill="white"/>
+<circle id="Ellipse 267" cx="738.525" cy="150.418" r="0.398496" fill="#36F9DE"/>
+<circle id="Ellipse 268" cx="776.834" cy="237.398" r="0.398496" fill="#36F9DE"/>
+<circle id="Ellipse 269" cx="257.347" cy="81.7946" r="1.19697" fill="#D9D9D9"/>
+<circle id="Ellipse 270" cx="234.206" cy="175.956" r="1.99495" fill="white"/>
+<circle id="Ellipse 234" cx="181.54" cy="314.007" r="1.99495" fill="#D9DBDD"/>
+<circle id="Ellipse 255" cx="88.5788" cy="264.13" r="0.797546" fill="white"/>
+<circle id="Ellipse 229" cx="151.618" cy="62.2429" r="0.797546" fill="#D9D9D9"/>
+<circle id="Ellipse 230" cx="128.873" cy="165.58" r="1.19697" fill="white"/>
+<circle id="Ellipse 247" cx="0.797554" cy="202.684" r="0.797546" fill="white"/>
+<circle id="Ellipse 248" cx="15.1589" cy="68.6257" r="0.797546" fill="white"/>
+<circle id="Ellipse 249" cx="49.4714" cy="11.9694" r="0.797546" fill="white"/>
+<circle id="Ellipse 250" cx="146.028" cy="35.9108" r="0.797546" fill="white"/>
+<circle id="Ellipse 251" cx="240.19" cy="9.57491" r="0.797546" fill="white"/>
+<circle id="Ellipse 252" cx="144.436" cy="1.59444" r="0.797546" fill="white"/>
+<circle id="Ellipse 253" cx="474.799" cy="7.98115" r="0.797546" fill="white"/>
+<circle id="Ellipse 254" cx="551.405" cy="86.9811" r="0.797546" fill="white"/>
+<circle id="Ellipse 241" cx="115.31" cy="116.107" r="1.19697" fill="white"/>
+</g>
+<defs>
+<filter id="filter0_f_0_14" x="494.952" y="135.859" width="8.37219" height="8.37218" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1.49456" result="effect1_foregroundBlur_0_14"/>
+</filter>
+</defs>
+</svg>

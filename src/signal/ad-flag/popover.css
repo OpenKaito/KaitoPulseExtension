@@ -1,0 +1,193 @@
+:host {
+  all: initial;
+}
+
+.signal-ad-flag-popover {
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  position: fixed;
+  z-index: 2147483000;
+
+  width: 420px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16);
+}
+
+.signal-ad-flag-popover--dark {
+
+  background: #191c1f;
+  border: none;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.signal-ad-flag-popover--open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.signal-ad-flag-popover--flagged {
+  width: 200px;
+}
+
+.signal-ad-flag-popover__head {
+  padding: 16px 16px 0;
+  font-size: 13px;
+  line-height: 16px;
+  color: #0f1419;
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__head {
+  color: #fff;
+}
+
+.signal-ad-flag-popover__head--pad {
+  padding-bottom: 16px;
+  line-height: 1.5;
+}
+
+.signal-ad-flag-popover__question {
+  padding: 12px 16px 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: rgba(15, 20, 25, 0.8);
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__question {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.signal-ad-flag-popover__policy-link {
+  display: inline-block;
+  padding: 10px 16px 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #0f9488;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.signal-ad-flag-popover__policy-link:hover {
+  text-decoration: underline;
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__policy-link {
+  color: #32ffdc;
+}
+
+.signal-ad-flag-popover__disclaimer {
+  padding: 8px 16px 0;
+  margin: 0;
+  font-size: 12px;
+  color: rgba(15, 20, 25, 0.6);
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__disclaimer {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.signal-ad-flag-popover__error {
+  padding: 8px 16px 0;
+  margin: 0;
+  font-size: 12px;
+  color: #f4212e;
+}
+
+.signal-ad-flag-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+}
+
+.signal-ad-flag-popover__btn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 50px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 510;
+  text-align: center;
+}
+
+.signal-ad-flag-popover__btn--secondary {
+  background: #eef0f3;
+  color: #0f1419;
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__btn--secondary {
+  background: #393f4a;
+  color: #fff;
+}
+
+.signal-ad-flag-popover__btn--primary {
+  background: linear-gradient(135deg, #63acff 0%, #32ffdc 100%);
+  color: #000;
+}
+
+.signal-ad-flag-popover__btn--primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.signal-ad-flag-popover__pending {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  color: #0f1419;
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__pending {
+  color: #fff;
+}
+
+.signal-ad-flag-popover__head--pending {
+  padding: 0;
+  font-weight: 600;
+}
+
+.signal-ad-flag-popover__pending-copy {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(15, 20, 25, 0.6);
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__pending-copy {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.signal-ad-flag-popover__spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  box-sizing: border-box;
+  border: 2px solid rgba(15, 20, 25, 0.18);
+  border-top-color: #0f9488;
+  border-radius: 50%;
+  animation: signal-ad-flag-spin 700ms linear infinite;
+}
+
+.signal-ad-flag-popover--dark .signal-ad-flag-popover__spinner {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: #32ffdc;
+}
+
+@keyframes signal-ad-flag-spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,278 @@
+# Tag-triggered GitHub Release.
+#
+# Push `v<version>` and this rebuilds the extension from that tag in a clean
+# checkout, re-runs the release self-checks, and publishes a GitHub Release with
+# the Chrome Web Store upload artifact (the key-less zip) attached.
+#
+# It runs ONLY in the public repository, and the guard below enforces that:
+# artifact verification only means something if the shipped zips were built from
+# the tree a reader can see. Attaching a zip built elsewhere runs that backwards.
+#
+# It deliberately does NOT call `pnpm release`. That script's gate is "refuse if
+# the tag v<version> already exists", which is what forces a version bump before
+# a local release — and this workflow runs *because* that tag exists, so the gate
+# would invert and always fail here. The steps below replicate everything past
+# the gate instead, and share the manifest self-check with release.sh via
+# scripts/verify-release-manifest.mjs so the two cannot drift.
+#
+# No secrets. The build configuration is .env.example verbatim — it points at the
+# production backend, which is what a release build uses. SENTRY_AUTH_TOKEN is
+# left unset on purpose: source-map upload is opt-in (see wxt.config.ts) and
+# absent is the path every other build takes.
+#
+# Third-party actions are pinned by commit SHA, same SHAs as ci.yml. A tag is
+# mutable; a SHA is not. Publishing uses the preinstalled `gh` CLI, so it needs
+# no fourth pinned action.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    # See the header. A repository condition is the only check a fork cannot
+    # satisfy by pushing a tag.
+    if: github.repository == 'OpenKaito/KaitoPulseExtension'
+    permissions:
+      # To create the release and upload the zips to it.
+      contents: write
+      # attest-build-provenance signs with a short-lived OIDC identity and
+      # records the result in this repository's attestation store. Both are
+      # required; with one it fails after the build has already run.
+      id-token: write
+      attestations: write
+    steps:
+      # workflow_dispatch can be pointed at a branch, where GITHUB_REF_NAME is a
+      # branch name and the version assertion below would compare it to a
+      # version string. Fail here with a sentence that says what to do instead.
+      - name: Require a tag ref
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::this workflow releases a tag; ${{ github.ref_name }} is a ${{ github.ref_type }}. Run pnpm release, then push the v<version> tag."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      # The tag names the version; package.json is what the manifest and the zip
+      # filename are actually built from. If they disagree, the release would be
+      # named one version and contain another, so stop before building.
+      - name: Tag matches package.json version
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "${PKG}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json (${PKG}). Bump package.json and re-tag."
+            exit 1
+          fi
+          echo "${PKG}"
+
+      # .env.example is the production configuration, unchanged — see its header.
+      # Without it VITE_KAITO_API_BASE_URL falls back to http://localhost:8080
+      # (src/lib/env.ts), which the asserts further down would catch.
+      - run: cp .env.example .env
+
+      - run: pnpm install --frozen-lockfile
+
+      # The vendored fork is webpack-built separately.
+      - run: pnpm build:vendor
+
+      - run: pnpm typecheck
+
+      # ── Two artifacts, from the same code, differing in one manifest field ──
+      #
+      # The `key` decides the extension id, and the two audiences need opposite
+      # values of it:
+      #
+      #   pnpm zip:upload  no key  → the Chrome Web Store assigns the id on
+      #                              publish. The ONLY uploadable build.
+      #   pnpm zip         key     → the allowlisted id clfgaheindkfogpfcneoihannkgkhmna,
+      #                              so a person who unzips it and loads it
+      #                              unpacked can actually sign in.
+      #
+      # Both write to dist/chrome-mv3, so each is verified immediately after it is
+      # built, before the next overwrites it. The store artifact goes first so the
+      # tree is left holding the pinned build.
+      - name: Build the Web Store upload artifact
+        run: pnpm zip:upload
+
+      - name: Verify the Web Store artifact
+        run: |
+          VERSION="$(node -p "require('./package.json').version")" \
+          DIST=dist/chrome-mv3 IDENTITY=unpinned \
+            bash scripts/verify-release-build.sh
+
+      - name: Build the download artifact
+        run: pnpm zip
+
+      - name: Verify the download artifact
+        run: |
+          VERSION="$(node -p "require('./package.json').version")" \
+          DIST=dist/chrome-mv3 IDENTITY=pinned \
+            bash scripts/verify-release-build.sh
+
+      # Every axis that changes what is inside a zip is in its filename — backend,
+      # identity, mode, timestamp (zipTag() in wxt.config.ts) — so each glob below
+      # must match exactly one file. Matching the `prod`+identity PAIR rather than
+      # the `prod` substring is what keeps the two artifacts from being confused
+      # for each other. Hard failures, not release.sh's warning: nobody is reading
+      # the log before this publishes.
+      - name: Exactly one zip of each identity
+        id: zips
+        run: |
+          shopt -s nullglob
+          store=(dist/*-prod-nokey-*.zip)
+          download=(dist/*-prod-storeid-*.zip)
+          if [ "${#store[@]}" -ne 1 ]; then
+            echo "::error::expected exactly 1 dist/*-prod-nokey-*.zip, found ${#store[@]}: ${store[*]:-none}"
+            exit 1
+          fi
+          if [ "${#download[@]}" -ne 1 ]; then
+            echo "::error::expected exactly 1 dist/*-prod-storeid-*.zip, found ${#download[@]}: ${download[*]:-none}"
+            exit 1
+          fi
+          echo "store=${store[0]}" >> "$GITHUB_OUTPUT"
+          echo "download=${download[0]}" >> "$GITHUB_OUTPUT"
+          echo "store   : ${store[0]}"
+          echo "download: ${download[0]}"
+
+      - name: Verify artifact equivalence
+        run: >-
+          pnpm verify:artifacts --
+          "${{ steps.zips.outputs.store }}"
+          "${{ steps.zips.outputs.download }}"
+
+      # ── Publishable asset names ───────────────────────────────────────────
+      #
+      # The published assets get clean, predictable names — a download link
+      # should be guessable from the version alone. dist/ keeps the long
+      # diagnostic names, which the globs above and release.sh both depend on.
+      # These are copies made AFTER every assertion passes, never renames of
+      # the source.
+      #
+      # `webstore` sits before the version, not after it, and that position is
+      # deliberate: GitHub lists release assets sorted BY FILENAME (verified —
+      # not by upload order), so a trailing `-webstore` would sort ahead of the
+      # plain name ('-' < '.') and put the wrong file at the top of the page.
+      # Here the common prefix is `kaito-extension-`, then '1' < 'w', so the
+      # download build is listed first — which is the one almost everyone
+      # opening this page wants.
+      #
+      # Its own step, ahead of publishing, because the attestation below must
+      # sign the exact files that get uploaded — signing dist/ and uploading
+      # renamed copies would produce provenance nobody can check.
+      - name: Name the published assets
+        id: assets
+        env:
+          STORE_ZIP: ${{ steps.zips.outputs.store }}
+          DOWNLOAD_ZIP: ${{ steps.zips.outputs.download }}
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          DOWNLOAD_ASSET="kaito-extension-${V}.zip"
+          STORE_ASSET="kaito-extension-webstore-${V}.zip"
+          cp "${DOWNLOAD_ZIP}" "${DOWNLOAD_ASSET}"
+          cp "${STORE_ZIP}" "${STORE_ASSET}"
+          echo "download=${DOWNLOAD_ASSET}" >> "$GITHUB_OUTPUT"
+          echo "store=${STORE_ASSET}" >> "$GITHUB_OUTPUT"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      # ── Build provenance ──────────────────────────────────────────────────
+      #
+      # Signed evidence of which repository, commit, and workflow run produced
+      # these exact bytes:
+      #
+      #   gh attestation verify kaito-extension-<version>.zip \
+      #     --repo OpenKaito/KaitoPulseExtension
+      #
+      # `pnpm verify:artifacts` compares two artifacts you already hold and says
+      # nothing about where either came from. This says where these came from,
+      # and needs only the gh CLI — so a reader who will not build anything can
+      # still check the download against the tagged source.
+      #
+      # Pinned by commit SHA, same policy as every other action in this file.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ steps.assets.outputs.download }}
+            ${{ steps.assets.outputs.store }}
+
+      # Notes come from GitHub's own merged-PR summary (--generate-notes), with the
+      # install instructions pre-pended: the GitHub API pre-pends a supplied body
+      # to the generated notes. Someone arriving at this page has a .zip and no
+      # context, and Chrome cannot load a .zip directly — without the steps the
+      # artifact is not really usable by anyone who did not build it.
+      #
+      # A version carrying a pre-release suffix (1.2.0-rc.1) is additionally
+      # marked a pre-release, so it never shows as the repository's latest.
+      #
+      # No `#label` on either asset, deliberate: a label REPLACES the filename as
+      # the link text in GitHub's UI, which hid the very names the scheme above
+      # exists to expose. The names have to speak for themselves, and the Install
+      # notes name the exact file.
+      #
+      # --draft is a deliberate human gate, and removing that one flag is what
+      # makes releases fully automatic. It is on because the notes and the
+      # attached zips are worth one look before they are public: a published
+      # release cannot be un-published cleanly (deleting it leaves the tag and the
+      # subscriber notification behind), while a draft can just be deleted.
+      # Everything else has already run by this point — both builds, every
+      # assertion above, and the attestation — so the draft holds exactly what
+      # would have shipped.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOWNLOAD_ASSET: ${{ steps.assets.outputs.download }}
+          STORE_ASSET: ${{ steps.assets.outputs.store }}
+          V: ${{ steps.assets.outputs.version }}
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            *-*) prerelease=--prerelease ;;
+            *)   prerelease= ;;
+          esac
+
+          notes="$(cat <<'MD'
+          ### Install
+
+          1. Download `kaito-extension-VERSION.zip` below and unzip it — Chrome cannot load a `.zip` directly.
+          2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and select the unzipped folder.
+          3. Sign in from [kaito.ai](https://kaito.ai/login).
+
+          > **Remove any installed extension with the same id first.** Chrome allows one extension per id, and this fixed id is what lets sign-in work from a downloaded build.
+
+          `kaito-extension-webstore-VERSION.zip` is the Chrome Web Store upload artifact. It carries no manifest key, so Chrome derives its id from the unzip path and **sign-in will not work** if you load it unpacked — use the other one.
+
+          ### Verify
+
+          Both files carry signed build provenance naming the commit and workflow run that produced them:
+
+          ```sh
+          gh attestation verify kaito-extension-VERSION.zip --repo OpenKaito/KaitoPulseExtension
+          ```
+
+          ---
+          MD
+          )"
+          notes="${notes//VERSION/${V}}"
+
+          gh release create "${GITHUB_REF_NAME}" \
+            "${DOWNLOAD_ASSET}" \
+            "${STORE_ASSET}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "${notes}" \
+            --generate-notes \
+            --draft \
+            ${prerelease}

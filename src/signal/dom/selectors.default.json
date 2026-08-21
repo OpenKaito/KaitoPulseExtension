@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "signal": {
+    "ARTICLE": "article[data-testid=\"tweet\"]",
+    "AVATAR": "[data-testid=\"Tweet-User-Avatar\"], [data-testid^=\"UserAvatar-Container-\"]",
+    "TWEET_AVATAR": "[data-testid=\"Tweet-User-Avatar\"]",
+    "USER_NAME": "[data-testid=\"User-Name\"]",
+    "USER_CELL": "[data-testid=\"UserCell\"]",
+    "ACCOUNT_SWITCHER": "[data-testid=\"SideNav_AccountSwitcher_Button\"]",
+    "PROFILE_NAV_LINK": "[data-testid=\"AppTabBar_Profile_Link\"]",
+    "HOVER_CARD": "[data-testid=\"HoverCard\"]",
+    "HOVER_CARD_FOLLOWING_LINK": "a[href$=\"/following\"]",
+    "AVATAR_CONTAINER": "[data-testid^=\"UserAvatar-Container-\"]",
+    "AVATAR_CONTAINER_KNOWN": "[data-testid^=\"UserAvatar-Container-\"]:not([data-testid=\"UserAvatar-Container-unknown\"])",
+    "FOLLOW_CONTROL": "[data-testid$=\"-follow\"], [data-testid$=\"-unfollow\"]",
+    "QUOTED_TWEET": "div[role=\"link\"][tabindex=\"0\"]",
+    "MORE_MENU": "[data-testid=\"caret\"]",
+    "TWEET_TEXT": "[data-testid=\"tweetText\"]",
+    "CASHTAG_LINK": "a[href^=\"/search?q=%24\"]",
+    "SMART_TAG_CARD_LOGO": "[data-testid=\"smartTagXLogo\"]"
+  },
+  "profile": {
+    "PRIMARY_COLUMN": "[data-testid=\"primaryColumn\"]",
+    "PROFILE_USER_NAME": "[data-testid=\"UserName\"]",
+    "TABLIST": "[role=\"tablist\"]"
+  }
+}

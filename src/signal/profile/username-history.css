@@ -1,0 +1,114 @@
+.signal-uname {
+  position: relative;
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.signal-uname__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 0.6px solid rgb(50 255 220 / 10%);
+  border-radius: 4px;
+  background: #f3fffd;
+  color: rgb(83 100 113);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.signal-uname__toggle:hover {
+  background: #e6fbf6;
+}
+
+.signal-uname--dark .signal-uname__toggle {
+  border-color: rgb(83 100 113 / 40%);
+  background: transparent;
+}
+
+.signal-uname--dark .signal-uname__toggle:hover {
+  background: rgb(83 100 113 / 12%);
+}
+
+.signal-uname__icon {
+  display: inline-flex;
+}
+
+.signal-uname__dropdown {
+  position: fixed;
+  z-index: 2147483646;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 340px;
+  padding: 12px;
+  background: #f3fffd;
+  border: 0.6px solid rgb(50 255 220 / 10%);
+  border-radius: 4px;
+  box-shadow: -1px 2px 2px rgb(0 0 0 / 25%);
+}
+
+.signal-uname__dropdown--open {
+  display: flex;
+}
+
+.signal-uname__dropdown--dark {
+  background: #1f2226;
+  border-color: rgb(255 255 255 / 8%);
+  border-width: 1px;
+}
+
+.signal-uname__dropdown--dark .signal-uname__names {
+  color: #fff;
+}
+
+.signal-uname__head {
+  padding: 0 8px 4px;
+  color: #8f959e;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.signal-uname__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.signal-uname__row:hover {
+  background: rgb(83 100 113 / 8%);
+}
+
+.signal-uname__names {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: rgb(0 0 0 / 80%);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.signal-uname__name {
+  overflow: hidden;
+  max-width: 120px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-uname__arrow {
+  color: rgb(83 100 113);
+  font-weight: 400;
+}
+
+.signal-uname__date {
+  flex: none;
+  color: #8f959e;
+  font-size: 14px;
+}

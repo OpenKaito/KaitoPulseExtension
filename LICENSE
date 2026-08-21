@@ -1,0 +1,60 @@
+# Kaito Pulse Proprietary License
+
+Copyright (c) 2026 Kaito. All rights reserved.
+
+This license applies only to source code and other materials authored by Kaito in this
+repository. Third-party components remain subject to their own licenses, as identified in
+[NOTICE](NOTICE).
+
+## Limited source-audit license
+
+Subject to these terms, Kaito grants you a limited, worldwide, royalty-free, non-exclusive,
+non-transferable, and non-sublicensable license to:
+
+- view, download, clone, and make copies of the Kaito-authored materials reasonably necessary
+  to inspect the source;
+- compile, build, package, install, and run the Extension locally on devices you control;
+- modify or instrument a local copy solely as reasonably necessary for security, privacy,
+  interoperability, and behavioural auditing;
+- compare locally built artifacts with artifacts distributed by Kaito; and
+- report findings to Kaito or publish good-faith research after a reasonable remediation window.
+
+These permissions are granted only for personal evaluation, independent audit, verification of
+Kaito-distributed artifacts, and good-faith security research. They do not grant an open-source
+license or permission to use the Kaito-authored materials to operate another product or service.
+
+Except where this license, a third-party license, GitHub's applicable terms, or applicable law
+expressly permits it, you may not:
+
+- distribute or publish Kaito-authored source code or locally built Extension artifacts outside
+  GitHub functionality made available for this repository;
+- deploy the Extension for production, hosted, commercial, or revenue-generating use;
+- sublicense, sell, lease, or use Kaito-authored materials in another product or derivative
+  product; or
+- use Kaito trademarks except to identify the Extension being reviewed.
+
+The license terminates automatically if you materially breach these terms and do not cure the
+breach within 30 days after notice. Termination does not limit rights granted under a third-party
+license or applicable law.
+
+## LGPL-3.0 rights
+
+The restrictions above do not apply to `vendor/primus-core` or other material governed by the
+GNU Lesser General Public License, version 3. To the extent necessary to exercise LGPL-3.0 rights
+over the Primus portion of the combined Extension, you may modify that portion, reverse engineer
+the combined work for debugging those modifications, and recombine or relink a locally built
+Extension with a modified version of that portion. Nothing in this license restricts rights that
+LGPL-3.0 grants or imposes additional conditions on those rights.
+
+## Terms and conflicts
+
+The Terms of Use govern access to Kaito services and ordinary use of the Extension. This license
+governs the source-audit activities granted above. Third-party license terms control their
+respective components.
+
+## No warranty
+
+THE KAITO-AUTHORED MATERIALS AND THE EXTENSION ARE PROVIDED "AS IS" AND "AS AVAILABLE," TO
+THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW. KAITO DISCLAIMS ALL WARRANTIES, WHETHER
+EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, AVAILABILITY, AND RELIABILITY.

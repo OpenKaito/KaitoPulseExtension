@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kaito — Signing in…</title>
+
+    <style>
+      :root { color-scheme: light dark; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #f7f8fb;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      }
+      .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      .loader {
+        position: relative;
+        width: 46px;
+        height: 46px;
+      }
+      .loader::before {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(15, 148, 136, 0.35), transparent 70%);
+        animation: kv-glow 1.8s ease-in-out infinite;
+      }
+      .loader::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0deg, #0f9488 250deg, #2effd9 330deg, transparent 360deg);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+        animation: kv-spin 0.9s linear infinite;
+      }
+      @keyframes kv-spin { to { transform: rotate(360deg); } }
+      @keyframes kv-glow {
+        0%, 100% { opacity: 0.4; transform: scale(0.9); }
+        50% { opacity: 0.9; transform: scale(1.15); }
+      }
+      /* Visually hidden — announced to screen readers only, never shown on
+       * screen (the loading screen otherwise has no copy at all). */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #0d0f12; }
+        .loader::before { background: radial-gradient(circle, rgba(46, 217, 190, 0.4), transparent 70%); }
+        .loader::after { background: conic-gradient(from 0deg, transparent 0deg, #2ed9be 250deg, #2effd9 330deg, transparent 360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="loader" aria-hidden="true"></div>
+      <p id="status" class="sr-only" role="status" aria-live="polite"></p>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+
+.signal-ad-flag-btn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 6px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+
+  background-image: linear-gradient(135deg, #32ffdc 0%, #2496ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 1;
+}
+
+.signal-ad-flag-btn--dark {
+
+  background-image: linear-gradient(135deg, #44998a 0%, #3191dc 100%);
+}
+
+.signal-ad-flag-btn:hover {
+  opacity: 0.85;
+}
+
+.signal-ad-flag-btn--flagged {
+  background: linear-gradient(135deg, #63acff 0%, #32ffdc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 1;
+}
+
+.signal-ad-flag-btn--flagged:hover {
+  opacity: 0.85;
+}

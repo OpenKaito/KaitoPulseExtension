@@ -1,0 +1,154 @@
+.signal-avatar-mount {
+  position: absolute;
+  inset: 0;
+
+  z-index: 100000;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.signal-avatar-host {
+
+  position: relative !important;
+}
+
+[data-testid="HoverCard"] .signal-avatar-host {
+  margin-bottom: 14px;
+}
+
+[data-testid="Tweet-User-Avatar"]:has(.signal-avatar-host) {
+  position: relative;
+  z-index: 1;
+}
+
+[data-testid*="UserAvatar-Container"].signal-avatar-host,
+div:has(> .signal-avatar-host),
+div:has(> div > .signal-avatar-host),
+div:has(> div > div > .signal-avatar-host) {
+  position: relative;
+  z-index: 100001;
+}
+
+div[role="link"][tabindex="0"] div:has(.signal-avatar-host) {
+  overflow: visible !important;
+}
+
+div[role="link"][tabindex="0"]
+  :has(.signal-avatar-host):has([data-testid="tweetText"])
+  > div:has(.signal-avatar-host):not(:has([data-testid="tweetText"])) {
+  margin-bottom: 16px;
+}
+
+div[role="link"][tabindex="0"]:not(:has([data-testid="tweetText"]))
+  > div
+  > div:has(.signal-avatar-host) {
+  margin-bottom: 16px;
+}
+
+.signal-avatar-badge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.signal-avatar-badge--hidden {
+  display: none;
+}
+
+.signal-avatar-badge__ring {
+  position: absolute;
+  inset: -12.5%;
+  pointer-events: none;
+}
+
+.signal-avatar-badge__ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.signal-avatar-badge__label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+
+  transform: translate(-50%, -2px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 1px 2px;
+  border-radius: 2px;
+
+  background: var(--sab-pill-bg);
+  border: 0.5px solid var(--sab-pill-border, transparent);
+  backdrop-filter: var(--sab-pill-blur, none);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 25%);
+  white-space: nowrap;
+  pointer-events: none;
+  box-sizing: border-box;
+
+  color: #010101;
+}
+
+.signal-avatar-badge__logo {
+  display: block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+.signal-avatar-badge__logo path {
+  fill: currentColor;
+}
+
+.signal-avatar-badge__value {
+
+  font-family: "Inter", "Geist Mono", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: var(--sab-weight, 600);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signal-avatar-badge--compact .signal-avatar-badge__label {
+  padding: 0 1px;
+  border-radius: 1px;
+  gap: 0;
+}
+
+.signal-avatar-badge--compact .signal-avatar-badge__logo {
+  width: 7px;
+  height: 7px;
+}
+
+.signal-avatar-badge--compact .signal-avatar-badge__value {
+  font-size: 7.5px;
+}
+
+.signal-avatar-badge--large .signal-avatar-badge__ring {
+
+  inset: -4.5%;
+}
+
+.signal-avatar-badge--large .signal-avatar-badge__label {
+  gap: 1.12px;
+  padding: 1.12px 2.24px;
+  border-radius: 2.24px;
+  align-items: center;
+  transform: translate(-50%, -45%);
+}
+
+.signal-avatar-badge--large .signal-avatar-badge__logo {
+  width: 14px;
+  height: 14px;
+}
+
+.signal-avatar-badge--large .signal-avatar-badge__value {
+  font-size: 14px;
+}

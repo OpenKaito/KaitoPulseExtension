@@ -1,0 +1,4 @@
+[submodule "vendor/primus-core"]
+	path = vendor/primus-core
+	url = https://github.com/OpenKaito/primus-extension-fork.git
+	shallow = true

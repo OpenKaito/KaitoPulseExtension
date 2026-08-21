@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.tmp/
+.tmp-*/
+.wxt/
+
+# Local development documentation
+/ARCHITECTURE.md
+/CLAUDE.md
+/AGENTS.md
