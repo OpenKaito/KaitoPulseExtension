@@ -2,7 +2,7 @@ import { For, Show, type Component } from 'solid-js';
 import { Avatar } from '@/recommend-follow/Avatar';
 import { TabSkeleton } from '../components/TabSkeleton';
 import { UnlockState } from '../components/UnlockState';
-import { cardLoading, popupData, xLinked } from '../data/store';
+import { cardLoading, popupData, xLinked, xVerified } from '../data/store';
 import { formatCount } from '../format/numbers';
 import { LinkXAction } from '../components/LinkXAction';
 import { hasSocialCard, SocialCardSection } from '../social-card/SocialCardSection';
@@ -28,12 +28,16 @@ const SocialSkeleton: Component = () => (
   </>
 );
 
+const smartFollowersMoved = (): boolean =>
+  xVerified() && popupData().profile.smartFollowers != null;
+
+const hasCategories = (): boolean =>
+  popupData().social.categories.some((category) => (category.score ?? 0) > 0);
+
 const socialEmpty = (): boolean => {
   const social = popupData().social;
   return (
-    !social.categories.some((category) => category.score > 0) &&
-    social.followers.length === 0 &&
-    !hasSocialCard()
+    !smartFollowersMoved() && !hasCategories() && social.followers.length === 0 && !hasSocialCard()
   );
 };
 
@@ -51,34 +55,54 @@ const SocialBody: Component = () => {
       }
     >
       {}
-      <Show when={social().categories.some((category) => category.score > 0)}>
-        <div class="pv-chips">
-          <For each={social().categories}>
-            {(category) => (
+      <Show when={smartFollowersMoved() || hasCategories()}>
+        <div class="pv-chip-stack">
+          {}
+          <Show when={smartFollowersMoved()}>
+            <div class="pv-chips">
               <div class="pv-chip">
-                <p class="pv-chip__label">{category.label}</p>
+                <p class="pv-chip__label">Smart Followers</p>
                 <div class="pv-chip__row">
-                  <p class="pv-chip__score">{formatCount(category.score)}</p>
-                  <Show when={category.rank != null}>
-                    <p class="pv-chip__rank">#{formatCount(category.rank)}</p>
-                  </Show>
+                  <p class="pv-chip__score">{formatCount(popupData().profile.smartFollowers)}</p>
                 </div>
               </div>
-            )}
-          </For>
+            </div>
+          </Show>
+
+          <Show when={hasCategories()}>
+            <div class="pv-chips">
+              <For each={social().categories}>
+                {(category) => (
+                  <div class="pv-chip">
+                    <p class="pv-chip__label">{category.label}</p>
+                    <div class="pv-chip__row">
+                      <p class="pv-chip__score">{formatCount(category.score)}</p>
+                      <Show when={category.rank != null}>
+                        <p class="pv-chip__rank">#{formatCount(category.rank)}</p>
+                      </Show>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
         </div>
       </Show>
 
       {}
       <Show
         when={social().followers.length > 0}
-        fallback={<UnlockState title="No smart followers yet" body="Check back once your audience grows." />}
+        fallback={
+          <UnlockState title="No smart followers yet" body="Check back once your audience grows." />
+        }
       >
         {}
         <section class="pv-section">
           {}
           <p class="pv-section__title">
-            {social().followersOrdering === 'recent' ? 'Recent Smart Followers' : 'Top Smart Followers'}
+            {social().followersOrdering === 'recent'
+              ? 'Recent Smart Followers'
+              : 'Top Smart Followers'}
           </p>
           <div class="pv-list">
             <div class="pv-list__head">
@@ -92,7 +116,11 @@ const SocialBody: Component = () => {
               <For each={social().followers}>
                 {(follower) => (
                   <div class="pv-sf-row">
-                    <Avatar url={follower.avatarUrl} name={follower.username} class="pv-sf-row__avatar" />
+                    <Avatar
+                      url={follower.avatarUrl}
+                      name={follower.username}
+                      class="pv-sf-row__avatar"
+                    />
                     <div class="pv-sf-row__id">
                       <p class="pv-sf-row__name">{follower.username}</p>
                       <p class="pv-sf-row__handle">{follower.handle}</p>

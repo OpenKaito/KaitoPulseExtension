@@ -6,6 +6,7 @@ import { verifierUrlMatches } from '@/shared/verifier-url';
 const SCRIPT_IDS = [
   'kaito-proof-arming',
   'kaito-axis-prefetch',
+  'kaito-polymarket-prefetch',
 ] as const;
 
 type RegisteredScript = chrome.scripting.RegisteredContentScript;
@@ -33,6 +34,13 @@ function mainWorldScriptFor(hostname: string): MainWorldScript | undefined {
       return {
         id: 'kaito-axis-prefetch',
         js: ['axis-verify-prefetch.js'],
+        runAt: 'document_idle',
+        world: 'MAIN',
+      };
+    case 'polymarket.com':
+      return {
+        id: 'kaito-polymarket-prefetch',
+        js: ['polymarket-verify-prefetch.js'],
         runAt: 'document_idle',
         world: 'MAIN',
       };
@@ -68,32 +76,31 @@ async function teardownInjectedTabs(origin?: string): Promise<void> {
   await Promise.all(
     tabs.map(async (tab) => {
       if (typeof tab.id !== 'number' || !isVerifierHost(tab.url || tab.pendingUrl, origin)) return;
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        world: 'MAIN',
-        args: [PROOF_RUNTIME_TEARDOWN_EVENT],
-        func: (eventName: string) => document.dispatchEvent(new Event(eventName)),
-      }).catch(() => undefined);
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        world: 'ISOLATED',
-        func: () => {
-          try {
-            sessionStorage.removeItem('kaito.proofArmed');
-          } catch {
-
-          }
-          document.documentElement?.removeAttribute('data-kaito-proof-armed');
-        },
-      }).catch(() => undefined);
+      await chrome.scripting
+        .executeScript({
+          target: { tabId: tab.id },
+          world: 'MAIN',
+          args: [PROOF_RUNTIME_TEARDOWN_EVENT],
+          func: (eventName: string) => document.dispatchEvent(new Event(eventName)),
+        })
+        .catch(() => undefined);
+      await chrome.scripting
+        .executeScript({
+          target: { tabId: tab.id },
+          world: 'ISOLATED',
+          func: () => {
+            try {
+              sessionStorage.removeItem('kaito.proofArmed');
+            } catch {}
+            document.documentElement?.removeAttribute('data-kaito-proof-armed');
+          },
+        })
+        .catch(() => undefined);
     }),
   );
 }
 
-async function injectIntoTab(
-  tabId: number,
-  scripts: RegisteredScript[],
-): Promise<void> {
+async function injectIntoTab(tabId: number, scripts: RegisteredScript[]): Promise<void> {
   for (const script of scripts) {
     if (!script.js?.length) continue;
     await chrome.scripting.executeScript({
@@ -162,13 +169,17 @@ export async function activateVerifierRuntime(guideUrl: string): Promise<Verifie
     await teardownInjectedTabs(url.origin).catch(() => undefined);
     throw error;
   }
-  logDev('verifier runtime activated', { origin: url.origin, scripts: scripts.map(({ id }) => id) });
+  logDev('verifier runtime activated', {
+    origin: url.origin,
+    scripts: scripts.map(({ id }) => id),
+  });
 
   let disposed = false;
   return {
     async prepareTab(tabId: number): Promise<void> {
       const tab = await chrome.tabs.get(tabId);
-      const tabUrl = tab.status === 'loading' ? tab.pendingUrl || tab.url : tab.url || tab.pendingUrl;
+      const tabUrl =
+        tab.status === 'loading' ? tab.pendingUrl || tab.url : tab.url || tab.pendingUrl;
       if (!verifierUrlMatches(tabUrl, guideUrl)) {
         throw new Error(`verifier_runtime_tab_mismatch:${tabId}`);
       }

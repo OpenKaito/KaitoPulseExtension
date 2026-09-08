@@ -1,4 +1,3 @@
-
 export const PROOF_ARMED_SESSION_KEY = 'kaito.proofArmed';
 
 export const PROOF_ARMED_ATTR = 'data-kaito-proof-armed';
@@ -8,9 +7,7 @@ export const PROOF_RUNTIME_TEARDOWN_EVENT = 'kaito-proof-runtime-teardown-v1';
 export function isProofArmed(): boolean {
   try {
     if (window.sessionStorage.getItem(PROOF_ARMED_SESSION_KEY) === '1') return true;
-  } catch {
-
-  }
+  } catch {}
   return document.documentElement?.hasAttribute(PROOF_ARMED_ATTR) === true;
 }
 
@@ -33,17 +30,13 @@ export function whenProofArmed(onArmed: () => void): () => void {
 export function markProofArmed(doc: Document): void {
   try {
     doc.defaultView?.sessionStorage.setItem(PROOF_ARMED_SESSION_KEY, '1');
-  } catch {
-
-  }
+  } catch {}
   doc.documentElement?.setAttribute(PROOF_ARMED_ATTR, '1');
 }
 
 export function clearProofArmed(doc: Document): void {
   try {
     doc.defaultView?.sessionStorage.removeItem(PROOF_ARMED_SESSION_KEY);
-  } catch {
-
-  }
+  } catch {}
   doc.documentElement?.removeAttribute(PROOF_ARMED_ATTR);
 }

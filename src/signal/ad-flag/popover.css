@@ -3,7 +3,6 @@
 }
 
 .signal-ad-flag-popover {
-
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -13,7 +12,7 @@
   width: 420px;
   box-sizing: border-box;
   border-radius: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -21,7 +20,6 @@
 }
 
 .signal-ad-flag-popover--dark {
-
   background: #191c1f;
   border: none;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
@@ -189,5 +187,7 @@
 }
 
 @keyframes signal-ad-flag-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }

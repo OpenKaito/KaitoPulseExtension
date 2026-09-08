@@ -3,7 +3,11 @@ import { XLogoIcon } from '@/verify/ui/icons';
 import { viewer, consent } from './store';
 import { ActivityInsightsMenu } from './ActivityInsightsMenu';
 
-export function TitleRow(props: { title: string; showAvatar?: boolean; showMenu?: boolean }): JSX.Element {
+export function TitleRow(props: {
+  title: string;
+  showAvatar?: boolean;
+  showMenu?: boolean;
+}): JSX.Element {
   const avatarUrl = () => viewer()?.avatarUrl;
   const showAvatar = () => props.showAvatar !== false;
   const showMenu = () => props.showMenu !== false;

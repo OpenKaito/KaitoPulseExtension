@@ -11,7 +11,6 @@ import { pruneLocallyFollowed, type FollowRecommendationResponse } from '@/share
 export type RecommendationViewState =
   | { kind: 'loading' }
   | { kind: 'signedOut' }
-
   | { kind: 'empty'; totalViewSeconds: number | null }
   | { kind: 'emptyNoTwitterBinding' }
   | { kind: 'list'; response: FollowRecommendationResponse };
@@ -37,7 +36,9 @@ function resolveTermsFromMe(me: ExtensionMeResponse | undefined): TermsGateState
   return 'accepted';
 }
 
-async function resolveConsentFromMe(me: ExtensionMeResponse | undefined): Promise<'unset' | 'granted' | 'declined'> {
+async function resolveConsentFromMe(
+  me: ExtensionMeResponse | undefined,
+): Promise<'unset' | 'granted' | 'declined'> {
   if (!me || !('activityInsightsEnabled' in me)) {
     return activityInsightsConsentItem.getValue();
   }
@@ -65,7 +66,10 @@ recommendFollowLocallyFollowedItem.watch(() => void refreshLocallyFollowed());
 export function isStaticEmptyState(): boolean {
   const current = view();
   if (current.kind === 'empty' || current.kind === 'emptyNoTwitterBinding') return true;
-  return current.kind === 'list' && current.response.items.every((item) => locallyFollowedIds().has(item.twitterId));
+  return (
+    current.kind === 'list' &&
+    current.response.items.every((item) => locallyFollowedIds().has(item.twitterId))
+  );
 }
 
 function toViewState(response: FollowRecommendationResponse): RecommendationViewState {
@@ -140,7 +144,6 @@ async function resolveInitialView(): Promise<void> {
   setTermsGate(resolveTermsFromMe(stateResponse.state.me));
   setConsent(await resolveConsentFromMe(stateResponse.state.me));
   if (stateResponse.state.me?.twitterId == null) {
-
     setView({ kind: 'emptyNoTwitterBinding' });
     return;
   }
@@ -166,7 +169,10 @@ async function setActivityInsightsPreference(enabled: boolean): Promise<void> {
     enabled,
   });
   if (!response.result) {
-    console.warn('[activity-insights] setActivityInsightsPreference failed, keeping optimistic local value', response.error);
+    console.warn(
+      '[activity-insights] setActivityInsightsPreference failed, keeping optimistic local value',
+      response.error,
+    );
   }
 }
 

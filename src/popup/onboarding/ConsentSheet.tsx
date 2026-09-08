@@ -18,7 +18,11 @@ const CheckTick: Component = () => (
   </svg>
 );
 
-const Checkbox: Component<{ checked: boolean; onChange: (next: boolean) => void; label: string }> = (props) => (
+const Checkbox: Component<{
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}> = (props) => (
   <span class="pv-check">
     <input
       type="checkbox"
@@ -32,18 +36,22 @@ const Checkbox: Component<{ checked: boolean; onChange: (next: boolean) => void;
   </span>
 );
 
-const ConsentRow: Component<{ checked: boolean; onChange: (next: boolean) => void; label: string; children: JSX.Element }> = (
-  props,
-) => (
+const ConsentRow: Component<{
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  children: JSX.Element;
+}> = (props) => (
   <div class="pv-consent-row">
     <Checkbox checked={props.checked} onChange={props.onChange} label={props.label} />
     <p class="pv-consent-row__text">{props.children}</p>
   </div>
 );
 
-export const ConsentSheet: Component<{ onAgree: (activityData: boolean) => void; onCancel: () => void }> = (
-  props,
-) => {
+export const ConsentSheet: Component<{
+  onAgree: (activityData: boolean) => void;
+  onCancel: () => void;
+}> = (props) => {
   const [acknowledged, setAcknowledged] = createSignal(false);
   const [dataUse, setDataUse] = createSignal(false);
   const [noticeOpen, setNoticeOpen] = createSignal(false);
@@ -52,7 +60,12 @@ export const ConsentSheet: Component<{ onAgree: (activityData: boolean) => void;
 
   return (
     <>
-      <div class="pv-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Before you continue">
+      <div
+        class="pv-sheet-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Before you continue"
+      >
         <div class="pv-sheet">
           <div class="pv-sheet__head">
             <p class="pv-sheet__title">Before you continue</p>
@@ -66,11 +79,20 @@ export const ConsentSheet: Component<{ onAgree: (activityData: boolean) => void;
               label="I've read the Data Notice and Privacy Policy."
             >
               I've read the{' '}
-              <button type="button" class="pv-consent-row__link" onClick={() => setNoticeOpen(true)}>
+              <button
+                type="button"
+                class="pv-consent-row__link"
+                onClick={() => setNoticeOpen(true)}
+              >
                 Data Notice
               </button>{' '}
               and{' '}
-              <a class="pv-consent-row__link" href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener">
+              <a
+                class="pv-consent-row__link"
+                href={PRIVACY_POLICY_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
                 Privacy Policy
               </a>
               .
@@ -81,8 +103,9 @@ export const ConsentSheet: Component<{ onAgree: (activityData: boolean) => void;
               onChange={setDataUse}
               label="I agree Kaito can use limited activity data (views, clicks, and page context) to power extension features and my analytics."
             >
-              I agree Kaito can use limited activity data (views, clicks, and page context) to power extension
-              features and my analytics. You can turn this off later from the Activity Insights menu.
+              I agree Kaito can use limited activity data (views, clicks, and page context) to power
+              extension features and my analytics. You can turn this off later from the Activity
+              Insights menu.
             </ConsentRow>
 
             <div class="pv-sheet__actions">

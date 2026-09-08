@@ -1,4 +1,3 @@
-
 import { shortenAddress } from '@/popup/format/platforms';
 
 export const FIXTURE_NOW = 1_770_000_000_000;
@@ -31,7 +30,8 @@ function stream(purpose: string, index: number): () => number {
 }
 
 function check(value: string, spec: RegExp, what: string): string {
-  if (!spec.test(value)) throw new Error(`[mock] generated ${what} "${value}" does not match ${spec}`);
+  if (!spec.test(value))
+    throw new Error(`[mock] generated ${what} "${value}" does not match ${spec}`);
   return value;
 }
 
@@ -109,17 +109,29 @@ export function assertFixtureShapes(fixture: Walkable): void {
       fail(`accounts[${index}].accountId`, account.accountId, EVM_ADDRESS_SPEC);
     }
     if (account.accountLabel !== shortenAddress(account.accountId)) {
-      fail(`accounts[${index}].accountLabel`, account.accountLabel, `shortenAddress(accountId) = ${shortenAddress(account.accountId)}`);
+      fail(
+        `accounts[${index}].accountLabel`,
+        account.accountLabel,
+        `shortenAddress(accountId) = ${shortenAddress(account.accountId)}`,
+      );
     }
   }
 
   for (const [index, item] of fixture.recommendations.entries()) {
-    if (!X_ID_SPEC.test(item.twitterId)) fail(`recommendations[${index}].twitterId`, item.twitterId, X_ID_SPEC);
+    if (!X_ID_SPEC.test(item.twitterId))
+      fail(`recommendations[${index}].twitterId`, item.twitterId, X_ID_SPEC);
 
-    if (!X_HANDLE_SPEC.test(item.handle)) fail(`recommendations[${index}].handle`, item.handle, X_HANDLE_SPEC);
+    if (!X_HANDLE_SPEC.test(item.handle))
+      fail(`recommendations[${index}].handle`, item.handle, X_HANDLE_SPEC);
     for (const [face, mutual] of (item.circleProof ?? []).entries()) {
-      if (!X_ID_SPEC.test(mutual.twitterId)) fail(`recommendations[${index}].circleProof[${face}].twitterId`, mutual.twitterId, X_ID_SPEC);
-      if (!X_HANDLE_SPEC.test(mutual.handle)) fail(`recommendations[${index}].circleProof[${face}].handle`, mutual.handle, X_HANDLE_SPEC);
+      if (!X_ID_SPEC.test(mutual.twitterId))
+        fail(
+          `recommendations[${index}].circleProof[${face}].twitterId`,
+          mutual.twitterId,
+          X_ID_SPEC,
+        );
+      if (!X_HANDLE_SPEC.test(mutual.handle))
+        fail(`recommendations[${index}].circleProof[${face}].handle`, mutual.handle, X_HANDLE_SPEC);
     }
   }
 
@@ -134,6 +146,7 @@ export function assertFixtureShapes(fixture: Walkable): void {
 
     if (epoch > FIXTURE_NOW) fail(`epochs[${index}]`, epoch, `<= FIXTURE_NOW (${FIXTURE_NOW})`);
 
-    if (epoch < 1_100_000_000_000) fail(`epochs[${index}]`, epoch, 'milliseconds since the Unix epoch');
+    if (epoch < 1_100_000_000_000)
+      fail(`epochs[${index}]`, epoch, 'milliseconds since the Unix epoch');
   }
 }

@@ -9,7 +9,9 @@ import { spawnSync } from 'node:child_process';
 const [storeInput, localInput] = process.argv.slice(2).filter((arg) => arg !== '--');
 
 if (!storeInput || !localInput) {
-  console.error('usage: node scripts/verify-artifact-equivalence.mjs <web-store.zip|crx> <local.zip>');
+  console.error(
+    'usage: node scripts/verify-artifact-equivalence.mjs <web-store.zip|crx> <local.zip>',
+  );
   process.exit(2);
 }
 
@@ -77,7 +79,11 @@ function digest(bytes) {
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, stable(value[key])]),
+  );
 }
 
 const WEB_STORE_UPDATE_URL = 'https://clients2.google.com/service/update2/crx';
@@ -122,7 +128,9 @@ try {
         fail('Web Store and local manifest keys differ');
       }
       if (storeManifest.updateUrl && storeManifest.updateUrl !== WEB_STORE_UPDATE_URL) {
-        fail(`Web Store manifest update_url is not the Chrome Web Store's: ${storeManifest.updateUrl}`);
+        fail(
+          `Web Store manifest update_url is not the Chrome Web Store's: ${storeManifest.updateUrl}`,
+        );
       }
 
       if (localManifest.updateUrl) {
@@ -138,7 +146,9 @@ try {
   }
 
   if (!process.exitCode) {
-    console.log(`✓ ${compared} extension files match; only manifest.key, the Web Store update_url and CRX/store metadata are normalized`);
+    console.log(
+      `✓ ${compared} extension files match; only manifest.key, the Web Store update_url and CRX/store metadata are normalized`,
+    );
   }
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));

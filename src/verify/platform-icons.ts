@@ -1,4 +1,3 @@
-
 import type { IconRegistry } from '@/shared/icon-registry';
 import polymarketIcon from './assets/platforms/polymarket.png?inline';
 

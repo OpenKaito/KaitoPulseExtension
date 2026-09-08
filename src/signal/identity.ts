@@ -1,5 +1,4 @@
-
-import { twitterIdMap } from "./twitter-id-map";
+import { twitterIdMap } from './twitter-id-map';
 
 export function normalizeHandle(handle: string): string {
   return handle.replace(/^@/, '').toLowerCase();
@@ -8,9 +7,7 @@ export function normalizeHandle(handle: string): string {
 export function normalizeHandleFromHref(href: string | null | undefined): string | null {
   if (!href) return null;
 
-  const pathname = href.startsWith('http')
-    ? new URL(href).pathname
-    : href;
+  const pathname = href.startsWith('http') ? new URL(href).pathname : href;
   const handle = pathname.split('/').filter(Boolean)[0];
 
   return handle ? normalizeHandle(handle) : null;
@@ -27,7 +24,10 @@ function toBareTwitterId(value: string | null | undefined): string | null {
   return /^\d{1,32}$/.test(bare) ? bare : null;
 }
 
-export function resolveTwitterId(handle: string | null, idHint?: string | null): Promise<string | null> {
+export function resolveTwitterId(
+  handle: string | null,
+  idHint?: string | null,
+): Promise<string | null> {
   const fromHint = toBareTwitterId(idHint);
   if (fromHint) return Promise.resolve(fromHint);
   if (handle) return twitterIdMap.resolveAsync(handle);

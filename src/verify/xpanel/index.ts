@@ -1,11 +1,15 @@
-
 import { render } from 'solid-js/web';
 import verifyCss from '../verify.css?inline';
 import { cancelAuthIntent, recordAuthIntent, takeAuthIntent } from '@/shared/auth-gate';
 import { ownerFocusCallbacks } from '@/shared/owner-focus';
 import { createShadowHost } from '@/signal/shared/shadow-host';
 import { showCompletionToast } from '@/signal/shared/toast';
-import { activeProofProgressItem, lastResultItem, meCacheItem, sessionItem } from '@/shared/storage';
+import {
+  activeProofProgressItem,
+  lastResultItem,
+  meCacheItem,
+  sessionItem,
+} from '@/shared/storage';
 import { type ExternalLastResult, toExternalLastResult } from '@/shared/messages';
 import { createVerifyController, type VerifyController } from '../controller';
 import { sendVerifyMessage } from '../messaging';
@@ -118,7 +122,9 @@ class FloatPanel {
     };
     const onUp = (e: PointerEvent): void => {
       dragging = false;
-      try { handle.releasePointerCapture(e.pointerId); } catch {  }
+      try {
+        handle.releasePointerCapture(e.pointerId);
+      } catch {}
     };
     const onDown = (e: PointerEvent): void => {
       const rect = wrap.getBoundingClientRect();
@@ -127,7 +133,9 @@ class FloatPanel {
       startX = e.clientX;
       startY = e.clientY;
       dragging = true;
-      try { handle.setPointerCapture(e.pointerId); } catch {  }
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {}
       e.preventDefault();
     };
     handle.addEventListener('pointerdown', onDown);
@@ -185,11 +193,7 @@ class VerifyAuthReplayController {
 
   private ownsPendingView(taskId: string): boolean {
     const view = this.controller.view();
-    return (
-      view.name === 'signing-in' &&
-      view.taskId === taskId &&
-      this.isPendingSurfaceVisible()
-    );
+    return view.name === 'signing-in' && view.taskId === taskId && this.isPendingSurfaceVisible();
   }
 
   private showReplayFailure(taskId: string | undefined, hadPending: boolean): void {
@@ -214,7 +218,6 @@ class VerifyAuthReplayController {
   readonly startVerify = (taskId: string, openPendingSurface = true): void => {
     if (!this.active) return;
     if (this.controller.signedIn()) {
-
       if (this.openWindowInFlight) return;
       this.openWindowInFlight = true;
 
@@ -234,7 +237,6 @@ class VerifyAuthReplayController {
       try {
         await recordAuthIntent({ kind: 'verify-start', params: { taskId } });
       } catch {
-
         if (!this.active) return;
         this.controller.goHub();
         this.controller.openSignIn();
@@ -244,7 +246,6 @@ class VerifyAuthReplayController {
       try {
         await this.controller.requestSignIn();
       } catch {
-
         if (!this.active) return;
         void cancelAuthIntent('verify-start').catch(() => undefined);
         if (this.controller.view().name === 'signing-in') this.controller.goHub();
@@ -266,7 +267,6 @@ class VerifyAuthReplayController {
   };
 
   private readonly onOwnerVisibilityChange = (): void => {
-
     if (this.ownerWindowFocusObserved) this.replayWhenOwnerFocused();
   };
 
@@ -274,9 +274,7 @@ class VerifyAuthReplayController {
     if (!this.active || !this.replayArmed || this.replayInFlight) return;
     if (!this.isOwnerDocumentFocused()) {
       if (!this.removeOwnerFocusListener) {
-        this.removeOwnerFocusListener = this.addOwnerWindowFocusListener(
-          this.onOwnerWindowFocus,
-        );
+        this.removeOwnerFocusListener = this.addOwnerWindowFocusListener(this.onOwnerWindowFocus);
       }
       if (!this.removeOwnerVisibilityListener) {
         this.removeOwnerVisibilityListener = this.addOwnerVisibilityListener(
@@ -302,8 +300,7 @@ class VerifyAuthReplayController {
     if (!this.active || this.replayInFlight) return;
     this.replayInFlight = true;
     const pendingView = this.controller.view();
-    const pendingTaskId =
-      pendingView.name === 'signing-in' ? pendingView.taskId : undefined;
+    const pendingTaskId = pendingView.name === 'signing-in' ? pendingView.taskId : undefined;
     let replayTaskId = pendingTaskId;
 
     let hadPending = pendingView.name === 'signing-in';
@@ -312,7 +309,6 @@ class VerifyAuthReplayController {
       if (!this.active) return;
       const taskId = intent?.params.taskId;
       if (!taskId) {
-
         if (this.controller.view().name === 'signing-in') {
           this.showReplayFailure(pendingTaskId, true);
         }
@@ -362,9 +358,10 @@ export class YapsVerifySurface {
     const message = msg as { type?: string; taskId?: string };
     if (message.type !== 'kaito:openVerifyPanel') return;
     if (message.taskId) {
-
       const taskId = message.taskId;
-      void (this.bootstrapPromise ?? this.controller.bootstrap()).then(() => this.authReplay.startVerify(taskId));
+      void (this.bootstrapPromise ?? this.controller.bootstrap()).then(() =>
+        this.authReplay.startVerify(taskId),
+      );
     } else {
       this.float.open();
     }
@@ -373,19 +370,32 @@ export class YapsVerifySurface {
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event.source !== this.doc.defaultView) return;
-    const data = event.data as { source?: string; kind?: string; requestId?: string; verifierId?: string } | null;
+    const data = event.data as {
+      source?: string;
+      kind?: string;
+      requestId?: string;
+      verifierId?: string;
+    } | null;
     if (!data || data.source !== 'kaito-web' || typeof data.requestId !== 'string') return;
     const requestId = data.requestId;
     const reply = (payload: unknown): void => {
-      this.doc.defaultView?.postMessage({ source: 'kaito-extension', requestId, payload }, event.origin);
+      this.doc.defaultView?.postMessage(
+        { source: 'kaito-extension', requestId, payload },
+        event.origin,
+      );
     };
 
-    const ready = (this.bootstrapPromise ?? this.controller.bootstrap()).then(() => this.pendingRefresh ?? undefined);
+    const ready = (this.bootstrapPromise ?? this.controller.bootstrap()).then(
+      () => this.pendingRefresh ?? undefined,
+    );
     if (data.kind === 'getVerifyStatus') {
       void ready.then(() => reply(this.buildStatus()));
     } else if (data.kind === 'openVerification' && typeof data.verifierId === 'string') {
       const verifierId = data.verifierId;
-      void ready.then(() => { this.authReplay.startVerify(verifierId); reply({ ok: true, opened: true }); });
+      void ready.then(() => {
+        this.authReplay.startVerify(verifierId);
+        reply({ ok: true, opened: true });
+      });
     }
   };
 
@@ -399,12 +409,17 @@ export class YapsVerifySurface {
 
   private readonly broadcastVerifyStatusChanged = (): void => {
     try {
-      this.doc.defaultView?.postMessage({ source: 'kaito-extension', kind: 'verifyStatusChanged' }, this.doc.defaultView.location.origin);
-    } catch {  }
+      this.doc.defaultView?.postMessage(
+        { source: 'kaito-extension', kind: 'verifyStatusChanged' },
+        this.doc.defaultView.location.origin,
+      );
+    } catch {}
   };
 
   private buildStatus(): {
-    ok: true; installed: true; signedIn: boolean;
+    ok: true;
+    installed: true;
+    signedIn: boolean;
     verifiers: Array<{ id: string; name: string; platform: string }>;
     activeVerifierId?: string;
     verifications: Record<string, { verifiedAt: number }>;
@@ -419,7 +434,11 @@ export class YapsVerifySurface {
       ok: true,
       installed: true,
       signedIn: this.controller.signedIn(),
-      verifiers: (s?.verifiers ?? []).map((v) => ({ id: v.id, name: v.name, platform: v.platform })),
+      verifiers: (s?.verifiers ?? []).map((v) => ({
+        id: v.id,
+        name: v.name,
+        platform: v.platform,
+      })),
       activeVerifierId: s?.proofProgress?.verifierId,
       verifications,
 
@@ -452,11 +471,15 @@ export class YapsVerifySurface {
     this.doc.defaultView?.addEventListener('message', this.onWindowMessage);
 
     try {
-      this.doc.defaultView?.postMessage({ source: 'kaito-extension', kind: 'ready' }, this.doc.defaultView.location.origin);
-    } catch {  }
+      this.doc.defaultView?.postMessage(
+        { source: 'kaito-extension', kind: 'ready' },
+        this.doc.defaultView.location.origin,
+      );
+    } catch {}
     const refresh = () => void this.trackRefresh();
 
-    const refreshAndNotifyPage = () => void this.trackRefresh().then(this.broadcastVerifyStatusChanged);
+    const refreshAndNotifyPage = () =>
+      void this.trackRefresh().then(this.broadcastVerifyStatusChanged);
     const onSession = (session: Awaited<ReturnType<typeof sessionItem.getValue>>): void => {
       refresh();
       if (session) this.authReplay.armReplayAfterSignIn();
@@ -473,8 +496,12 @@ export class YapsVerifySurface {
     this.authReplay.stop();
     for (const unsubscribe of this.unsubscribers) unsubscribe();
     this.unsubscribers = [];
-    try { chrome.runtime.onMessage.removeListener(this.onRuntimeMessage); } catch {  }
-    try { this.doc.defaultView?.removeEventListener('message', this.onWindowMessage); } catch {  }
+    try {
+      chrome.runtime.onMessage.removeListener(this.onRuntimeMessage);
+    } catch {}
+    try {
+      this.doc.defaultView?.removeEventListener('message', this.onWindowMessage);
+    } catch {}
     this.doc.documentElement.removeAttribute('data-kaito-signal');
     this.float.unmount();
     this.controller.dispose();

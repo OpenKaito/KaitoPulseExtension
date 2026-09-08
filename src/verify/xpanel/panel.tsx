@@ -1,4 +1,3 @@
-
 import { Show, Switch, Match, createSignal, onCleanup, onMount, type Component } from 'solid-js';
 import { hostPrefersDark } from '@/signal/host-theme';
 import type { VerifyController } from '../controller';
@@ -48,12 +47,13 @@ export const XPanel: Component<{
         if (task) props.onStartVerify?.(task.id);
       }}
       onSeeOtherTasks={() => c.goHub()}
-
       onDone={() => c.goHub()}
     />
   );
 
-  const [unbindNotice, setUnbindNotice] = createSignal<{ text: string; tone: 'ok' | 'error' } | undefined>();
+  const [unbindNotice, setUnbindNotice] = createSignal<
+    { text: string; tone: 'ok' | 'error' } | undefined
+  >();
 
   const [unbindingId, setUnbindingId] = createSignal<string | undefined>();
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,7 +72,6 @@ export const XPanel: Component<{
           : `No linked ${task.meta.displayName} account to unlink.`,
       });
     } catch (error) {
-
       setUnbindNotice({
         tone: 'error',
         text: `Could not unlink: ${(error as Error)?.message || 'please try again'}`,
@@ -104,7 +103,12 @@ export const XPanel: Component<{
         </div>
         <div class="kv-header-actions">
           <Show when={isFloat()}>
-            <button type="button" class="kv-icon-btn" title="Settings" onClick={() => c.openSettings()}>
+            <button
+              type="button"
+              class="kv-icon-btn"
+              title="Settings"
+              onClick={() => c.openSettings()}
+            >
               <GearIcon />
             </button>
             {}
@@ -126,21 +130,27 @@ export const XPanel: Component<{
       {}
       <Show when={props.variant === 'embed'}>
         <div class="kv-body">
-          <Switch fallback={
-            <DockList
-              tasks={c.tasks()}
-              signedIn={c.signedIn()}
-              verifyingId={c.state()?.proofProgress?.verifierId}
-              onRequireLogin={() => c.openSignIn()}
-              onOpenTask={onCard}
-              onUnbind={(task) => void unbind(task)}
-              unbindingTaskId={unbindingId()}
-              unbindNotice={unbindNotice()?.text}
-              unbindNoticeIsError={unbindNotice()?.tone === 'error'}
-            />
-          }>
-            <Match when={view().name === 'signing-in'}><SigningInArm /></Match>
-            <Match when={view().name === 'result'}><ResultArm /></Match>
+          <Switch
+            fallback={
+              <DockList
+                tasks={c.tasks()}
+                signedIn={c.signedIn()}
+                verifyingId={c.state()?.proofProgress?.verifierId}
+                onRequireLogin={() => c.openSignIn()}
+                onOpenTask={onCard}
+                onUnbind={(task) => void unbind(task)}
+                unbindingTaskId={unbindingId()}
+                unbindNotice={unbindNotice()?.text}
+                unbindNoticeIsError={unbindNotice()?.tone === 'error'}
+              />
+            }
+          >
+            <Match when={view().name === 'signing-in'}>
+              <SigningInArm />
+            </Match>
+            <Match when={view().name === 'result'}>
+              <ResultArm />
+            </Match>
           </Switch>
         </div>
       </Show>
@@ -152,35 +162,47 @@ export const XPanel: Component<{
           fallback={
             <div class="kv-body" style={{ padding: '0' }}>
               <Switch fallback={<SignInGate onSignIn={() => c.openSignIn()} />}>
-                <Match when={view().name === 'signing-in'}><SigningInArm /></Match>
-                <Match when={view().name === 'result'}><ResultArm /></Match>
+                <Match when={view().name === 'signing-in'}>
+                  <SigningInArm />
+                </Match>
+                <Match when={view().name === 'result'}>
+                  <ResultArm />
+                </Match>
               </Switch>
             </div>
           }
         >
           <div class="kv-body">
-            <Switch fallback={
-              <>
-                <DockList
-                  tasks={c.tasks()}
-                  verifyingId={c.state()?.proofProgress?.verifierId}
-                  onOpenTask={onCard}
-                  onUnbind={(task) => void unbind(task)}
-                  unbindingTaskId={unbindingId()}
-                  unbindNotice={unbindNotice()?.text}
-                  unbindNoticeIsError={unbindNotice()?.tone === 'error'}
-                />
-                <Show when={c.bootError()}>
-                  <p class="kv-error-text" style={{ 'margin-top': '12px' }}>{c.bootError()}</p>
-                </Show>
-              </>
-            }>
+            <Switch
+              fallback={
+                <>
+                  <DockList
+                    tasks={c.tasks()}
+                    verifyingId={c.state()?.proofProgress?.verifierId}
+                    onOpenTask={onCard}
+                    onUnbind={(task) => void unbind(task)}
+                    unbindingTaskId={unbindingId()}
+                    unbindNotice={unbindNotice()?.text}
+                    unbindNoticeIsError={unbindNotice()?.tone === 'error'}
+                  />
+                  <Show when={c.bootError()}>
+                    <p class="kv-error-text" style={{ 'margin-top': '12px' }}>
+                      {c.bootError()}
+                    </p>
+                  </Show>
+                </>
+              }
+            >
               <Match when={view().name === 'settings'}>
                 <SettingsView onBack={() => c.goHub()} />
               </Match>
               {}
-              <Match when={view().name === 'signing-in'}><SigningInArm /></Match>
-              <Match when={view().name === 'result'}><ResultArm /></Match>
+              <Match when={view().name === 'signing-in'}>
+                <SigningInArm />
+              </Match>
+              <Match when={view().name === 'result'}>
+                <ResultArm />
+              </Match>
             </Switch>
           </div>
         </Show>

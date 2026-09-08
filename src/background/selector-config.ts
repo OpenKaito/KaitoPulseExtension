@@ -27,8 +27,10 @@ function isPlausibleShape(
   const obj = raw as Record<string, unknown>;
   return (
     typeof obj.version === 'number' &&
-    typeof obj.signal === 'object' && obj.signal !== null &&
-    typeof obj.profile === 'object' && obj.profile !== null
+    typeof obj.signal === 'object' &&
+    obj.signal !== null &&
+    typeof obj.profile === 'object' &&
+    obj.profile !== null
   );
 }
 
@@ -39,7 +41,8 @@ function sanitizeGroup<K extends SignalSelectorKey | ProfileSelectorKey>(
   const out: Partial<Record<K, string>> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!keySet.has(key as K)) continue;
-    if (typeof value !== 'string' || value.length === 0 || value.length > MAX_OVERRIDE_VALUE_LENGTH) continue;
+    if (typeof value !== 'string' || value.length === 0 || value.length > MAX_OVERRIDE_VALUE_LENGTH)
+      continue;
     out[key as K] = value;
   }
   return out;
@@ -59,7 +62,6 @@ export async function fetchSelectorConfigPayload(): Promise<SelectorOverridePayl
   if (!url) return null;
 
   try {
-
     const raw = await backgroundFetch<unknown>(url, { redirect: 'manual' });
     const validated = validatePayload(raw);
     if (!validated) {
@@ -101,7 +103,6 @@ export async function handleForceRefreshSelectorOverrides(): Promise<ForceRefres
 }
 
 export function startSelectorConfigAlarm(): void {
-
   if (!SIGNAL_CONFIG.selectorConfigUrl) {
     void chrome.alarms.clear(ALARM_NAME);
     return;

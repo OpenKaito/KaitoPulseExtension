@@ -1,7 +1,6 @@
 import { PROTOCOL_ICON_DATA_URI } from '@/signal/protocol-icons';
 
 export type PlatformCluster = {
-
   icons: { platform: string; src: string }[];
 
   overflow: number;

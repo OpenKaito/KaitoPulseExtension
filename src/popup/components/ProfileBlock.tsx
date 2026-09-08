@@ -14,6 +14,8 @@ import { AccountSizeDots } from '@/shared/AccountSizeDots';
 import { clampTier, formatAccountSize } from '@/shared/account-size';
 import { AccountMenu } from './AccountMenu';
 import { PlatformIconCluster } from './PlatformIconCluster';
+import { PnlArrow } from './PnlArrow';
+import { VerifiedBadge } from './VerifiedBadge';
 
 const Bar: Component = () => <span class="rf-sk pv-sk--stat" aria-hidden="true" />;
 
@@ -68,11 +70,28 @@ export const ProfileBlock: Component<{
           </Show>
         </Stat>
 
-        <Stat label="Smart Followers">
-          <Show when={!props.cardLoading} fallback={<Bar />}>
-            <p class="pv-stat__value">{formatCount(props.profile.smartFollowers)}</p>
-          </Show>
-        </Stat>
+        <Show
+          when={props.profile.verifiedFollowers != null}
+          fallback={
+            <Stat label="Smart Followers">
+              <Show when={!props.cardLoading} fallback={<Bar />}>
+                <p class="pv-stat__value">{formatCount(props.profile.smartFollowers)}</p>
+              </Show>
+            </Stat>
+          }
+        >
+          <div class="pv-stat">
+            <div class="pv-stat__label-row">
+              <p class="pv-stat__label">Verified Followers</p>
+              <VerifiedBadge />
+            </div>
+            <div class="pv-stat__value-row">
+              <Show when={!props.cardLoading} fallback={<Bar />}>
+                <p class="pv-stat__value">{formatCount(props.profile.verifiedFollowers)}</p>
+              </Show>
+            </div>
+          </div>
+        </Show>
 
         <div class="pv-stat">
           <div class="pv-stat__label-row">
@@ -84,12 +103,13 @@ export const ProfileBlock: Component<{
               <Show
                 when={size() != null}
                 fallback={
-
                   <p class="pv-stat__value pv-stat__value--medium">{subDollar() ?? NO_VALUE}</p>
                 }
               >
                 <AccountSizeDots tier={clampTier(size() as number)} />
-                <p class="pv-stat__value pv-stat__value--medium">{formatAccountSize(clampTier(size() as number))}</p>
+                <p class="pv-stat__value pv-stat__value--medium">
+                  {formatAccountSize(clampTier(size() as number))}
+                </p>
               </Show>
             </Show>
           </div>
@@ -103,14 +123,8 @@ export const ProfileBlock: Component<{
           <div class="pv-stat__value-row pv-stat__value-row--glyph">
             <Show when={!props.tradeLoading} fallback={<Bar />}>
               {}
-              <Show when={tone()}>
-                <span
-                  class="pv-pnl-caret"
-                  classList={{ 'pv-pnl-caret--down': tone() === 'loss' }}
-                  aria-hidden="true"
-                >
-                  {tone() === 'loss' ? '▼' : '▲'}
-                </span>
+              <Show when={tone()} keyed>
+                {(dir) => <PnlArrow tone={dir} />}
               </Show>
               <p
                 class="pv-stat__value pv-stat__value--pnl"

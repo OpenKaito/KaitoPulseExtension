@@ -1,6 +1,7 @@
 import { For, Show, createSignal, type Component } from 'solid-js';
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from '@/verify/ui/icons';
 import { BrandChip } from './components/BrandChip';
+import { PnlArrow } from './components/PnlArrow';
 import type { IncludedAccount, PlatformGroup } from './data/types';
 import {
   FX_APPROXIMATE_TITLE,
@@ -35,12 +36,17 @@ const Figure: Component<{
   const tone = () => (props.signed ? pnlTone(props.value) : null);
   const native = () => (props.value == null ? props.native : null);
   const figure = () =>
-    approxFigure(props.signed ? formatSignedUsdCents(props.value) : formatUsd(props.value), props.approx);
+    approxFigure(
+      props.signed ? formatSignedUsdCents(props.value) : formatUsd(props.value),
+      props.approx,
+    );
   return (
     <div class="pv-acct__figure">
       <p class="pv-acct__figure-label">
         {props.label}
-        <Show when={props.note}>{(note) => <span class="pv-acct__figure-note">{note()}</span>}</Show>
+        <Show when={props.note}>
+          {(note) => <span class="pv-acct__figure-note">{note()}</span>}
+        </Show>
       </p>
       <p
         class="pv-acct__figure-value"
@@ -49,7 +55,6 @@ const Figure: Component<{
           'pv-loss': tone() === 'loss',
           'pv-acct__figure-value--native': native() != null,
         }}
-
         title={figure().approx && native() == null ? FX_APPROXIMATE_TITLE : undefined}
       >
         <Show when={native()} fallback={figure().text}>
@@ -144,16 +149,8 @@ export const PlatformAccountsView: Component<{
           </p>
           <div class="pv-detail__total-row">
             {}
-            <Show when={pnlTone(props.group.pnl)}>
-              {(tone) => (
-                <span
-                  class="pv-pnl-caret"
-                  classList={{ 'pv-pnl-caret--down': tone() === 'loss' }}
-                  aria-hidden="true"
-                >
-                  {tone() === 'loss' ? '▼' : '▲'}
-                </span>
-              )}
+            <Show when={pnlTone(props.group.pnl)} keyed>
+              {(tone) => <PnlArrow tone={tone} />}
             </Show>
             <p
               class="pv-detail__total-value"
@@ -171,8 +168,8 @@ export const PlatformAccountsView: Component<{
         <div class="pv-detail__intro">
           <p class="pv-detail__intro-title">{introTitle()}</p>
           <p class="pv-detail__intro-body">
-            Account Value and {props.group.pnlLabel} are shown separately for each {props.group.displayName}{' '}
-            account.
+            Account Value and {props.group.pnlLabel} are shown separately for each{' '}
+            {props.group.displayName} account.
           </p>
         </div>
 
@@ -185,7 +182,12 @@ export const PlatformAccountsView: Component<{
               </span>
             </div>
             {}
-            <a class="pv-detail__manage" href={VERIFICATION_HUB_URL} target="_blank" rel="noopener noreferrer">
+            <a
+              class="pv-detail__manage"
+              href={VERIFICATION_HUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <span>Manage</span>
               <span class="pv-chevron-right" aria-hidden="true">
                 <ChevronDownIcon size={12} />

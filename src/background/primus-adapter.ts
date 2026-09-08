@@ -86,7 +86,10 @@ export type RunAttestationOptions = {
   forceCreateTab?: boolean;
   attachDuringNavigation?: boolean;
   waitForTargetData?: boolean;
-  onProgress?: (stage: 'opening_page' | 'reading_data' | 'generating_proof', message: string) => void;
+  onProgress?: (
+    stage: 'opening_page' | 'reading_data' | 'generating_proof',
+    message: string,
+  ) => void;
   onTargetTab?: (tabId: number) => void | Promise<void>;
 
   isCanceled?: () => boolean;
@@ -114,7 +117,7 @@ export async function runAttestation(
   guideUrl: string,
   signedRequest: string,
   template?: PrimusTemplateMetadata,
-  options: RunAttestationOptions = {}
+  options: RunAttestationOptions = {},
 ): Promise<Attestation> {
   const payload = parseSignedRequest(signedRequest, template);
   return runAttestationAttempts(guideUrl, payload, template, options);
@@ -124,13 +127,15 @@ async function runAttestationAttempts(
   guideUrl: string,
   payload: PrimusStartPayload,
   template: PrimusTemplateMetadata | undefined,
-  options: RunAttestationOptions
+  options: RunAttestationOptions,
 ): Promise<Attestation> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RUN_ATTESTATION_RETRIES; attempt += 1) {
     if (options.isCanceled?.()) {
-      throw lastError instanceof Error ? lastError : new Error('verification_interrupted: canceled by user');
+      throw lastError instanceof Error
+        ? lastError
+        : new Error('verification_interrupted: canceled by user');
     }
     try {
       await clearPrimusAttestationState();
@@ -146,10 +151,15 @@ async function runAttestationAttempts(
       }
       await ensurePrimusBridge(
         tabId,
-        options.attachDuringNavigation ? { allowReinject: true } : {}
+        options.attachDuringNavigation ? { allowReinject: true } : {},
       );
       await keepAttestationWorkerAlive(tabId);
-      logDev('starting primus attestation', { tabId, guideUrl, attempt, silent: Boolean(options.silent) });
+      logDev('starting primus attestation', {
+        tabId,
+        guideUrl,
+        attempt,
+        silent: Boolean(options.silent),
+      });
       options.onProgress?.('generating_proof', 'Generating zk proof');
       const stopInterceptionWatch = watchPrimusInterceptionStart(tabId, template);
       try {
@@ -179,43 +189,47 @@ async function runAttestationAttempts(
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError || 'attestation_failed'));
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(String(lastError || 'attestation_failed'));
 }
 
 async function keepAttestationWorkerAlive(tabId: number): Promise<void> {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    args: [ATTESTATION_KEEPALIVE_MS],
-    func: (timeoutMs: number) => {
-      const key = '__kaitoAttestationKeepAlive';
-      const global = globalThis as typeof globalThis & {
-        [key]?: {
-          port: chrome.runtime.Port;
-          timer: number;
+  await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      args: [ATTESTATION_KEEPALIVE_MS],
+      func: (timeoutMs: number) => {
+        const key = '__kaitoAttestationKeepAlive';
+        const global = globalThis as typeof globalThis & {
+          [key]?: {
+            port: chrome.runtime.Port;
+            timer: number;
+          };
         };
-      };
-      const existing = global[key];
-      if (existing) {
-        clearTimeout(existing.timer);
-        existing.port.disconnect();
-      }
-
-      const port = chrome.runtime.connect({ name: 'kaitoAttestationKeepAlive' });
-      const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
-      global[key] = { port, timer };
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer);
-        if (global[key]?.port === port) {
-          delete global[key];
+        const existing = global[key];
+        if (existing) {
+          clearTimeout(existing.timer);
+          existing.port.disconnect();
         }
+
+        const port = chrome.runtime.connect({ name: 'kaitoAttestationKeepAlive' });
+        const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
+        global[key] = { port, timer };
+        port.onDisconnect.addListener(() => {
+          clearTimeout(timer);
+          if (global[key]?.port === port) {
+            delete global[key];
+          }
+        });
+      },
+    })
+    .catch((error) => {
+      logDev('attestation keepalive injection failed; continuing', {
+        tabId,
+        error: error instanceof Error ? error.message : String(error),
       });
-    },
-  }).catch((error) => {
-    logDev('attestation keepalive injection failed; continuing', {
-      tabId,
-      error: error instanceof Error ? error.message : String(error),
     });
-  });
 }
 
 function throwIfCanceled(isCanceled?: () => boolean): void {
@@ -226,7 +240,7 @@ function throwIfCanceled(isCanceled?: () => boolean): void {
 
 async function withAttestationTimeout<T>(
   promise: Promise<T>,
-  options: Pick<RunAttestationOptions, 'onProgress' | 'isCanceled'> = {}
+  options: Pick<RunAttestationOptions, 'onProgress' | 'isCanceled'> = {},
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let watchdogTimer: ReturnType<typeof setInterval> | undefined;
@@ -238,7 +252,6 @@ async function withAttestationTimeout<T>(
   const watchdog = new Promise<T>((_, reject) => {
     watchdogReject = reject;
     watchdogTimer = setInterval(() => {
-
       if (options.isCanceled?.()) {
         watchdogReject?.(new Error('verification_interrupted: canceled mid-flight'));
         return;
@@ -278,7 +291,9 @@ async function withAttestationTimeout<T>(
 
           if (elapsedMs >= PRIMUS_OFFLINE_STALL_TIMEOUT_MS) {
             watchdogReject?.(
-              new Error(`proof_engine_stalled: Primus offline proof generation did not finish after ${elapsedSeconds}s`)
+              new Error(
+                `proof_engine_stalled: Primus offline proof generation did not finish after ${elapsedSeconds}s`,
+              ),
             );
           }
         })
@@ -295,7 +310,10 @@ async function withAttestationTimeout<T>(
       promise,
       watchdog,
       new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('primus_attestation_total_timeout')), RUN_ATTESTATION_TOTAL_TIMEOUT_MS);
+        timer = setTimeout(
+          () => reject(new Error('primus_attestation_total_timeout')),
+          RUN_ATTESTATION_TOTAL_TIMEOUT_MS,
+        );
       }),
     ]);
   } catch (error) {
@@ -343,7 +361,7 @@ export async function clearPrimusAttestationState(): Promise<void> {
 
 async function executeAttestationWithTabCreatePolicy(
   tabId: number,
-  payload: PrimusStartPayload
+  payload: PrimusStartPayload,
 ): Promise<Attestation> {
   await chrome.storage.local.set({
     [PRIMUS_DAPP_TAB_ID_KEY]: tabId,
@@ -359,7 +377,7 @@ async function executeAttestationWithTabCreatePolicy(
 export async function readJsonFromVerifierPage<T>(
   guideUrl: string,
   requestPath: string,
-  options: RunAttestationOptions = {}
+  options: RunAttestationOptions = {},
 ): Promise<{ ok: boolean; status: number; value: T | null }> {
   if (requestPath !== '__kaito_preflight_x_analytics__') {
     throw new Error(`unsupported_verifier_preflight:${requestPath}`);
@@ -372,9 +390,12 @@ export async function readJsonFromVerifierPage<T>(
     args: [requestPath],
     func: async (path: string) => {
       if (path === '__kaito_preflight_x_analytics__') {
-
         if (!location.hostname.endsWith('x.com')) {
-          return { ok: true, status: 200, value: { reason: 'wrong_host', host: location.hostname } };
+          return {
+            ok: true,
+            status: 200,
+            value: { reason: 'wrong_host', host: location.hostname },
+          };
         }
         const ct0 = document.cookie
           .split('; ')
@@ -417,15 +438,13 @@ export async function readJsonFromVerifierPage<T>(
               'x-twitter-auth-type': 'OAuth2Session',
               'x-twitter-active-user': 'yes',
             },
-          }
+          },
         );
         const text = await response.text();
         let parsed: any = null;
         try {
           parsed = JSON.parse(text);
-        } catch {
-
-        }
+        } catch {}
         const errors: string[] = Array.isArray(parsed?.errors)
           ? parsed.errors.map((entry: { message?: unknown }) => String(entry?.message ?? ''))
           : [];
@@ -434,7 +453,9 @@ export async function readJsonFromVerifierPage<T>(
           status: 200,
           value: {
             overview: { ok: response.ok, status: response.status, errors },
-            hasSeries: Array.isArray(parsed?.data?.viewer_v2?.user_results?.result?.current_time_series),
+            hasSeries: Array.isArray(
+              parsed?.data?.viewer_v2?.user_results?.result?.current_time_series,
+            ),
           },
         };
       }
@@ -451,7 +472,9 @@ export function getPrimusTemplateTargetUrls(template?: PrimusTemplateMetadata): 
   return getPrimusTemplateTargets(template).map((target) => target.urlExpression);
 }
 
-export function getPrimusTemplateTargets(template?: PrimusTemplateMetadata): PrimusTemplateTarget[] {
+export function getPrimusTemplateTargets(
+  template?: PrimusTemplateMetadata,
+): PrimusTemplateTarget[] {
   return getTargetEntries(template).map((entry) => ({
     url: exactUrlFromTargetExpression(entry.expression),
     urlExpression: entry.expression,
@@ -476,7 +499,9 @@ function parseSignedRequest(value: string, template?: PrimusTemplateMetadata): P
   }
 
   const kaitoRawAttRequest = extractAttRequestJson(value);
-  return template ? { ...payload, kaitoRawAttRequest, kaitoTemplate: template } : { ...payload, kaitoRawAttRequest };
+  return template
+    ? { ...payload, kaitoRawAttRequest, kaitoTemplate: template }
+    : { ...payload, kaitoRawAttRequest };
 }
 
 function extractAttRequestJson(value: string): string {
@@ -531,7 +556,10 @@ function extractAttRequestJson(value: string): string {
   throw new Error('signed_request_att_request_unclosed');
 }
 
-async function ensureVerifierTab(guideUrl: string, options: RunAttestationOptions = {}): Promise<number> {
+async function ensureVerifierTab(
+  guideUrl: string,
+  options: RunAttestationOptions = {},
+): Promise<number> {
   const tabKey = verifierTabKey(guideUrl);
   if (options.tabId !== undefined) {
     return ensureSpecifiedVerifierTab(guideUrl, tabKey, options.tabId, options);
@@ -555,7 +583,7 @@ async function ensureSpecifiedVerifierTab(
   guideUrl: string,
   tabKey: string,
   tabId: number,
-  options: RunAttestationOptions = {}
+  options: RunAttestationOptions = {},
 ): Promise<number> {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) {
@@ -581,7 +609,7 @@ async function ensureSpecifiedVerifierTab(
 async function ensureVerifierTabOnce(
   guideUrl: string,
   tabKey: string,
-  options: RunAttestationOptions
+  options: RunAttestationOptions,
 ): Promise<number> {
   const existing = options.forceCreateTab ? undefined : await findVerifierTab(guideUrl, tabKey);
   if (existing?.id !== undefined) {
@@ -611,7 +639,6 @@ async function ensureVerifierTabOnce(
   extensionCreatedTabs.add(created.id);
   await options.onTargetTab?.(created.id);
   if (options.attachDuringNavigation) {
-
     await ensureFreshBridgeScriptsDuringNavigation(created.id);
     return created.id;
   }
@@ -625,7 +652,7 @@ async function preferVerifierTabWithTargetData(
   guideUrl: string,
   currentTabId: number,
   template?: PrimusTemplateMetadata,
-  options: RunAttestationOptions = {}
+  options: RunAttestationOptions = {},
 ): Promise<number> {
   const targets = getPrimusTemplateTargetUrls(template);
   if (targets.length === 0) {
@@ -633,7 +660,9 @@ async function preferVerifierTabWithTargetData(
   }
 
   const tabs = await chrome.tabs.query({}).catch(() => []);
-  const matches = tabs.filter((tab) => tab.id !== undefined && verifierUrlMatches(tab.url || tab.pendingUrl, guideUrl));
+  const matches = tabs.filter(
+    (tab) => tab.id !== undefined && verifierUrlMatches(tab.url || tab.pendingUrl, guideUrl),
+  );
   const ordered = [
     ...matches.filter((tab) => tab.id === currentTabId),
     ...matches.filter((tab) => tab.active && tab.id !== currentTabId),
@@ -682,7 +711,10 @@ chrome.tabs?.onUpdated.addListener((tabId, changeInfo) => {
   }
 });
 
-async function findVerifierTab(guideUrl: string, tabKey: string): Promise<chrome.tabs.Tab | undefined> {
+async function findVerifierTab(
+  guideUrl: string,
+  tabKey: string,
+): Promise<chrome.tabs.Tab | undefined> {
   const tabs = await chrome.tabs.query({});
   const matches = tabs.filter((tab) => verifierUrlMatches(tab.url || tab.pendingUrl, guideUrl));
   const activeMatch = matches.find((tab) => tab.active);
@@ -760,12 +792,13 @@ async function waitForTabToSettle(tabId: number): Promise<void> {
 }
 
 function getTemplateDataSource(template?: PrimusTemplateMetadata): string {
-  const withDataSourceId = template as (PrimusTemplateMetadata & { dataSourceId?: unknown }) | undefined;
+  const withDataSourceId = template as
+    | (PrimusTemplateMetadata & { dataSourceId?: unknown })
+    | undefined;
   return String(template?.dataSource || withDataSourceId?.dataSourceId || '').toLowerCase();
 }
 
 function shouldPrepareTargetDataBeforeAttestation(options: RunAttestationOptions): boolean {
-
   if (options.waitForTargetData === false) {
     return false;
   }
@@ -774,7 +807,7 @@ function shouldPrepareTargetDataBeforeAttestation(options: RunAttestationOptions
 
 async function ensurePrimusBridge(
   tabId: number,
-  options: { allowReinject?: boolean; waitMs?: number } = {}
+  options: { allowReinject?: boolean; waitMs?: number } = {},
 ): Promise<void> {
   const waitMs = options.waitMs ?? BRIDGE_READY_WAIT_MS;
   if (options.allowReinject) {
@@ -816,7 +849,7 @@ async function pollPrimusBridgeReady(tabId: number, waitMs: number): Promise<boo
 async function waitForTargetDataReady(
   tabId: number,
   template?: PrimusTemplateMetadata,
-  isCanceled?: () => boolean
+  isCanceled?: () => boolean,
 ): Promise<void> {
   const probes = getTargetDataProbes(template);
   const targetUrls = getPrimusTemplateTargetUrls(template);
@@ -825,7 +858,7 @@ async function waitForTargetDataReady(
 
   const stopObserving = observeTargetUrls(
     tabId,
-    probes.length > 0 ? probes : targetUrls.map((url) => ({ url, paths: [] }))
+    probes.length > 0 ? probes : targetUrls.map((url) => ({ url, paths: [] })),
   );
   try {
     await requestGraphqlPrefetch(tabId, template);
@@ -840,7 +873,7 @@ async function pollTargetDataReady(
   template: PrimusTemplateMetadata | undefined,
   probes: TargetDataProbe[],
   targetUrls: string[],
-  isCanceled?: () => boolean
+  isCanceled?: () => boolean,
 ): Promise<void> {
   if (targetUrls.length > 0) {
     const urls = await collectTargetFetchUrls(tabId, template);
@@ -882,7 +915,7 @@ async function pollTargetDataReady(
     const sawTargetRequest = await waitForTargetRequestEvent(
       tabId,
       probes,
-      Math.min(TARGET_DATA_READY_POLL_MS, remainingMs)
+      Math.min(TARGET_DATA_READY_POLL_MS, remainingMs),
     );
     if (sawTargetRequest) {
       logDev('target verifier request observed', { tabId, urls: probes.map((probe) => probe.url) });
@@ -890,13 +923,15 @@ async function pollTargetDataReady(
     }
   }
 
-  throw new Error(`target_data_not_ready: ${lastError || 'timed out waiting for verifier page login data'}`);
+  throw new Error(
+    `target_data_not_ready: ${lastError || 'timed out waiting for verifier page login data'}`,
+  );
 }
 
 async function waitForTargetResourceEntries(
   tabId: number,
   targetExpressions: string[],
-  isCanceled?: () => boolean
+  isCanceled?: () => boolean,
 ): Promise<void> {
   if (targetExpressions.length === 0) {
     return;
@@ -917,7 +952,7 @@ async function waitForTargetResourceEntries(
           targetExpressions.map((expression) => ({
             requestTemplate: { targetUrlExpression: expression, method: 'GET' },
             responseTemplate: [],
-          }))
+          })),
         ),
       } as PrimusTemplateMetadata);
 
@@ -931,7 +966,11 @@ async function waitForTargetResourceEntries(
         }
         return;
       }
-      logDev('waiting for verifier page target requests', { tabId, found: urls.length, expected: targetExpressions.length });
+      logDev('waiting for verifier page target requests', {
+        tabId,
+        found: urls.length,
+        expected: targetExpressions.length,
+      });
     } catch (error) {
       if (isTransientFrameError(error)) {
         await waitForTabToSettle(tabId).catch(() => undefined);
@@ -978,7 +1017,10 @@ function graphqlPrefetchOperations(template?: PrimusTemplateMetadata): string[] 
 
 const PRIMUS_PAGE_DECODE_DEBUG_KEY = 'kaitoPageDecodeInitDebug';
 
-async function requestGraphqlPrefetch(tabId: number, template?: PrimusTemplateMetadata): Promise<void> {
+async function requestGraphqlPrefetch(
+  tabId: number,
+  template?: PrimusTemplateMetadata,
+): Promise<void> {
   if (getTemplateDataSource(template) !== GRAPHQL_PREFETCH_DATA_SOURCE) {
     return;
   }
@@ -1000,7 +1042,6 @@ async function requestGraphqlPrefetch(tabId: number, template?: PrimusTemplateMe
     });
     logDev('asked the x.com page for a GraphQL prefetch', { tabId, operations });
   } catch (error) {
-
     logDev('asking the x.com page for a GraphQL prefetch failed', {
       tabId,
       operations,
@@ -1009,7 +1050,10 @@ async function requestGraphqlPrefetch(tabId: number, template?: PrimusTemplateMe
   }
 }
 
-function watchPrimusInterceptionStart(tabId: number, template?: PrimusTemplateMetadata): () => void {
+function watchPrimusInterceptionStart(
+  tabId: number,
+  template?: PrimusTemplateMetadata,
+): () => void {
   const dataSource = getTemplateDataSource(template);
   const refire = dataSource === GRAPHQL_PREFETCH_DATA_SOURCE ? requestGraphqlPrefetch : undefined;
   if (!refire || !chrome.storage?.onChanged) {
@@ -1028,7 +1072,11 @@ function watchPrimusInterceptionStart(tabId: number, template?: PrimusTemplateMe
       return;
     }
     const pageTabId = typeof debug.tabId === 'number' ? debug.tabId : tabId;
-    logDev('primus interception started; re-firing target requests', { tabId, pageTabId, dataSource });
+    logDev('primus interception started; re-firing target requests', {
+      tabId,
+      pageTabId,
+      dataSource,
+    });
     void refire(pageTabId, template);
   };
 
@@ -1057,7 +1105,10 @@ function observeTargetUrls(tabId: number, probes: TargetDataProbe[]): () => void
   return () => chrome.webRequest.onCompleted.removeListener(onCompleted);
 }
 
-async function collectTargetFetchUrls(tabId: number, template?: PrimusTemplateMetadata): Promise<string[]> {
+async function collectTargetFetchUrls(
+  tabId: number,
+  template?: PrimusTemplateMetadata,
+): Promise<string[]> {
   const targets = getPrimusTemplateTargetUrls(template);
   if (targets.length === 0) {
     return [];
@@ -1112,8 +1163,9 @@ async function collectTargetFetchUrls(tabId: number, template?: PrimusTemplateMe
         return [...resolved];
       },
     });
-    const urls = unwrapInjectionResult<string[]>(result, 'target_fetch_url_collect_failed')
-      .filter((url) => typeof url === 'string' && /^https?:\/\//.test(url));
+    const urls = unwrapInjectionResult<string[]>(result, 'target_fetch_url_collect_failed').filter(
+      (url) => typeof url === 'string' && /^https?:\/\//.test(url),
+    );
 
     const resolved = [...urls];
     for (const target of targets) {
@@ -1185,11 +1237,10 @@ function getTargetEntries(template?: PrimusTemplateMetadata): Array<{
 }
 
 function getTargetDataProbes(template?: PrimusTemplateMetadata): TargetDataProbe[] {
-  return getTargetEntries(template)
-    .map((entry) => ({
-      url: entry.expression,
-      paths: getSimpleJsonPaths(entry.responseTemplate),
-    }));
+  return getTargetEntries(template).map((entry) => ({
+    url: entry.expression,
+    paths: getSimpleJsonPaths(entry.responseTemplate),
+  }));
 }
 
 function exactUrlFromTargetExpression(value: unknown): string | undefined {
@@ -1213,7 +1264,9 @@ function exactUrlFromTargetExpression(value: unknown): string | undefined {
   return expression;
 }
 
-function getSimpleJsonPaths(responseTemplates: NonNullable<DataSourceRequestTemplate['responseTemplate']>): string[] {
+function getSimpleJsonPaths(
+  responseTemplates: NonNullable<DataSourceRequestTemplate['responseTemplate']>,
+): string[] {
   const paths: string[] = [];
   for (const response of responseTemplates) {
     const expression = response?.resolver?.expression;
@@ -1226,7 +1279,7 @@ function getSimpleJsonPaths(responseTemplates: NonNullable<DataSourceRequestTemp
 
 async function probeTargetData(
   tabId: number,
-  probes: TargetDataProbe[]
+  probes: TargetDataProbe[],
 ): Promise<{ ready: boolean; reason?: string }> {
   const [result] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -1275,7 +1328,9 @@ async function probeTargetData(
           .getEntriesByType('resource')
           .map((entry) => entry.name)
           .filter((url) => /^https?:\/\//.test(url));
-        const pageRequestUrl = [...resourceUrls].reverse().find((url) => targetUrlMatches(url, probe.url));
+        const pageRequestUrl = [...resourceUrls]
+          .reverse()
+          .find((url) => targetUrlMatches(url, probe.url));
         const fetchUrl = pageRequestUrl || exactUrlFromExpression(probe.url);
         const sawPageRequest = Boolean(pageRequestUrl);
 
@@ -1330,7 +1385,11 @@ async function probeTargetData(
   return unwrapInjectionResult(result, 'target_data_probe_failed');
 }
 
-function waitForTargetRequestEvent(tabId: number, probes: TargetDataProbe[], timeoutMs: number): Promise<boolean> {
+function waitForTargetRequestEvent(
+  tabId: number,
+  probes: TargetDataProbe[],
+  timeoutMs: number,
+): Promise<boolean> {
   if (!chrome.webRequest?.onCompleted || timeoutMs <= 0) {
     return delay(timeoutMs).then(() => false);
   }
@@ -1496,7 +1555,7 @@ async function probePrimusBridge(tabId: number): Promise<boolean> {
               name: 'checkIsInstalled',
               params: {},
             },
-            '*'
+            '*',
           );
         }),
     });
@@ -1515,7 +1574,10 @@ async function probePrimusBridge(tabId: number): Promise<boolean> {
   }
 }
 
-async function executeAttestation(tabId: number, payload: PrimusStartPayload): Promise<Attestation> {
+async function executeAttestation(
+  tabId: number,
+  payload: PrimusStartPayload,
+): Promise<Attestation> {
   let result: ExecuteResult<AttestationBridgeWireResult> | undefined;
   const writeExecuteDebug = async (event: string, extra: Record<string, unknown> = {}) => {
     try {
@@ -1527,447 +1589,470 @@ async function executeAttestation(tabId: number, payload: PrimusStartPayload): P
           ...extra,
         },
       });
-    } catch {
-
-    }
+    } catch {}
   };
   for (let attempt = 0; attempt <= EXECUTE_ATTESTATION_RETRIES; attempt += 1) {
     try {
       await writeExecuteDebug('before_execute_script', { attempt });
       [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    world: 'MAIN',
-    args: [
-      payload,
-      ATTEST_TIMEOUT_MS,
-      PRIMUS_RESPONSE_TIMEOUT_MS,
-      PRIMUS_SDK_VERSION,
-      PRIMUS_CLIENT_TYPE,
-    ],
-    func: async (
-      attestationPayload: SignedRequestPayload,
-      timeoutMs: number,
-      responseTimeoutMs: number,
-      sdkVersion: string,
-      clientType: string
-    ) => {
+        target: { tabId },
+        world: 'MAIN',
+        args: [
+          payload,
+          ATTEST_TIMEOUT_MS,
+          PRIMUS_RESPONSE_TIMEOUT_MS,
+          PRIMUS_SDK_VERSION,
+          PRIMUS_CLIENT_TYPE,
+        ],
+        func: async (
+          attestationPayload: SignedRequestPayload,
+          timeoutMs: number,
+          responseTimeoutMs: number,
+          sdkVersion: string,
+          clientType: string,
+        ) => {
+          console.log('[kaito-attest] booting in MAIN world', {
+            href: location.href,
+            sdkVersion,
+            clientType,
+            windowPrimusVisible: typeof (window as { primus?: unknown }).primus !== 'undefined',
+          });
+          const encodeResult = (value: AttestationBridgeResult): string =>
+            JSON.stringify(value, (_key, jsonValue) =>
+              typeof jsonValue === 'bigint' ? jsonValue.toString() : jsonValue,
+            );
+          const appendTrace = (eventName: string, extra: Record<string, unknown> = {}) => {
+            try {
+              console.log('[kaito-attest-trace]', eventName, extra);
+            } catch {}
+          };
 
-      console.log('[kaito-attest] booting in MAIN world', {
-        href: location.href,
-        sdkVersion,
-        clientType,
-        windowPrimusVisible: typeof (window as { primus?: unknown }).primus !== 'undefined',
-      });
-	      const encodeResult = (value: AttestationBridgeResult): string =>
-	        JSON.stringify(value, (_key, jsonValue) => (typeof jsonValue === 'bigint' ? jsonValue.toString() : jsonValue));
-	      const appendTrace = (eventName: string, extra: Record<string, unknown> = {}) => {
-	        try {
-	          console.log('[kaito-attest-trace]', eventName, extra);
-	        } catch {
+          return new Promise<AttestationBridgeWireResult>((resolve) => {
+            let settled = false;
+            let startRequested = false;
+            let pollingTimer: number | undefined;
+            let timeoutTimer: number | undefined;
+            let responseTimeoutTimer: number | undefined;
+            const pollingTimeoutMs =
+              typeof attestationPayload?.attRequest?.timeout === 'number'
+                ? Math.min(attestationPayload.attRequest.timeout, responseTimeoutMs)
+                : timeoutMs;
 
-	        }
-	      };
-
-	      return new Promise<AttestationBridgeWireResult>((resolve) => {
-        let settled = false;
-        let startRequested = false;
-        let pollingTimer: number | undefined;
-        let timeoutTimer: number | undefined;
-        let responseTimeoutTimer: number | undefined;
-        const pollingTimeoutMs =
-          typeof attestationPayload?.attRequest?.timeout === 'number'
-            ? Math.min(attestationPayload.attRequest.timeout, responseTimeoutMs)
-            : timeoutMs;
-
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          if (pollingTimer !== undefined) {
-            clearInterval(pollingTimer);
-          }
-          if (timeoutTimer !== undefined) {
-            clearTimeout(timeoutTimer);
-          }
-          if (responseTimeoutTimer !== undefined) {
-            clearTimeout(responseTimeoutTimer);
-          }
-          window.removeEventListener('message', onMessage);
-        };
-
-        const fail = (error: string) => {
-          cleanup();
-          resolve(encodeResult({ ok: false, error }));
-        };
-
-        const formatError = (fallback: string, errorData: unknown): string => {
-          try {
-            const attRequest = (attestationPayload as { attRequest?: Record<string, unknown> }).attRequest;
-            void chrome.storage.local.set({
-              kaitoPrimusFullErrorDebug: {
-                fallback,
-                errorData,
-                attRequest: attRequest
-                  ? {
-                      appId: attRequest.appId,
-                      attTemplateID: attRequest.attTemplateID,
-                      userAddress: attRequest.userAddress,
-                      requestid: attRequest.requestid,
-                      keys: Object.keys(attRequest),
-                    }
-                  : undefined,
-                hasAppSignature: Boolean((attestationPayload as { appSignature?: string }).appSignature),
-                hasRawAttRequest: Boolean((attestationPayload as { kaitoRawAttRequest?: string }).kaitoRawAttRequest),
-                rawAttRequestLength: (attestationPayload as { kaitoRawAttRequest?: string }).kaitoRawAttRequest?.length,
-                at: Date.now(),
-              },
-            });
-          } catch {
-
-          }
-          if (!errorData || typeof errorData !== 'object') {
-            return fallback;
-          }
-          const value = errorData as Record<string, unknown>;
-          const code = typeof value.code === 'string' ? value.code : '';
-          const detail =
-            (typeof value.data === 'string' && value.data) ||
-            (typeof value.desc === 'string' && value.desc) ||
-            (typeof value.message === 'string' && value.message) ||
-            '';
-          const debug = JSON.stringify(errorData, (_key, jsonValue) =>
-            typeof jsonValue === 'bigint' ? jsonValue.toString() : jsonValue
-          );
-          return [code, detail, debug].filter(Boolean).join(': ') || fallback;
-        };
-
-        const isTransientAlgorithmError = (errorData: unknown): boolean => {
-          if (!errorData || typeof errorData !== 'object') {
-            return false;
-          }
-          const blob = JSON.stringify(errorData).toLowerCase();
-          return (
-            blob.includes('can not re-run online') ||
-            blob.includes('has not been initialized')
-          );
-        };
-
-        const exactUrlFromExpression = (value: unknown): string | undefined => {
-          if (typeof value !== 'string' || value.length === 0) {
-            return undefined;
-          }
-          let expression = value.trim();
-          expression = expression.replace(/\(\?:\\\?\.\*\)\?\$$/, '');
-          expression = expression.replace(/\$$/, '');
-          expression = expression.replace(/\\\./g, '.');
-          expression = expression.replace(/\\\//g, '/');
-          if (!/^https?:\/\//.test(expression) || /[()[\]{}|+*?^$]/.test(expression)) {
-            return undefined;
-          }
-          return expression;
-        };
-
-        const targetUrlMatches = (actualUrl: string, expectedExpression: string): boolean => {
-          const exactUrl = exactUrlFromExpression(expectedExpression);
-          if (exactUrl) {
-            return actualUrl === exactUrl || actualUrl.startsWith(`${exactUrl}?`);
-          }
-          try {
-            return new RegExp(`^${expectedExpression}`).test(actualUrl);
-          } catch {
-            return actualUrl === expectedExpression || actualUrl.startsWith(`${expectedExpression}?`);
-          }
-        };
-
-        const triggerTemplateRequests = () => {
-          window.setTimeout(() => {
-            void (async () => {
-              let parsed: unknown;
-              try {
-                const template = (attestationPayload as PrimusStartPayload).kaitoTemplate;
-                parsed = template?.dataSourceTemplate ? JSON.parse(template.dataSourceTemplate) : [];
-              } catch {
-                parsed = [];
+            const cleanup = () => {
+              if (settled) return;
+              settled = true;
+              if (pollingTimer !== undefined) {
+                clearInterval(pollingTimer);
               }
-              if (!Array.isArray(parsed)) {
+              if (timeoutTimer !== undefined) {
+                clearTimeout(timeoutTimer);
+              }
+              if (responseTimeoutTimer !== undefined) {
+                clearTimeout(responseTimeoutTimer);
+              }
+              window.removeEventListener('message', onMessage);
+            };
+
+            const fail = (error: string) => {
+              cleanup();
+              resolve(encodeResult({ ok: false, error }));
+            };
+
+            const formatError = (fallback: string, errorData: unknown): string => {
+              try {
+                const attRequest = (attestationPayload as { attRequest?: Record<string, unknown> })
+                  .attRequest;
+                void chrome.storage.local.set({
+                  kaitoPrimusFullErrorDebug: {
+                    fallback,
+                    errorData,
+                    attRequest: attRequest
+                      ? {
+                          appId: attRequest.appId,
+                          attTemplateID: attRequest.attTemplateID,
+                          userAddress: attRequest.userAddress,
+                          requestid: attRequest.requestid,
+                          keys: Object.keys(attRequest),
+                        }
+                      : undefined,
+                    hasAppSignature: Boolean(
+                      (attestationPayload as { appSignature?: string }).appSignature,
+                    ),
+                    hasRawAttRequest: Boolean(
+                      (attestationPayload as { kaitoRawAttRequest?: string }).kaitoRawAttRequest,
+                    ),
+                    rawAttRequestLength: (attestationPayload as { kaitoRawAttRequest?: string })
+                      .kaitoRawAttRequest?.length,
+                    at: Date.now(),
+                  },
+                });
+              } catch {}
+              if (!errorData || typeof errorData !== 'object') {
+                return fallback;
+              }
+              const value = errorData as Record<string, unknown>;
+              const code = typeof value.code === 'string' ? value.code : '';
+              const detail =
+                (typeof value.data === 'string' && value.data) ||
+                (typeof value.desc === 'string' && value.desc) ||
+                (typeof value.message === 'string' && value.message) ||
+                '';
+              const debug = JSON.stringify(errorData, (_key, jsonValue) =>
+                typeof jsonValue === 'bigint' ? jsonValue.toString() : jsonValue,
+              );
+              return [code, detail, debug].filter(Boolean).join(': ') || fallback;
+            };
+
+            const isTransientAlgorithmError = (errorData: unknown): boolean => {
+              if (!errorData || typeof errorData !== 'object') {
+                return false;
+              }
+              const blob = JSON.stringify(errorData).toLowerCase();
+              return (
+                blob.includes('can not re-run online') || blob.includes('has not been initialized')
+              );
+            };
+
+            const exactUrlFromExpression = (value: unknown): string | undefined => {
+              if (typeof value !== 'string' || value.length === 0) {
+                return undefined;
+              }
+              let expression = value.trim();
+              expression = expression.replace(/\(\?:\\\?\.\*\)\?\$$/, '');
+              expression = expression.replace(/\$$/, '');
+              expression = expression.replace(/\\\./g, '.');
+              expression = expression.replace(/\\\//g, '/');
+              if (!/^https?:\/\//.test(expression) || /[()[\]{}|+*?^$]/.test(expression)) {
+                return undefined;
+              }
+              return expression;
+            };
+
+            const targetUrlMatches = (actualUrl: string, expectedExpression: string): boolean => {
+              const exactUrl = exactUrlFromExpression(expectedExpression);
+              if (exactUrl) {
+                return actualUrl === exactUrl || actualUrl.startsWith(`${exactUrl}?`);
+              }
+              try {
+                return new RegExp(`^${expectedExpression}`).test(actualUrl);
+              } catch {
+                return (
+                  actualUrl === expectedExpression || actualUrl.startsWith(`${expectedExpression}?`)
+                );
+              }
+            };
+
+            const triggerTemplateRequests = () => {
+              window.setTimeout(() => {
+                void (async () => {
+                  let parsed: unknown;
+                  try {
+                    const template = (attestationPayload as PrimusStartPayload).kaitoTemplate;
+                    parsed = template?.dataSourceTemplate
+                      ? JSON.parse(template.dataSourceTemplate)
+                      : [];
+                  } catch {
+                    parsed = [];
+                  }
+                  if (!Array.isArray(parsed)) {
+                    return;
+                  }
+
+                  const resourceUrls = performance
+                    .getEntriesByType('resource')
+                    .map((entry) => entry.name)
+                    .filter((url) => /^https?:\/\//.test(url));
+
+                  const cleanRealm = (() => {
+                    try {
+                      const frame = document.createElement('iframe');
+                      frame.style.display = 'none';
+                      document.documentElement.appendChild(frame);
+                      const cleanFetch = frame.contentWindow?.fetch?.bind(frame.contentWindow);
+                      return { fetch: cleanFetch, cleanup: () => frame.remove() };
+                    } catch {
+                      return { fetch: undefined, cleanup: () => undefined };
+                    }
+                  })();
+
+                  const synthesizeUrl = async (
+                    expression: string,
+                    candidateValues: string[],
+                  ): Promise<string | undefined> => {
+                    const token = expression.match(/\[[^\]]+\]\{\d+(?:,\d+)?\}/);
+                    if (!token || token.index === undefined) {
+                      return undefined;
+                    }
+                    const unescapeLiteral = (fragment: string) =>
+                      fragment
+                        .replace(/\(\?:\\\?\.\*\)\?\$?$/, '')
+                        .replace(/\$$/, '')
+                        .replace(/\\(.)/g, '$1');
+                    const prefix = unescapeLiteral(expression.slice(0, token.index));
+                    const suffix = unescapeLiteral(expression.slice(token.index + token[0].length));
+
+                    if (/\[[^\]]+\]\{\d+/.test(expression.slice(token.index + token[0].length))) {
+                      return undefined;
+                    }
+                    let valueRe: RegExp;
+                    try {
+                      valueRe = new RegExp(`^${token[0]}$`);
+                    } catch {
+                      return undefined;
+                    }
+                    const values = candidateValues.filter((candidate) => valueRe.test(candidate));
+                    if (values.length === 0) {
+                      return undefined;
+                    }
+
+                    if (!cleanRealm.fetch) {
+                      return `${prefix}${values[0]}${suffix}`;
+                    }
+                    for (const value of values) {
+                      const url = `${prefix}${value}${suffix}`;
+                      try {
+                        const response = await cleanRealm.fetch(url, {
+                          credentials: 'include',
+                          cache: 'no-store',
+                        });
+                        if (response.ok) {
+                          return url;
+                        }
+                      } catch {}
+                    }
+                    return undefined;
+                  };
+
+                  const getTemplates = parsed.flatMap((entry) => {
+                    const method = String(entry?.requestTemplate?.method || 'GET').toUpperCase();
+                    if (method !== 'GET') {
+                      return [];
+                    }
+                    const expression = entry?.requestTemplate?.targetUrlExpression;
+                    if (typeof expression !== 'string' || expression.length === 0) {
+                      return [];
+                    }
+                    return [expression];
+                  });
+
+                  const resolved = new Map<string, string>();
+                  const unresolved: string[] = [];
+                  for (const expression of getTemplates) {
+                    const matchedUrl = [...resourceUrls]
+                      .reverse()
+                      .find((url) => targetUrlMatches(url, expression));
+                    if (matchedUrl) {
+                      resolved.set(expression, matchedUrl);
+                      continue;
+                    }
+                    const exactUrl = exactUrlFromExpression(expression);
+                    if (exactUrl) {
+                      resolved.set(expression, exactUrl);
+                    } else {
+                      unresolved.push(expression);
+                    }
+                  }
+
+                  if (unresolved.length > 0) {
+                    const candidateValues = [
+                      ...document.cookie.split(/;\s*/).flatMap((part) => part.split('=')),
+                      ...[...resolved.values()].flatMap((url) => url.split(/[/?#&=]/)),
+                      ...resourceUrls.flatMap((url) => url.split(/[/?#&=]/)),
+                    ]
+                      .map((segment) => segment.trim())
+                      .filter(Boolean)
+                      .filter((segment, index, all) => all.indexOf(segment) === index);
+                    for (const expression of unresolved) {
+                      const synthesized = await synthesizeUrl(expression, candidateValues);
+                      if (synthesized) {
+                        resolved.set(expression, synthesized);
+                        console.log('[kaito-attest] synthesized target request URL', synthesized);
+                      } else {
+                        console.log('[kaito-attest] target request URL unresolved', expression);
+                      }
+                    }
+                  }
+                  const urls = [...resolved.values()].filter(
+                    (url, index, all) => all.indexOf(url) === index,
+                  );
+
+                  const probeCredentials = async (
+                    url: string,
+                  ): Promise<RequestCredentials | null> => {
+                    if (!cleanRealm.fetch) {
+                      return 'include';
+                    }
+                    for (const credentials of ['include', 'omit'] as const) {
+                      try {
+                        const response = await cleanRealm.fetch(url, {
+                          credentials,
+                          cache: 'no-store',
+                        });
+                        if (response.ok) {
+                          return credentials;
+                        }
+                      } catch {}
+                    }
+                    return null;
+                  };
+
+                  for (const url of urls) {
+                    const credentials = await probeCredentials(url);
+                    if (!credentials) {
+                      console.log(
+                        '[kaito-attest] skip trigger (bare request not 2xx; rely on page traffic)',
+                        url,
+                      );
+                      continue;
+                    }
+                    try {
+                      await fetch(url, { credentials, cache: 'no-store' });
+                      console.log(
+                        '[kaito-attest] triggered target request for Primus capture',
+                        url,
+                        credentials,
+                      );
+                    } catch (error) {
+                      console.log('[kaito-attest] target request trigger failed', url, error);
+                    }
+                  }
+
+                  cleanRealm.cleanup();
+                })();
+              }, 1_500);
+            };
+
+            const onMessage = (event: MessageEvent) => {
+              const data = event.data;
+              if (data?.target !== 'padoZKAttestationJSSDK') {
                 return;
               }
 
-              const resourceUrls = performance
-                .getEntriesByType('resource')
-                .map((entry) => entry.name)
-                .filter((url) => /^https?:\/\//.test(url));
+              if (data.name === 'initAttestationRes') {
+                appendTrace('adapter_receive_initAttestationRes', {
+                  result: data.params?.result === true,
+                  errorCode: data.params?.errorData?.code || null,
+                });
+                if (!data.params?.result) {
+                  fail(formatError('primus_init_failed', data.params?.errorData));
+                  return;
+                }
+                if (startRequested) {
+                  return;
+                }
+                startRequested = true;
 
-              const cleanRealm = (() => {
-                try {
-                  const frame = document.createElement('iframe');
-                  frame.style.display = 'none';
-                  document.documentElement.appendChild(frame);
-                  const cleanFetch = frame.contentWindow?.fetch?.bind(frame.contentWindow);
-                  return { fetch: cleanFetch, cleanup: () => frame.remove() };
-                } catch {
-                  return { fetch: undefined, cleanup: () => undefined };
-                }
-              })();
-
-              const synthesizeUrl = async (
-                expression: string,
-                candidateValues: string[]
-              ): Promise<string | undefined> => {
-                const token = expression.match(/\[[^\]]+\]\{\d+(?:,\d+)?\}/);
-                if (!token || token.index === undefined) {
-                  return undefined;
-                }
-                const unescapeLiteral = (fragment: string) =>
-                  fragment.replace(/\(\?:\\\?\.\*\)\?\$?$/, '').replace(/\$$/, '').replace(/\\(.)/g, '$1');
-                const prefix = unescapeLiteral(expression.slice(0, token.index));
-                const suffix = unescapeLiteral(expression.slice(token.index + token[0].length));
-
-                if (/\[[^\]]+\]\{\d+/.test(expression.slice(token.index + token[0].length))) {
-                  return undefined;
-                }
-                let valueRe: RegExp;
-                try {
-                  valueRe = new RegExp(`^${token[0]}$`);
-                } catch {
-                  return undefined;
-                }
-                const values = candidateValues.filter((candidate) => valueRe.test(candidate));
-                if (values.length === 0) {
-                  return undefined;
-                }
-
-                if (!cleanRealm.fetch) {
-                  return `${prefix}${values[0]}${suffix}`;
-                }
-                for (const value of values) {
-                  const url = `${prefix}${value}${suffix}`;
-                  try {
-                    const response = await cleanRealm.fetch(url, { credentials: 'include', cache: 'no-store' });
-                    if (response.ok) {
-                      return url;
-                    }
-                  } catch {
-
-                  }
-                }
-                return undefined;
-              };
-
-              const getTemplates = parsed.flatMap((entry) => {
-                const method = String(entry?.requestTemplate?.method || 'GET').toUpperCase();
-                if (method !== 'GET') {
-                  return [];
-                }
-                const expression = entry?.requestTemplate?.targetUrlExpression;
-                if (typeof expression !== 'string' || expression.length === 0) {
-                  return [];
-                }
-                return [expression];
-              });
-
-              const resolved = new Map<string, string>();
-              const unresolved: string[] = [];
-              for (const expression of getTemplates) {
-
-                const matchedUrl = [...resourceUrls].reverse().find((url) => targetUrlMatches(url, expression));
-                if (matchedUrl) {
-                  resolved.set(expression, matchedUrl);
-                  continue;
-                }
-                const exactUrl = exactUrlFromExpression(expression);
-                if (exactUrl) {
-                  resolved.set(expression, exactUrl);
-                } else {
-                  unresolved.push(expression);
-                }
+                appendTrace('adapter_post_startAttestation', {
+                  hasAttRequest: Boolean(attestationPayload?.attRequest),
+                  hasKaitoTemplate: Boolean(attestationPayload?.kaitoTemplate),
+                });
+                window.postMessage(
+                  {
+                    target: 'kaitoPadoExtension',
+                    origin: 'padoZKAttestationJSSDK',
+                    name: 'startAttestation',
+                    params: {
+                      ...attestationPayload,
+                      sdkVersion,
+                      clientType,
+                    },
+                  },
+                  '*',
+                );
+                triggerTemplateRequests();
+                return;
               }
 
-              if (unresolved.length > 0) {
-
-                const candidateValues = [
-                  ...document.cookie.split(/;\s*/).flatMap((part) => part.split('=')),
-                  ...[...resolved.values()].flatMap((url) => url.split(/[/?#&=]/)),
-                  ...resourceUrls.flatMap((url) => url.split(/[/?#&=]/)),
-                ]
-                  .map((segment) => segment.trim())
-                  .filter(Boolean)
-                  .filter((segment, index, all) => all.indexOf(segment) === index);
-                for (const expression of unresolved) {
-                  const synthesized = await synthesizeUrl(expression, candidateValues);
-                  if (synthesized) {
-                    resolved.set(expression, synthesized);
-                    console.log('[kaito-attest] synthesized target request URL', synthesized);
-                  } else {
-                    console.log('[kaito-attest] target request URL unresolved', expression);
+              if (data.name === 'getAttestationRes') {
+                if (!data.params?.result) {
+                  if (isTransientAlgorithmError(data.params?.errorData)) {
+                    console.log(
+                      '[kaito-attest] ignoring transient getAttestationRes error (concurrent run)',
+                    );
+                    return;
                   }
+                  fail(formatError('primus_attestation_failed', data.params?.errorData));
+                  return;
                 }
-              }
-              const urls = [...resolved.values()].filter((url, index, all) => all.indexOf(url) === index);
 
-              const probeCredentials = async (url: string): Promise<RequestCredentials | null> => {
-                if (!cleanRealm.fetch) {
-                  return 'include';
+                if (pollingTimer !== undefined || timeoutTimer !== undefined) {
+                  return;
                 }
-                for (const credentials of ['include', 'omit'] as const) {
-                  try {
-                    const response = await cleanRealm.fetch(url, { credentials, cache: 'no-store' });
-                    if (response.ok) {
-                      return credentials;
-                    }
-                  } catch {
 
-                  }
-                }
-                return null;
-              };
+                timeoutTimer = window.setTimeout(() => {
+                  cleanup();
+                  window.postMessage(
+                    {
+                      target: 'kaitoPadoExtension',
+                      origin: 'padoZKAttestationJSSDK',
+                      name: 'getAttestationResultTimeout',
+                      params: {},
+                    },
+                    '*',
+                  );
+                  resolve(encodeResult({ ok: false, error: 'attestation_timeout' }));
+                }, pollingTimeoutMs);
 
-              for (const url of urls) {
-                const credentials = await probeCredentials(url);
-                if (!credentials) {
-                  console.log('[kaito-attest] skip trigger (bare request not 2xx; rely on page traffic)', url);
-                  continue;
-                }
-                try {
-                  await fetch(url, { credentials, cache: 'no-store' });
-                  console.log('[kaito-attest] triggered target request for Primus capture', url, credentials);
-                } catch (error) {
-                  console.log('[kaito-attest] target request trigger failed', url, error);
-                }
+                pollingTimer = window.setInterval(() => {
+                  window.postMessage(
+                    {
+                      target: 'kaitoPadoExtension',
+                      origin: 'padoZKAttestationJSSDK',
+                      name: 'getAttestationResult',
+                      params: {},
+                    },
+                    '*',
+                  );
+                }, 1_000);
+                return;
               }
 
-              cleanRealm.cleanup();
+              if (data.name === 'startAttestationRes') {
+                console.log('[kaito-attest] startAttestationRes received', data.params);
+                if (!data.params?.result) {
+                  if (isTransientAlgorithmError(data.params?.errorData)) {
+                    console.log(
+                      '[kaito-attest] ignoring transient startAttestationRes error (concurrent run)',
+                    );
+                    return;
+                  }
+                  fail(formatError('primus_start_failed', data.params?.errorData));
+                  return;
+                }
 
-            })();
-          }, 1_500);
-        };
+                cleanup();
+                const attestation = data.params?.data;
+                if (!attestation || typeof attestation !== 'object') {
+                  resolve(encodeResult({ ok: false, error: 'attestation_missing_result' }));
+                  return;
+                }
+                const keys = Object.keys(attestation);
+                console.log('[kaito-attest] returning attestation keys:', keys);
+                resolve(encodeResult({ ok: true, attestation: attestation as Attestation, keys }));
+              }
+            };
 
-        const onMessage = (event: MessageEvent) => {
-          const data = event.data;
-          if (data?.target !== 'padoZKAttestationJSSDK') {
-            return;
-          }
-
-	          if (data.name === 'initAttestationRes') {
-            appendTrace('adapter_receive_initAttestationRes', {
-              result: data.params?.result === true,
-              errorCode: data.params?.errorData?.code || null,
-            });
-	            if (!data.params?.result) {
-	              fail(formatError('primus_init_failed', data.params?.errorData));
-              return;
-            }
-            if (startRequested) {
-              return;
-            }
-	            startRequested = true;
-
-            appendTrace('adapter_post_startAttestation', {
-              hasAttRequest: Boolean(attestationPayload?.attRequest),
-              hasKaitoTemplate: Boolean(attestationPayload?.kaitoTemplate),
-            });
-	            window.postMessage(
+            window.addEventListener('message', onMessage);
+            responseTimeoutTimer = window.setTimeout(() => {
+              fail(startRequested ? 'primus_attestation_no_response' : 'primus_init_no_response');
+            }, responseTimeoutMs);
+            console.log('[kaito-attest] posting initAttestation');
+            appendTrace('adapter_post_initAttestation');
+            window.postMessage(
               {
                 target: 'kaitoPadoExtension',
                 origin: 'padoZKAttestationJSSDK',
-                name: 'startAttestation',
+                name: 'initAttestation',
                 params: {
-                  ...attestationPayload,
                   sdkVersion,
                   clientType,
                 },
               },
-              '*'
+              '*',
             );
-            triggerTemplateRequests();
-            return;
-          }
-
-          if (data.name === 'getAttestationRes') {
-            if (!data.params?.result) {
-              if (isTransientAlgorithmError(data.params?.errorData)) {
-                console.log('[kaito-attest] ignoring transient getAttestationRes error (concurrent run)');
-                return;
-              }
-              fail(formatError('primus_attestation_failed', data.params?.errorData));
-              return;
-            }
-
-            if (pollingTimer !== undefined || timeoutTimer !== undefined) {
-              return;
-            }
-
-            timeoutTimer = window.setTimeout(() => {
-              cleanup();
-              window.postMessage(
-                {
-                  target: 'kaitoPadoExtension',
-                  origin: 'padoZKAttestationJSSDK',
-                  name: 'getAttestationResultTimeout',
-                  params: {},
-                },
-                '*'
-              );
-              resolve(encodeResult({ ok: false, error: 'attestation_timeout' }));
-            }, pollingTimeoutMs);
-
-            pollingTimer = window.setInterval(() => {
-              window.postMessage(
-                {
-                  target: 'kaitoPadoExtension',
-                  origin: 'padoZKAttestationJSSDK',
-                  name: 'getAttestationResult',
-                  params: {},
-                },
-                '*'
-              );
-            }, 1_000);
-            return;
-          }
-
-          if (data.name === 'startAttestationRes') {
-            console.log('[kaito-attest] startAttestationRes received', data.params);
-            if (!data.params?.result) {
-              if (isTransientAlgorithmError(data.params?.errorData)) {
-                console.log('[kaito-attest] ignoring transient startAttestationRes error (concurrent run)');
-                return;
-              }
-              fail(formatError('primus_start_failed', data.params?.errorData));
-              return;
-            }
-
-            cleanup();
-            const attestation = data.params?.data;
-            if (!attestation || typeof attestation !== 'object') {
-              resolve(encodeResult({ ok: false, error: 'attestation_missing_result' }));
-              return;
-            }
-            const keys = Object.keys(attestation);
-            console.log('[kaito-attest] returning attestation keys:', keys);
-            resolve(encodeResult({ ok: true, attestation: attestation as Attestation, keys }));
-          }
-        };
-
-        window.addEventListener('message', onMessage);
-        responseTimeoutTimer = window.setTimeout(() => {
-          fail(startRequested ? 'primus_attestation_no_response' : 'primus_init_no_response');
-	        }, responseTimeoutMs);
-	        console.log('[kaito-attest] posting initAttestation');
-        appendTrace('adapter_post_initAttestation');
-	        window.postMessage(
-          {
-            target: 'kaitoPadoExtension',
-            origin: 'padoZKAttestationJSSDK',
-            name: 'initAttestation',
-            params: {
-              sdkVersion,
-              clientType,
-            },
-          },
-          '*'
-        );
+          });
+        },
       });
-    },
-	  });
       await writeExecuteDebug('after_execute_script', {
         attempt,
         hasResultObject: Boolean(result),
@@ -2012,7 +2097,7 @@ async function executeAttestation(tabId: number, payload: PrimusStartPayload): P
   }
 
   const bridgeResult = parseBridgeResult(
-    unwrapInjectionResult<AttestationBridgeWireResult>(result, 'attestation_execute_failed')
+    unwrapInjectionResult<AttestationBridgeWireResult>(result, 'attestation_execute_failed'),
   );
   await writeExecuteDebug('parsed_bridge_result', {
     ok: bridgeResult.ok,
@@ -2065,7 +2150,9 @@ function parseBridgeResult(value: string): AttestationBridgeResult {
     }
     return parsed;
   } catch (error) {
-    throw new Error(`attestation_execute_invalid_result: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `attestation_execute_invalid_result: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

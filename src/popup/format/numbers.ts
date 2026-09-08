@@ -1,4 +1,3 @@
-
 import { ACCOUNT_SIZE_FLOOR_USD } from '@/shared/account-size';
 
 export const NO_VALUE = '-';
@@ -26,7 +25,10 @@ export function formatUsd(value: number | null | undefined): string {
 export function formatSignedUsdCents(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return NO_VALUE;
   const sign = value < 0 ? '-' : '+';
-  const abs = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(value).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   return `${sign}$${abs}`;
 }
 

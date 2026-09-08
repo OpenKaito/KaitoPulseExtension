@@ -1,4 +1,3 @@
-
 import { PLATFORM_CATALOG } from '@/verify/catalog';
 
 const BRAND_COLORS: Record<string, string> = {

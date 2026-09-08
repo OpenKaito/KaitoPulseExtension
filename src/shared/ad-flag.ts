@@ -1,4 +1,3 @@
-
 export type AdFlagWriteResult = {
   flagged: boolean;
   reason: string | null;

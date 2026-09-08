@@ -1,4 +1,3 @@
-
 import type {
   SocialCardScope,
   VoicesSmartEngagementActivity,
@@ -26,7 +25,6 @@ export interface ExtensionSocialCardActivityResponse {
 }
 
 export interface ExtensionSocialCard {
-
   imageUrl: string | null;
 
   shortUrl: string | null;

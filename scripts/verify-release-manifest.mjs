@@ -16,7 +16,9 @@ const manifestPath = process.env.MANIFEST;
 const identity = process.env.IDENTITY || 'unpinned';
 
 if (!version || !manifestPath) {
-  console.error('  ✗ usage: VERSION=<x.y.z> MANIFEST=<path> [IDENTITY=pinned|unpinned] node scripts/verify-release-manifest.mjs');
+  console.error(
+    '  ✗ usage: VERSION=<x.y.z> MANIFEST=<path> [IDENTITY=pinned|unpinned] node scripts/verify-release-manifest.mjs',
+  );
   process.exit(1);
 }
 if (identity !== 'pinned' && identity !== 'unpinned') {
@@ -42,20 +44,24 @@ if (m.version !== version) {
 }
 
 if (identity === 'unpinned') {
-
   if (m.key) {
-    fails.push('manifest carries a `key` — not uploadable (expected UNPINNED_EXTENSION_ID=1 via pnpm zip:upload)');
+    fails.push(
+      'manifest carries a `key` — not uploadable (expected UNPINNED_EXTENSION_ID=1 via pnpm zip:upload)',
+    );
   } else {
     passes.push('manifest carries no `key` (Web Store assigns the id on publish)');
   }
 } else {
-
   if (!m.key) {
-    fails.push('manifest carries no `key` — a build loaded unpacked would get a path-derived id and could not sign in (UNPINNED_EXTENSION_ID must NOT be set for this build)');
+    fails.push(
+      'manifest carries no `key` — a build loaded unpacked would get a path-derived id and could not sign in (UNPINNED_EXTENSION_ID must NOT be set for this build)',
+    );
   } else {
     const id = extensionIdFromKey(m.key);
     if (id !== PINNED_EXTENSION_ID) {
-      fails.push(`manifest key derives to ${id}, not the allowlisted ${PINNED_EXTENSION_ID} — this build could not sign in`);
+      fails.push(
+        `manifest key derives to ${id}, not the allowlisted ${PINNED_EXTENSION_ID} — this build could not sign in`,
+      );
     } else {
       passes.push(`manifest key derives to the allowlisted id ${PINNED_EXTENSION_ID}`);
     }
@@ -78,8 +84,12 @@ const expectedVerifierOrigins = new Set([
   'https://hub.axisrobotics.ai/*',
 ]);
 const actualVerifierOrigins = new Set(m.optional_host_permissions || []);
-const missingVerifierOrigins = [...expectedVerifierOrigins].filter((origin) => !actualVerifierOrigins.has(origin));
-const unexpectedVerifierOrigins = [...actualVerifierOrigins].filter((origin) => !expectedVerifierOrigins.has(origin));
+const missingVerifierOrigins = [...expectedVerifierOrigins].filter(
+  (origin) => !actualVerifierOrigins.has(origin),
+);
+const unexpectedVerifierOrigins = [...actualVerifierOrigins].filter(
+  (origin) => !expectedVerifierOrigins.has(origin),
+);
 if (missingVerifierOrigins.length || unexpectedVerifierOrigins.length) {
   if (missingVerifierOrigins.length) {
     fails.push(`missing verifier origins: ${missingVerifierOrigins.join(', ')}`);
@@ -91,6 +101,28 @@ if (missingVerifierOrigins.length || unexpectedVerifierOrigins.length) {
   fails.push('x.com verifier origin is missing from host_permissions');
 } else {
   passes.push('verifier origins are limited to X, Polymarket, and Axis');
+}
+
+const optionalVerifierDomains = [...actualVerifierOrigins]
+  .map((origin) => origin.match(/^https:\/\/(?:\*\.)?([^/]+)\//)?.[1])
+  .filter(Boolean);
+const staticVerifierScripts = (m.content_scripts || []).filter((script) =>
+  (script.matches || []).some((pattern) => {
+    const host = pattern.match(/^https:\/\/(?:\*\.)?([^/]+)\//)?.[1];
+    return (
+      host &&
+      optionalVerifierDomains.some((domain) => host === domain || host.endsWith(`.${domain}`))
+    );
+  }),
+);
+if (staticVerifierScripts.length) {
+  fails.push(
+    `optional verifier origins must not have static content scripts: ${staticVerifierScripts
+      .flatMap((script) => script.matches || [])
+      .join(', ')}`,
+  );
+} else {
+  passes.push('optional verifier origins have no static content scripts');
 }
 
 console.log(`  · ${manifestPath} (expected identity: ${identity})`);

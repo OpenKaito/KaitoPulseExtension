@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import partnerLockupUrl from './assets/kaito-yaps-news.svg?inline';
 import { DataColumn } from './DataColumn';
 import { IdentityColumn } from './IdentityColumn';

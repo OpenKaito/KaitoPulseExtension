@@ -3,7 +3,10 @@ import { For, Show, type Component } from 'solid-js';
 export const StatCard: Component<{ label: string; value: string; loading?: boolean }> = (props) => (
   <div class="pv-card">
     <p class="pv-card__label">{props.label}</p>
-    <Show when={!props.loading} fallback={<span class="rf-sk pv-sk--card-value" aria-hidden="true" />}>
+    <Show
+      when={!props.loading}
+      fallback={<span class="rf-sk pv-sk--card-value" aria-hidden="true" />}
+    >
       <p class="pv-card__value">{props.value}</p>
     </Show>
   </div>

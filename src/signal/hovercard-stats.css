@@ -1,4 +1,3 @@
-
 .signal-hc-stats {
   display: flex;
   flex-direction: column;
@@ -6,7 +5,7 @@
   width: 100%;
   box-sizing: border-box;
   margin-top: 16px;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .signal-hc-stats * {
@@ -76,6 +75,12 @@
   white-space: nowrap;
 }
 
+.signal-hc-stats__badge {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
 .signal-hc-stats__sk {
   display: block;
   border-radius: 4px;
@@ -102,6 +107,11 @@
   .signal-hc-stats__sk {
     animation: none;
   }
+}
+
+.signal-hc-stats__sk--heading {
+  width: 140px;
+  height: 20px;
 }
 
 .signal-hc-stats__sk--label {

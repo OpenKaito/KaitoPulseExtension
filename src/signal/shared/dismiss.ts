@@ -1,8 +1,7 @@
-
 export type DismissTarget = HTMLElement | (() => HTMLElement | null | undefined);
 
 function resolveTarget(target: DismissTarget): HTMLElement | null | undefined {
-  return typeof target === "function" ? target() : target;
+  return typeof target === 'function' ? target() : target;
 }
 
 export function isEventInside(event: Event, root: HTMLElement): boolean {
@@ -10,7 +9,6 @@ export function isEventInside(event: Event, root: HTMLElement): boolean {
 }
 
 export interface DismissWatcherHandlers {
-
   onOutsideClick?: (event: MouseEvent) => void;
 
   onScroll?: (event: Event) => void;
@@ -37,13 +35,13 @@ export function attachDismissWatcher(
   };
   const onResize = (): void => handlers.onResize?.();
 
-  if (handlers.onOutsideClick) doc.addEventListener("click", onDocClick);
-  if (handlers.onScroll) win.addEventListener("scroll", onScroll, true);
-  if (handlers.onResize) win.addEventListener("resize", onResize);
+  if (handlers.onOutsideClick) doc.addEventListener('click', onDocClick);
+  if (handlers.onScroll) win.addEventListener('scroll', onScroll, true);
+  if (handlers.onResize) win.addEventListener('resize', onResize);
 
   return () => {
-    doc.removeEventListener("click", onDocClick);
-    win.removeEventListener("scroll", onScroll, true);
-    win.removeEventListener("resize", onResize);
+    doc.removeEventListener('click', onDocClick);
+    win.removeEventListener('scroll', onScroll, true);
+    win.removeEventListener('resize', onResize);
   };
 }

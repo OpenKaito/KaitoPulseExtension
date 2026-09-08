@@ -1,5 +1,4 @@
-
-import { type ViewerIdentity } from '@/shared/viewer';
+import type { ViewerIdentity } from '@/shared/viewer';
 import { viewerItem } from '@/shared/storage';
 import { SIGNAL_DOM_SELECTORS } from './dom/selectors';
 import { getAvatarRootHandle } from './dom/adapter';
@@ -72,7 +71,6 @@ class ViewerIdentityTracker {
     const cookieId = deriveViewerId(this.doc);
 
     if (!handle) {
-
       if (cookieId) void this.persist(null, cookieId);
       return false;
     }
@@ -98,9 +96,7 @@ class ViewerIdentityTracker {
     if (id === null || handle === null) {
       try {
         existing = await viewerItem.getValue();
-      } catch {
-
-      }
+      } catch {}
     }
     if (id === null && existing?.handle === handle && existing.id) {
       return;
@@ -111,9 +107,7 @@ class ViewerIdentityTracker {
       await viewerItem.setValue(value);
 
       logger.log(`viewer @${effectiveHandle ?? '?'} id=${id ?? 'pending'}`);
-    } catch {
-
-    }
+    } catch {}
   }
 }
 

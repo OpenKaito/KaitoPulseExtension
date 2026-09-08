@@ -1,4 +1,3 @@
-
 import type { CircleProofAccount, FollowRecommendationResponse } from '@/shared/recommend-follow';
 import type { IncludedAccount, PlatformGroup, PopupData, SmartFollower } from '@/popup/data/types';
 import type { ExtensionSocialCard } from '@/shared/extension-social';
@@ -34,27 +33,147 @@ const FIXTURE_VIEW_SECONDS = 2700;
 const FIXTURE_INVITE_CODE = '8k2f';
 
 const TOP_SMART_FOLLOWERS: SmartFollower[] = [
-  { twitterId: xId('follower', 1), username: 'Larkfield', handle: '@0xLarkfield', followers: 128, avatarUrl: avatar(8) },
-  { twitterId: xId('follower', 2), username: 'Nightpool', handle: '@nightpool_x', followers: 112, avatarUrl: avatar(52) },
-  { twitterId: xId('follower', 3), username: 'Tidewalker', handle: '@tidewalker', followers: 96, avatarUrl: avatar(96) },
-  { twitterId: xId('follower', 4), username: 'Ketra', handle: '@KetraTrades', followers: 84, avatarUrl: avatar(140) },
-  { twitterId: xId('follower', 5), username: 'GRN', handle: '@GrandRenewal', followers: 73, avatarUrl: avatar(184) },
-  { twitterId: xId('follower', 6), username: 'Nimbus AI', handle: '@Nimbus_Labs', followers: 61, avatarUrl: avatar(228) },
-  { twitterId: xId('follower', 7), username: 'EVinvestor', handle: '@iamEVinvestor', followers: 49, avatarUrl: avatar(272) },
-  { twitterId: xId('follower', 8), username: 'Pentanode', handle: '@Pentanode', followers: 37, avatarUrl: avatar(316) },
+  {
+    twitterId: xId('follower', 1),
+    username: 'Larkfield',
+    handle: '@0xLarkfield',
+    followers: 128,
+    avatarUrl: avatar(8),
+  },
+  {
+    twitterId: xId('follower', 2),
+    username: 'Nightpool',
+    handle: '@nightpool_x',
+    followers: 112,
+    avatarUrl: avatar(52),
+  },
+  {
+    twitterId: xId('follower', 3),
+    username: 'Tidewalker',
+    handle: '@tidewalker',
+    followers: 96,
+    avatarUrl: avatar(96),
+  },
+  {
+    twitterId: xId('follower', 4),
+    username: 'Ketra',
+    handle: '@KetraTrades',
+    followers: 84,
+    avatarUrl: avatar(140),
+  },
+  {
+    twitterId: xId('follower', 5),
+    username: 'GRN',
+    handle: '@GrandRenewal',
+    followers: 73,
+    avatarUrl: avatar(184),
+  },
+  {
+    twitterId: xId('follower', 6),
+    username: 'Nimbus AI',
+    handle: '@Nimbus_Labs',
+    followers: 61,
+    avatarUrl: avatar(228),
+  },
+  {
+    twitterId: xId('follower', 7),
+    username: 'EVinvestor',
+    handle: '@iamEVinvestor',
+    followers: 49,
+    avatarUrl: avatar(272),
+  },
+  {
+    twitterId: xId('follower', 8),
+    username: 'Pentanode',
+    handle: '@Pentanode',
+    followers: 37,
+    avatarUrl: avatar(316),
+  },
 
-  { twitterId: xId('follower', 9), username: 'Weftdart', handle: '@weftdart', followers: 34, avatarUrl: avatar(20) },
-  { twitterId: xId('follower', 10), username: 'Alden Merrow', handle: '@CryptoMerrow', followers: 31, avatarUrl: avatar(64) },
-  { twitterId: xId('follower', 11), username: 'Vesper', handle: '@VesperKalind', followers: 29, avatarUrl: avatar(108) },
-  { twitterId: xId('follower', 12), username: 'punk4417', handle: '@punk4417', followers: 27, avatarUrl: avatar(152) },
-  { twitterId: xId('follower', 13), username: 'weiluo', handle: '@weiluo', followers: 24, avatarUrl: avatar(196) },
-  { twitterId: xId('follower', 14), username: 'Tantalus', handle: '@0xTantalus', followers: 22, avatarUrl: avatar(240) },
-  { twitterId: xId('follower', 15), username: 'Adrian Renwick', handle: '@Renwickk', followers: 19, avatarUrl: avatar(284) },
-  { twitterId: xId('follower', 16), username: 'tinyling', handle: '@tinyling', followers: 17, avatarUrl: avatar(328) },
-  { twitterId: xId('follower', 17), username: 'DeFi Orren', handle: '@DefiOrren', followers: 15, avatarUrl: avatar(36) },
-  { twitterId: xId('follower', 18), username: 'Path 2 FI', handle: '@Path2FI', followers: 12, avatarUrl: avatar(80) },
-  { twitterId: xId('follower', 19), username: 'Mossy', handle: '@chunkymoss_', followers: 10, avatarUrl: avatar(124) },
-  { twitterId: xId('follower', 20), username: 'Cream Lane', handle: '@CreamLaneDaily', followers: 8, avatarUrl: avatar(168) },
+  {
+    twitterId: xId('follower', 9),
+    username: 'Weftdart',
+    handle: '@weftdart',
+    followers: 34,
+    avatarUrl: avatar(20),
+  },
+  {
+    twitterId: xId('follower', 10),
+    username: 'Alden Merrow',
+    handle: '@CryptoMerrow',
+    followers: 31,
+    avatarUrl: avatar(64),
+  },
+  {
+    twitterId: xId('follower', 11),
+    username: 'Vesper',
+    handle: '@VesperKalind',
+    followers: 29,
+    avatarUrl: avatar(108),
+  },
+  {
+    twitterId: xId('follower', 12),
+    username: 'punk4417',
+    handle: '@punk4417',
+    followers: 27,
+    avatarUrl: avatar(152),
+  },
+  {
+    twitterId: xId('follower', 13),
+    username: 'weiluo',
+    handle: '@weiluo',
+    followers: 24,
+    avatarUrl: avatar(196),
+  },
+  {
+    twitterId: xId('follower', 14),
+    username: 'Tantalus',
+    handle: '@0xTantalus',
+    followers: 22,
+    avatarUrl: avatar(240),
+  },
+  {
+    twitterId: xId('follower', 15),
+    username: 'Adrian Renwick',
+    handle: '@Renwickk',
+    followers: 19,
+    avatarUrl: avatar(284),
+  },
+  {
+    twitterId: xId('follower', 16),
+    username: 'tinyling',
+    handle: '@tinyling',
+    followers: 17,
+    avatarUrl: avatar(328),
+  },
+  {
+    twitterId: xId('follower', 17),
+    username: 'DeFi Orren',
+    handle: '@DefiOrren',
+    followers: 15,
+    avatarUrl: avatar(36),
+  },
+  {
+    twitterId: xId('follower', 18),
+    username: 'Path 2 FI',
+    handle: '@Path2FI',
+    followers: 12,
+    avatarUrl: avatar(80),
+  },
+  {
+    twitterId: xId('follower', 19),
+    username: 'Mossy',
+    handle: '@chunkymoss_',
+    followers: 10,
+    avatarUrl: avatar(124),
+  },
+  {
+    twitterId: xId('follower', 20),
+    username: 'Cream Lane',
+    handle: '@CreamLaneDaily',
+    followers: 8,
+    avatarUrl: avatar(168),
+  },
 ];
 
 const HL_MAIN_ADDRESS = evmAddress('hyperliquid', 0);
@@ -146,12 +265,7 @@ const POLYMARKET_ACCOUNT: IncludedAccount = {
 
 const HYPERLIQUID_ACCOUNTS: IncludedAccount[] = [HL_MAIN, HL_SECOND, HL_THIRD];
 
-const INCLUDED_ACCOUNTS: IncludedAccount[] = [
-  HL_MAIN,
-  HL_SECOND,
-  HL_THIRD,
-  POLYMARKET_ACCOUNT,
-];
+const INCLUDED_ACCOUNTS: IncludedAccount[] = [HL_MAIN, HL_SECOND, HL_THIRD, POLYMARKET_ACCOUNT];
 
 const FIXTURE_PLATFORM_GROUPS: PlatformGroup[] = [
   {
@@ -190,6 +304,8 @@ export const FIXTURE_DATA: PopupData = {
     aura: 84,
     auraDelta: 18,
     smartFollowers: 12456,
+
+    verifiedFollowers: 12456,
     accountSize: 1,
     allTimePnlUsd: 127450,
   },
@@ -287,7 +403,6 @@ export const FIXTURE_SOCIAL_CARD_LINKS: ExtensionSocialCard = {
 
 function circleProof(hues: number[]): CircleProofAccount[] {
   return hues.map((hue, index) => ({
-
     twitterId: xId(`circle/${hue}`, index),
     handle: `mutual_${hue}`,
     displayName: `Mutual ${index + 1}`,
@@ -296,7 +411,6 @@ function circleProof(hues: number[]): CircleProofAccount[] {
 }
 
 export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
-
   computedAt: FIXTURE_NOW,
 
   nextRefreshAt: FIXTURE_NOW + 5 * 60_000,
@@ -314,10 +428,17 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
       tags: ['AI', 'Crypto', 'Trading'],
       creatorType: 'Creator',
       bio: 'Autonomous market intelligence.',
-      evidence: { impressionCnt: 41, clickCnt: 6, dwellSeconds: 214, lastSeenAt: minutesBefore(167), seenPostCount: 12, maxViewSeconds: 137 },
+      evidence: {
+        impressionCnt: 41,
+        clickCnt: 6,
+        dwellSeconds: 214,
+        lastSeenAt: minutesBefore(167),
+        seenPostCount: 12,
+        maxViewSeconds: 137,
+      },
 
       circleCount: 37,
-      circleProof: circleProof([12, 84, 190]),
+      circleProof: circleProof([12, 84, 190, 26, 300, 58, 212, 140, 340, 96, 168, 240, 8]),
     },
     {
       rank: 2,
@@ -330,7 +451,14 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
       tags: ['Crypto', 'DeFi'],
       creatorType: null,
       bio: 'Rolling the boulder onchain.',
-      evidence: { impressionCnt: 22, clickCnt: 3, dwellSeconds: 96, lastSeenAt: minutesBefore(167), seenPostCount: 8, maxViewSeconds: 41 },
+      evidence: {
+        impressionCnt: 22,
+        clickCnt: 3,
+        dwellSeconds: 96,
+        lastSeenAt: minutesBefore(167),
+        seenPostCount: 8,
+        maxViewSeconds: 41,
+      },
       circleCount: 3,
       circleProof: circleProof([44, 150, 300]),
     },
@@ -346,7 +474,14 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
       creatorType: 'Project',
 
       bio: 'Community-run account for everything Monad. Not the official team.',
-      evidence: { impressionCnt: 15, clickCnt: 0, dwellSeconds: 58, lastSeenAt: minutesBefore(167), seenPostCount: 5, maxViewSeconds: 23 },
+      evidence: {
+        impressionCnt: 15,
+        clickCnt: 0,
+        dwellSeconds: 58,
+        lastSeenAt: minutesBefore(167),
+        seenPostCount: 5,
+        maxViewSeconds: 23,
+      },
 
       circleCount: 1,
       circleProof: circleProof([210]),
@@ -365,7 +500,14 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
       circleCount: 0,
       circleProof: [],
       bio: 'thoughts from the latent space.',
-      evidence: { impressionCnt: 9, clickCnt: 2, dwellSeconds: 33, lastSeenAt: minutesBefore(167), seenPostCount: 4, maxViewSeconds: 0 },
+      evidence: {
+        impressionCnt: 9,
+        clickCnt: 2,
+        dwellSeconds: 33,
+        lastSeenAt: minutesBefore(167),
+        seenPostCount: 4,
+        maxViewSeconds: 0,
+      },
     },
     {
       rank: 5,
@@ -378,7 +520,14 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
       tags: ['Trading', 'DeFi', 'Perps'],
       creatorType: 'Project',
       bio: 'A performant L1 for a fully onchain open financial system.',
-      evidence: { impressionCnt: 7, clickCnt: 0, dwellSeconds: 19, lastSeenAt: minutesBefore(167), seenPostCount: 3, maxViewSeconds: 0 },
+      evidence: {
+        impressionCnt: 7,
+        clickCnt: 0,
+        dwellSeconds: 19,
+        lastSeenAt: minutesBefore(167),
+        seenPostCount: 3,
+        maxViewSeconds: 0,
+      },
 
       circleCount: 212,
       circleProof: [],

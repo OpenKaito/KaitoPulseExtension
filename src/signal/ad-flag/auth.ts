@@ -1,4 +1,3 @@
-
 import { takeAuthIntent } from '@/shared/auth-gate';
 import { ownerFocusCallbacks } from '@/shared/owner-focus';
 import { sessionItem } from '@/shared/storage';
@@ -67,7 +66,6 @@ export function watchAdFlagAuthReplay(
       const remove = await takeAuthIntent('ad-flag-remove');
       if (!active) return;
       if (!remove) {
-
         onIntentMissing(actionToken);
         return;
       }
@@ -105,7 +103,6 @@ export function watchAdFlagAuthReplay(
   }
 
   function onVisibilityChange(): void {
-
     if (windowFocusObserved) replayWhenOwnerFocused();
   }
 

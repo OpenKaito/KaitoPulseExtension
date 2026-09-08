@@ -1,32 +1,37 @@
-import { createSignal, type Accessor, type Setter, Show, Switch, Match, type JSX } from "solid-js";
-import { render } from "solid-js/web";
-import type { SignalPopoverData, SignalProfileSnapshot, SignalProtocol } from "./types";
-import { HyperliquidCard, PolymarketCard, UserHeader } from "./shared/cards";
-import { createLogger } from "./logger";
-import { hostPrefersDark } from "./host-theme";
-import { hoverCardToPopoverData } from "./social-card-map";
-import { PopoverSkeleton, PopoverError } from "./name-tag-popover-states";
-import { PopoverTotalsRow } from "./name-tag-popover-totals";
-import { getHoverCard } from "./hover-card-store";
-import { positionFloating } from "./shared/floating-position";
-import { attachDismissWatcher } from "./shared/dismiss";
-import popoverCss from "./name-tag-popover.css?inline";
+import { createSignal, type Accessor, type Setter, Show, Switch, Match, type JSX } from 'solid-js';
+import { render } from 'solid-js/web';
+import type { SignalPopoverData, SignalProfileSnapshot, SignalProtocol } from './types';
+import { HyperliquidCard, PolymarketCard, UserHeader } from './shared/cards';
+import { createLogger } from './logger';
+import { hostPrefersDark } from './host-theme';
+import { hoverCardToPopoverData } from './social-card-map';
+import { PopoverSkeleton, PopoverError } from './name-tag-popover-states';
+import { PopoverTotalsRow } from './name-tag-popover-totals';
+import { hasServedTotals } from './shared/totals';
+import { getHoverCard } from './hover-card-store';
+import { positionFloating } from './shared/floating-position';
+import { attachDismissWatcher } from './shared/dismiss';
+import popoverCss from './name-tag-popover.css?inline';
 
-import popoverV2Css from "./name-tag-popover-v2.css?inline";
-import { createShadowHost } from "./shared/shadow-host";
+import popoverV2Css from './name-tag-popover-v2.css?inline';
+import { createShadowHost } from './shared/shadow-host';
 
-type ExpandedCard = "hyperliquid" | "polymarket" | null;
-type PopoverStatus = "idle" | "loading" | "loaded" | "error";
+type ExpandedCard = 'hyperliquid' | 'polymarket' | null;
+type PopoverStatus = 'idle' | 'loading' | 'loaded' | 'error';
+
+type SelectedAccounts = Record<'hyperliquid' | 'polymarket', number>;
+
+const FIRST_ACCOUNT_SELECTED: SelectedAccounts = { hyperliquid: 0, polymarket: 0 };
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 200;
 
-const ALL_SIGNAL_PROTOCOLS: SignalProtocol[] = ["hyperliquid", "polymarket"];
+const ALL_SIGNAL_PROTOCOLS: SignalProtocol[] = ['hyperliquid', 'polymarket'];
 
 export async function loadPopoverData(twitterId: string): Promise<SignalPopoverData> {
   const result = await getHoverCard(twitterId);
   if (!result) {
-    throw new Error("hover-card returned no data");
+    throw new Error('hover-card returned no data');
   }
   return hoverCardToPopoverData(result);
 }
@@ -51,7 +56,9 @@ function PopoverPanel(props: {
   expanded: Accessor<ExpandedCard>;
 
   hyperliquidPeriod: Accessor<string>;
-  onToggle: (card: "hyperliquid" | "polymarket") => void;
+  selectedAccount: Accessor<Record<'hyperliquid' | 'polymarket', number>>;
+  onToggle: (card: 'hyperliquid' | 'polymarket') => void;
+  onSelectAccount: (card: 'hyperliquid' | 'polymarket', index: number) => void;
   onSelectHyperliquidPeriod: (period: string) => void;
   onRetry: () => void;
 }): JSX.Element {
@@ -61,31 +68,42 @@ function PopoverPanel(props: {
         {(profile) => (
           <UserHeader
             profile={profile()}
-            bioPending={() => props.status() === "idle" || props.status() === "loading"}
+            bioPending={() => props.status() === 'idle' || props.status() === 'loading'}
             bio={() => props.data()?.bio}
           />
         )}
       </Show>
       {}
-      <Show when={props.status() === "loaded" && props.data()?.totals}>
+      <Show
+        when={
+          props.status() === 'loaded' && hasServedTotals(props.data()?.totals)
+            ? props.data()?.totals
+            : undefined
+        }
+      >
         {(totals) => <PopoverTotalsRow totals={totals()} />}
       </Show>
-      <div class="signal-popover__body" aria-busy={props.status() === "loading" ? "true" : undefined}>
+      <div
+        class="signal-popover__body"
+        aria-busy={props.status() === 'loading' ? 'true' : undefined}
+      >
         <Switch>
-          <Match when={props.status() === "loading"}>
+          <Match when={props.status() === 'loading'}>
             <PopoverSkeleton platforms={props.platforms} />
           </Match>
-          <Match when={props.status() === "error"}>
+          <Match when={props.status() === 'error'}>
             <PopoverError onRetry={props.onRetry} />
           </Match>
-          <Match when={props.status() === "loaded"}>
+          <Match when={props.status() === 'loaded'}>
             <Show when={props.data()?.hyperliquid}>
               {(hl) => (
                 <HyperliquidCard
                   data={hl()}
-                  expanded={props.expanded() === "hyperliquid"}
+                  expanded={props.expanded() === 'hyperliquid'}
                   period={props.hyperliquidPeriod()}
-                  onToggle={() => props.onToggle("hyperliquid")}
+                  selected={props.selectedAccount().hyperliquid}
+                  onSelect={(index) => props.onSelectAccount('hyperliquid', index)}
+                  onToggle={() => props.onToggle('hyperliquid')}
                   onSelectPeriod={props.onSelectHyperliquidPeriod}
                 />
               )}
@@ -94,8 +112,10 @@ function PopoverPanel(props: {
               {(pm) => (
                 <PolymarketCard
                   data={pm()}
-                  expanded={props.expanded() === "polymarket"}
-                  onToggle={() => props.onToggle("polymarket")}
+                  expanded={props.expanded() === 'polymarket'}
+                  selected={props.selectedAccount().polymarket}
+                  onSelect={(index) => props.onSelectAccount('polymarket', index)}
+                  onToggle={() => props.onToggle('polymarket')}
                 />
               )}
             </Show>
@@ -107,7 +127,7 @@ function PopoverPanel(props: {
 }
 
 export class NameTagPopover {
-  private readonly logger = createLogger("popover");
+  private readonly logger = createLogger('popover');
   private readonly document: Document;
   private readonly window: Window;
   private readonly entries = new WeakMap<HTMLElement, PopoverEntry>();
@@ -127,6 +147,8 @@ export class NameTagPopover {
   private setExpanded!: Setter<ExpandedCard>;
   private hyperliquidPeriod!: Accessor<string>;
   private setHyperliquidPeriod!: Setter<string>;
+  private selectedAccount!: Accessor<SelectedAccounts>;
+  private setSelectedAccount!: Setter<SelectedAccounts>;
   private profile!: Accessor<SignalProfileSnapshot | undefined>;
   private setProfile!: Setter<SignalProfileSnapshot | undefined>;
 
@@ -142,11 +164,13 @@ export class NameTagPopover {
   constructor(doc: Document = document) {
     this.document = doc;
     this.window = doc.defaultView ?? window;
-    [this.status, this.setStatus] = createSignal<PopoverStatus>("idle");
+    [this.status, this.setStatus] = createSignal<PopoverStatus>('idle');
     [this.data, this.setData] = createSignal<SignalPopoverData | null>(null);
     [this.platforms, this.setPlatforms] = createSignal<SignalProtocol[]>(ALL_SIGNAL_PROTOCOLS);
     [this.expanded, this.setExpanded] = createSignal<ExpandedCard>(null);
-    [this.hyperliquidPeriod, this.setHyperliquidPeriod] = createSignal<string>("ALL");
+    [this.hyperliquidPeriod, this.setHyperliquidPeriod] = createSignal<string>('ALL');
+    [this.selectedAccount, this.setSelectedAccount] =
+      createSignal<SelectedAccounts>(FIRST_ACCOUNT_SELECTED);
     [this.profile, this.setProfile] = createSignal<SignalProfileSnapshot | undefined>(undefined);
   }
 
@@ -159,7 +183,6 @@ export class NameTagPopover {
     load: () => Promise<SignalPopoverData>,
     resolveProfile?: () => SignalProfileSnapshot | undefined,
   ): void {
-
     const existing = this.entries.get(tag);
     this.entries.set(tag, {
       load,
@@ -168,15 +191,15 @@ export class NameTagPopover {
       inflight: existing?.inflight,
       platforms: existing?.platforms,
     });
-    tag.addEventListener("mouseenter", this.onTagEnter);
-    tag.addEventListener("mouseleave", this.onTagLeave);
+    tag.addEventListener('mouseenter', this.onTagEnter);
+    tag.addEventListener('mouseleave', this.onTagLeave);
   }
 
   updatePlatforms(tag: HTMLElement, protocols: SignalProtocol[]): void {
     const entry = this.entries.get(tag);
     if (!entry) return;
     entry.platforms = protocols;
-    if (this.currentTag === tag && this.status() === "loading") {
+    if (this.currentTag === tag && this.status() === 'loading') {
       this.setPlatforms(protocols);
 
       this.position(tag.getBoundingClientRect());
@@ -184,8 +207,8 @@ export class NameTagPopover {
   }
 
   unregister(tag: HTMLElement): void {
-    tag.removeEventListener("mouseenter", this.onTagEnter);
-    tag.removeEventListener("mouseleave", this.onTagLeave);
+    tag.removeEventListener('mouseenter', this.onTagEnter);
+    tag.removeEventListener('mouseleave', this.onTagLeave);
     this.entries.delete(tag);
     if (this.currentTag === tag) this.close();
   }
@@ -193,7 +216,7 @@ export class NameTagPopover {
   private onTagEnter = (event: Event): void => {
     const tag = event.currentTarget as HTMLElement;
     this.cancelClose();
-    if (this.currentTag === tag && this.rootEl?.classList.contains("signal-popover--open")) {
+    if (this.currentTag === tag && this.rootEl?.classList.contains('signal-popover--open')) {
       return;
     }
     this.cancelOpen();
@@ -235,31 +258,33 @@ export class NameTagPopover {
     try {
       this.ensureElement();
       this.currentTag = tag;
-      this.setHyperliquidPeriod("ALL");
+      this.setHyperliquidPeriod('ALL');
       this.pointerInsidePopover = false;
 
-      this.rootEl!.classList.toggle("signal-popover--dark", hostPrefersDark(this.document));
+      this.rootEl!.classList.toggle('signal-popover--dark', hostPrefersDark(this.document));
 
       this.setProfile(entry.resolveProfile?.());
 
+      this.setSelectedAccount(FIRST_ACCOUNT_SELECTED);
+
       if (entry.data) {
         this.setData(entry.data);
-        this.setStatus("loaded");
+        this.setStatus('loaded');
         this.setExpanded(null);
       } else {
         this.setData(null);
         this.setPlatforms(entry.platforms ?? ALL_SIGNAL_PROTOCOLS);
-        this.setStatus("loading");
+        this.setStatus('loading');
         this.setExpanded(null);
         this.loadInto(tag, entry);
       }
 
       this.position(tag.getBoundingClientRect());
       this.scrollToExpandedCard();
-      this.rootEl!.classList.add("signal-popover--open");
+      this.rootEl!.classList.add('signal-popover--open');
       this.attachViewportListeners();
     } catch (error) {
-      this.logger.error("failed to open popover", error);
+      this.logger.error('failed to open popover', error);
     }
   }
 
@@ -275,27 +300,34 @@ export class NameTagPopover {
         entry.inflight = undefined;
         if (this.currentTag !== tag || !this.isOpen()) return;
         this.setData(data);
-        this.setStatus("loaded");
+        this.setStatus('loaded');
         this.setExpanded(null);
         this.position(tag.getBoundingClientRect());
         this.scrollToExpandedCard();
       },
       (error) => {
         entry.inflight = undefined;
-        this.logger.error("failed to load popover data", error);
+        this.logger.error('failed to load popover data', error);
         if (this.currentTag !== tag || !this.isOpen()) return;
-        this.setStatus("error");
+        this.setStatus('error');
         this.position(tag.getBoundingClientRect());
       },
     );
   }
 
   private isOpen(): boolean {
-    return this.rootEl?.classList.contains("signal-popover--open") ?? false;
+    return this.rootEl?.classList.contains('signal-popover--open') ?? false;
   }
 
   private toggle = (card: Exclude<ExpandedCard, null>): void => {
     this.setExpanded((prev) => (prev === card ? null : card));
+    if (this.currentTag) this.position(this.currentTag.getBoundingClientRect());
+  };
+
+  private selectAccount = (card: 'hyperliquid' | 'polymarket', index: number): void => {
+    this.setSelectedAccount((prev) => ({ ...prev, [card]: index }));
+    this.setExpanded(card);
+
     if (this.currentTag) this.position(this.currentTag.getBoundingClientRect());
   };
 
@@ -307,12 +339,12 @@ export class NameTagPopover {
     const root = this.rootEl;
     if (!root) return;
     const card = this.expanded();
-    if (!card || card === "hyperliquid") {
+    if (!card || card === 'hyperliquid') {
       root.scrollTop = 0;
       return;
     }
     const target = root.querySelector<HTMLElement>(`.signal-popover__card--${card}`);
-    const header = root.querySelector<HTMLElement>(".signal-popover__user");
+    const header = root.querySelector<HTMLElement>('.signal-popover__user');
     if (!target) return;
 
     root.scrollTop = Math.max(0, target.offsetTop - (header?.offsetHeight ?? 0));
@@ -322,9 +354,8 @@ export class NameTagPopover {
     const tag = this.currentTag;
     const entry = tag ? this.entries.get(tag) : undefined;
     if (tag && entry) {
-
       this.setPlatforms(entry.platforms ?? ALL_SIGNAL_PROTOCOLS);
-      this.setStatus("loading");
+      this.setStatus('loading');
       this.loadInto(tag, entry);
       this.position(tag.getBoundingClientRect());
     }
@@ -332,7 +363,7 @@ export class NameTagPopover {
 
   close = (): void => {
     if (!this.rootEl) return;
-    this.rootEl.classList.remove("signal-popover--open");
+    this.rootEl.classList.remove('signal-popover--open');
     this.currentTag = null;
     this.setExpanded(null);
     this.hoverRects = null;
@@ -342,7 +373,7 @@ export class NameTagPopover {
 
   private ensureElement(): HTMLElement {
     if (this.rootEl) return this.rootEl;
-    const { host, shadow } = createShadowHost(popoverCss + "\n" + popoverV2Css);
+    const { host, shadow } = createShadowHost(popoverCss + '\n' + popoverV2Css);
     this.dispose = render(
       () => (
         <PopoverPanel
@@ -353,7 +384,9 @@ export class NameTagPopover {
           platforms={this.platforms}
           expanded={this.expanded}
           hyperliquidPeriod={this.hyperliquidPeriod}
+          selectedAccount={this.selectedAccount}
           onToggle={this.toggle}
+          onSelectAccount={this.selectAccount}
           onSelectHyperliquidPeriod={this.selectPeriod}
           onRetry={this.retry}
         />
@@ -381,7 +414,7 @@ export class NameTagPopover {
   }
 
   private attachViewportListeners(): void {
-    this.document.addEventListener("mousemove", this.onPointerMove);
+    this.document.addEventListener('mousemove', this.onPointerMove);
     this.stopDismissWatcher = attachDismissWatcher(this.window, this.document, () => this.rootEl, {
       onScroll: () => {
         if (this.pointerInsidePopover) return;
@@ -392,7 +425,7 @@ export class NameTagPopover {
   }
 
   private detachViewportListeners(): void {
-    this.document.removeEventListener("mousemove", this.onPointerMove);
+    this.document.removeEventListener('mousemove', this.onPointerMove);
     this.stopDismissWatcher?.();
     this.stopDismissWatcher = null;
   }

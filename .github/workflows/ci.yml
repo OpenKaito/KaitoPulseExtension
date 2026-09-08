@@ -30,6 +30,29 @@ jobs:
       - name: Public-source hygiene
         run: bash scripts/check-public-source.sh
 
+      # The check above prints `clean` whether it passed or a pattern has quietly
+      # stopped matching anything, so the patterns themselves are tested: one
+      # specimen per rule, plus the strings this tree legitimately contains and
+      # must not be flagged for. Needs no build, so it runs in this job rather
+      # than the slow one. After the scan above, so a real finding in the tree
+      # is reported first.
+      - name: Public-source hygiene — pattern regression test
+        run: bash scripts/check-public-source.test.sh
+
+      # Same reasoning, one file over: release.sh can name the wrong artifact
+      # for the smoke test and log nothing out of the ordinary.
+      - name: Release script — gate regression test
+        run: bash scripts/release.test.sh
+
+      # The export gates, against throwaway private and public repositories.
+      # Slower than the rest of this job (~15s) because it drives several real
+      # publishes, and still far cheaper than the build job.
+      - name: Export script — gate regression test
+        run: bash scripts/publish-oss.test.sh
+
+      - name: Preflight — orchestration and summary regression test
+        run: bash scripts/release-preflight.test.sh
+
   build:
     name: Typecheck and build
     runs-on: ubuntu-latest
@@ -45,6 +68,15 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # Format and lint, before the vendor build, because it needs none of it
+      # and takes about half a second — the cheapest signal in the pipeline
+      # should also be the first. It lives in this job rather than the fast
+      # vocabulary one only because that job installs no node_modules.
+      #
+      # This is the same `biome check` the pre-commit hook runs, so a commit
+      # pushed with --no-verify is caught here.
+      - run: pnpm lint
 
       # The vendored fork is webpack-built separately. Building on Linux also
       # catches case-sensitive import errors.

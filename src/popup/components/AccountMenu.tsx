@@ -3,7 +3,6 @@ import { GearIcon, SignOutIcon } from '@/verify/ui/icons';
 import { signOut, viewer } from '../data/store';
 
 export const AccountMenu: Component = () => {
-
   const name = () => viewer()?.kaitoName || viewer()?.username || viewer()?.email || 'Kaito.ai';
   const subtitle = () => viewer()?.email || (viewer()?.username ? `@${viewer()?.username}` : '');
   const avatar = () => viewer()?.avatarUrl || '';
@@ -13,7 +12,8 @@ export const AccountMenu: Component = () => {
   let accountRef: HTMLDivElement | undefined;
 
   const onDocumentMouseDown = (event: MouseEvent): void => {
-    if (accountRef && event.target instanceof Node && !accountRef.contains(event.target)) setOpen(false);
+    if (accountRef && event.target instanceof Node && !accountRef.contains(event.target))
+      setOpen(false);
   };
   onMount(() => document.addEventListener('mousedown', onDocumentMouseDown));
   onCleanup(() => document.removeEventListener('mousedown', onDocumentMouseDown));
@@ -62,7 +62,12 @@ export const AccountMenu: Component = () => {
               </Show>
             </div>
           </div>
-          <button type="button" class="pv-account-menu__item" role="menuitem" onClick={openSettings}>
+          <button
+            type="button"
+            class="pv-account-menu__item"
+            role="menuitem"
+            onClick={openSettings}
+          >
             <GearIcon size={14} />
             <span>Settings</span>
           </button>

@@ -3,7 +3,6 @@ import { toMatchPatterns } from '@/shared/connect-origins';
 import { guard, logLocalError } from '@/lib/guard';
 
 export default defineContentScript({
-
   matches: toMatchPatterns(import.meta.env.VITE_KAITO_CONNECT_URL as string | undefined),
   runAt: 'document_idle',
   main() {

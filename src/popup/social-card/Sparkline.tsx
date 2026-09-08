@@ -1,4 +1,4 @@
-import { type Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import type { SharePoint } from './view-model';
 
 const W = 138;
@@ -88,7 +88,12 @@ export const Sparkline: Component<SparklineProps> = (props) => {
   const palette = () => PALETTES[props.variant];
 
   return (
-    <svg class="sc-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg
+      class="sc-spark"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
       {(() => {
         const g = geometry();
         if (!g) return null;
@@ -97,11 +102,25 @@ export const Sparkline: Component<SparklineProps> = (props) => {
         return (
           <>
             <defs>
-              <linearGradient id={lineId} x1={INSET_X} y1="0" x2={W - INSET_X} y2="0" gradientUnits="userSpaceOnUse">
+              <linearGradient
+                id={lineId}
+                x1={INSET_X}
+                y1="0"
+                x2={W - INSET_X}
+                y2="0"
+                gradientUnits="userSpaceOnUse"
+              >
                 <stop offset="0%" stop-color={palette().lineStart} />
                 <stop offset="100%" stop-color={palette().lineEnd} />
               </linearGradient>
-              <linearGradient id={areaId} x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
+              <linearGradient
+                id={areaId}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2={H}
+                gradientUnits="userSpaceOnUse"
+              >
                 <stop offset="0%" stop-color={palette().areaTop} />
                 <stop offset="100%" stop-color={palette().areaBottom} />
               </linearGradient>

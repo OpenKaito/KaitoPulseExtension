@@ -1,4 +1,3 @@
-
 import type { AttentionServeEvent } from '@/shared/attention';
 
 export const SERVE_SET_MESSAGE = 'kaito-attn-serve-set' as const;
@@ -9,8 +8,14 @@ export interface AttentionServeSetMessage {
 }
 
 export const DEFAULT_SERVE_SET_OPERATIONS = new Set([
-  'HomeTimeline', 'HomeLatestTimeline', 'TweetDetail', 'UserTweets',
-  'UserTweetsAndReplies', 'SearchTimeline', 'ListLatestTweetsTimeline', 'Bookmarks',
+  'HomeTimeline',
+  'HomeLatestTimeline',
+  'TweetDetail',
+  'UserTweets',
+  'UserTweetsAndReplies',
+  'SearchTimeline',
+  'ListLatestTweetsTimeline',
+  'Bookmarks',
 ]);
 
 const MAX_NODES = 50_000;
@@ -23,9 +28,10 @@ function readTweetResult(node: Record<string, unknown>): Record<string, unknown>
   if (!result || typeof result !== 'object') return null;
   const resultObj = result as Record<string, unknown>;
 
-  const unwrapped = resultObj.tweet && typeof resultObj.tweet === 'object'
-    ? (resultObj.tweet as Record<string, unknown>)
-    : resultObj;
+  const unwrapped =
+    resultObj.tweet && typeof resultObj.tweet === 'object'
+      ? (resultObj.tweet as Record<string, unknown>)
+      : resultObj;
   return unwrapped;
 }
 

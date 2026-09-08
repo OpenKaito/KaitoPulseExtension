@@ -98,7 +98,6 @@ function installSafeSendMessageHelpers(source: string): string {
 }
 
 function patchPrimusPageDecodeTabCreation(source: string): string {
-
   if (!source.includes('kaitoPrimusDisallowTabCreate'))
     throw new Error(
       '[primus] expected upstreamed tab-reuse marker kaitoPrimusDisallowTabCreate missing from background bundle — vendor may have dropped it',
@@ -130,7 +129,11 @@ function injectGuardIntoOffscreen(text: string): string {
 }
 
 function patchPrimusFloatingStatusUiJs(text: string): string {
-  if (!text.includes('document.body.appendChild(g),console.log("content_scripts-content-decode inject"')) {
+  if (
+    !text.includes(
+      'document.body.appendChild(g),console.log("content_scripts-content-decode inject"',
+    )
+  ) {
     return text;
   }
   return patchAssert(
@@ -188,7 +191,9 @@ function assertVendorPermissions(vendorPermissions: unknown): string[] {
       `[primus] vendor manifest "permissions" must be an array of strings: ${JSON.stringify(vendorPermissions)}`,
     );
   }
-  const unreviewed = vendorPermissions.filter((p: string) => !VENDOR_ALLOWED_PERMISSIONS.includes(p));
+  const unreviewed = vendorPermissions.filter(
+    (p: string) => !VENDOR_ALLOWED_PERMISSIONS.includes(p),
+  );
   if (unreviewed.length > 0) {
     throw new Error(
       `[primus] vendor manifest declares unreviewed API permission(s): ${unreviewed.join(', ')}. ` +
@@ -217,11 +222,13 @@ function mergeWebAccessibleResources(
   a: Array<{ resources: string[]; matches: string[] }> = [],
   b: Array<{ resources: string[]; matches: string[] }> = [],
 ) {
-  const seen = new Set<string>(); const merged: typeof a = [];
+  const seen = new Set<string>();
+  const merged: typeof a = [];
   for (const entry of [...a, ...b]) {
     const key = JSON.stringify(entry);
     if (seen.has(key)) continue;
-    seen.add(key); merged.push(entry);
+    seen.add(key);
+    merged.push(entry);
   }
   return merged;
 }
@@ -235,20 +242,20 @@ function primusLicenseAssets(): Array<{ relativeDest: string; contents: string }
   }
   if (!existsSync(GPL3_TEXT_PATH)) {
     throw new Error(
-      '[primus] licenses/GPL-3.0.txt is missing. LGPL-3.0 incorporates GPL-3.0 by '
-      + 'reference, so the release artifact must carry both texts. Save the verbatim '
-      + 'text from https://www.gnu.org/licenses/gpl-3.0.txt to licenses/GPL-3.0.txt.',
+      '[primus] licenses/GPL-3.0.txt is missing. LGPL-3.0 incorporates GPL-3.0 by ' +
+        'reference, so the release artifact must carry both texts. Save the verbatim ' +
+        'text from https://www.gnu.org/licenses/gpl-3.0.txt to licenses/GPL-3.0.txt.',
     );
   }
   const gpl = readFileSync(GPL3_TEXT_PATH, 'utf8');
   const gplDigest = createHash('sha256').update(gpl).digest('hex');
   if (!GPL3_ACCEPTED_SHA256.has(gplDigest)) {
     throw new Error(
-      `[primus] licenses/GPL-3.0.txt has been modified (sha256 ${gplDigest}). The GPL `
-      + 'text may only be distributed verbatim, so this build will not ship it. Restore '
-      + 'a clean copy from https://www.gnu.org/licenses/gpl-3.0.txt. If the FSF has '
-      + 'published a new revision, add its digest to GPL3_ACCEPTED_SHA256 deliberately '
-      + `— see licenses/README.md.`,
+      `[primus] licenses/GPL-3.0.txt has been modified (sha256 ${gplDigest}). The GPL ` +
+        'text may only be distributed verbatim, so this build will not ship it. Restore ' +
+        'a clean copy from https://www.gnu.org/licenses/gpl-3.0.txt. If the FSF has ' +
+        'published a new revision, add its digest to GPL3_ACCEPTED_SHA256 deliberately ' +
+        `— see licenses/README.md.`,
     );
   }
 
@@ -316,9 +323,9 @@ function vendorCommit(): string {
   if (pinned && /^[0-9a-f]{40}$/.test(pinned)) return pinned;
 
   throw new Error(
-    '[primus] cannot determine the pinned vendor/primus-core commit. It is required by '
-    + 'the LGPL notice in the release artifact. Either restore the submodule gitlink, or '
-    + 'commit the 40-character SHA to licenses/PRIMUS_VERSION.',
+    '[primus] cannot determine the pinned vendor/primus-core commit. It is required by ' +
+      'the LGPL notice in the release artifact. Either restore the submodule gitlink, or ' +
+      'commit the 40-character SHA to licenses/PRIMUS_VERSION.',
   );
 }
 
@@ -356,14 +363,12 @@ export default defineWxtModule({
 
         const isText = /\.(js|html|css)$/.test(relativeDest);
         if (!isText) {
-
           assets.push({ absoluteSrc: filePath, relativeDest });
           continue;
         }
 
         let text = readFileSync(filePath, 'utf8');
         if (relativeDest === 'background.bundle.js') {
-
           text = patchPrimusRuntimeEntrypoints(text);
         }
         if (relativeDest === 'pageDecode.bundle.js') {
@@ -376,7 +381,6 @@ export default defineWxtModule({
           text = injectGuardIntoOffscreen(text);
         }
         if (relativeDest.endsWith('.js') && !EXCLUDE_SENDER_PATCH(relativeDest)) {
-
           text = installSafeSendMessageHelpers(text);
         }
         assets.push({ relativeDest, contents: text });
@@ -389,14 +393,17 @@ export default defineWxtModule({
       const primus = JSON.parse(readFileSync(join(VENDOR_BUILD_DIR, 'manifest.json'), 'utf8'));
       const primusHostPermissions = primus.host_permissions;
       if (
-        (Array.isArray(primusHostPermissions) && primusHostPermissions.length > 0)
-        || (!Array.isArray(primusHostPermissions) && primusHostPermissions != null)
+        (Array.isArray(primusHostPermissions) && primusHostPermissions.length > 0) ||
+        (!Array.isArray(primusHostPermissions) && primusHostPermissions != null)
       ) {
         throw new Error(
           `[primus] vendor manifest must not declare required host_permissions: ${JSON.stringify(primusHostPermissions)}`,
         );
       }
-      manifest.permissions = unionStrings(manifest.permissions, assertVendorPermissions(primus.permissions));
+      manifest.permissions = unionStrings(
+        manifest.permissions,
+        assertVendorPermissions(primus.permissions),
+      );
 
       if (primus.content_security_policy && wxt.config.command === 'build') {
         manifest.content_security_policy = primus.content_security_policy;

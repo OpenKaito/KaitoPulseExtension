@@ -1,4 +1,3 @@
-
 export function stableHash(value: unknown): string {
   const stableString = stableStringify(value);
   return fnv1a(stableString);
@@ -18,11 +17,11 @@ export function stableStringify(value: unknown, seen: WeakSet<object> = new Weak
   seen.add(obj);
 
   if (Array.isArray(obj)) {
-    return '[' + obj.map(v => stableStringify(v, seen)).join(',') + ']';
+    return '[' + obj.map((v) => stableStringify(v, seen)).join(',') + ']';
   }
 
   const keys = Object.keys(obj).sort();
-  const entries = keys.map(k => `${JSON.stringify(k)}:${stableStringify(obj[k], seen)}`);
+  const entries = keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k], seen)}`);
   return '{' + entries.join(',') + '}';
 }
 

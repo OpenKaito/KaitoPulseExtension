@@ -197,13 +197,25 @@ Read the [Privacy Policy](https://swb.kaito.ai/pulse-privacy-policy) and
 ## Verify a change
 
 ```sh
+pnpm lint
 pnpm typecheck
 pnpm build
 ```
 
-There is currently no test runner or linter. Load the resulting extension and exercise the
-changed behavior manually. For signal UI work, test on `x.com` and confirm that the page
-console contains no Content Security Policy violations.
+`pnpm lint` runs [Biome](https://biomejs.dev) as both formatter and linter over `src`,
+`modules`, `scripts` and `wxt.config.ts`, including the CSS. `pnpm lint:fix` applies
+everything it can fix safely, and `pnpm format` restricts itself to formatting. The rule set
+is Biome's recommended one with a handful of rules turned down; `biome.jsonc` gives the reason
+beside each one.
+
+`pnpm install` points `core.hooksPath` at `.githooks`, whose `pre-commit` runs the same check
+over your staged files. It reports and refuses rather than rewriting what you staged, so a
+failure leaves your working tree exactly as you left it. `git commit --no-verify` skips it, and
+CI runs it anyway.
+
+There is still no test runner. Load the resulting extension and exercise the changed behavior
+manually. For signal UI work, test on `x.com` and confirm that the page console contains no
+Content Security Policy violations.
 
 To compare a key-less upload ZIP with a locally installable ZIP built from the same source:
 
@@ -232,7 +244,10 @@ is tied to source you can read.
 
 ## Contributing and support
 
-Unsolicited code contributions are not currently accepted. Bug reports and feature
+Unsolicited code contributions are not currently accepted. This repository is published,
+not developed in: every release replaces its whole tree with an export of the tagged
+source, so a commit landed here directly is overwritten by the next release rather than
+merged. Bug reports and feature
 requests use the repository's GitHub issue templates, and general usage questions belong
 in [SUPPORT.md](SUPPORT.md).
 Report vulnerabilities only through [SECURITY.md](SECURITY.md), never in a public issue.

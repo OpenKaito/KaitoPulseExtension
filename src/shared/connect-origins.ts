@@ -1,4 +1,3 @@
-
 export const DEFAULT_CONNECT_ORIGIN = 'https://kaito.ai';
 
 function parseEntries(connectOrigin: string | undefined): string[] {
@@ -27,9 +26,7 @@ export function toMatchPatterns(connectOrigin?: string): string[] {
       const isPlainHost = !host.includes('.') || /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
       matches.add(`${url.protocol}//${host}/*`);
       if (!isPlainHost) matches.add(`${url.protocol}//*.${host}/*`);
-    } catch {
-
-    }
+    } catch {}
   }
   return Array.from(matches);
 }

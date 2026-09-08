@@ -24,11 +24,9 @@ export async function injectConnectTabsAfterInstall(): Promise<void> {
     tabs.map(async (tab) => {
       if (tab.id === undefined) return false;
       try {
-
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files });
         return true;
       } catch (error) {
-
         logDev('inject failed for tab', tab.id, error);
         return false;
       }

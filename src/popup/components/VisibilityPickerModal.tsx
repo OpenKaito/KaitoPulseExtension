@@ -55,13 +55,18 @@ export const VisibilityPickerModal: Component<{
   };
 
   return (
-    <div class="pv-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Show your verified data on X?">
+    <div
+      class="pv-sheet-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Show your verified data on X?"
+    >
       <div class="pv-sheet pv-sheet--visibility">
         <div class="pv-sheet__head">
           <p class="pv-sheet__title pv-sheet__title--lg">Show your verified data on X?</p>
           <p class="pv-sheet__sub">
-            This is the master switch for verified trading data shown on X. Individual platform privacy settings
-            still apply.
+            This is the master switch for verified trading data shown on X. Individual platform
+            privacy settings still apply.
           </p>
         </div>
 
@@ -94,10 +99,20 @@ export const VisibilityPickerModal: Component<{
         </Show>
 
         <div class="pv-sheet__actions">
-          <button type="button" class="pv-sheet__cancel" disabled={saving()} onClick={() => props.onClose()}>
+          <button
+            type="button"
+            class="pv-sheet__cancel"
+            disabled={saving()}
+            onClick={() => props.onClose()}
+          >
             Cancel
           </button>
-          <button type="button" class="pv-sheet__confirm" disabled={saving()} onClick={() => void save()}>
+          <button
+            type="button"
+            class="pv-sheet__confirm"
+            disabled={saving()}
+            onClick={() => void save()}
+          >
             {saving() ? 'Saving…' : 'Save'}
           </button>
         </div>

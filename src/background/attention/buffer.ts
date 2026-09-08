@@ -1,11 +1,14 @@
-
 import {
   activityInsightsConsentItem,
   attnFingerprintItem,
   attnPendingEventsItem,
   attnPendingServeEventsItem,
 } from '@/shared/storage';
-import type { AttentionBehaviorEvent, AttentionFingerprint, AttentionServeEvent } from '@/shared/attention';
+import type {
+  AttentionBehaviorEvent,
+  AttentionFingerprint,
+  AttentionServeEvent,
+} from '@/shared/attention';
 
 const MAX_STORAGE_BYTES = 8 * 1024 * 1024;
 
@@ -48,7 +51,10 @@ export function recordAttentionEvents(
       attnPendingEventsItem.getValue(),
       attnPendingServeEventsItem.getValue(),
     ]);
-    const merged = evictToBudget(currentEvents.concat(events), currentServeEvents.concat(serveEvents));
+    const merged = evictToBudget(
+      currentEvents.concat(events),
+      currentServeEvents.concat(serveEvents),
+    );
     await Promise.all([
       attnPendingEventsItem.setValue(merged.behaviorEvents),
       attnPendingServeEventsItem.setValue(merged.serveEvents),

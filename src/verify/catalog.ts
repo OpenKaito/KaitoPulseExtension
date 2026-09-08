@@ -1,4 +1,3 @@
-
 import type { ExtensionProof, ExtensionVerifier } from '@/shared/contracts';
 import type { PlatformMeta, TaskStatus, VerifyCategory, VerifyTask } from './types';
 
@@ -12,9 +11,7 @@ const ZKTLS_FOOTNOTE =
   'Only a pass/fail proof is shared. We never see your password, and no funds will be moved.';
 
 export const PLATFORM_CATALOG: PlatformMeta[] = [
-
   {
-
     platform: 'polymarket',
     displayName: 'Polymarket',
     category: 'trading',
@@ -35,7 +32,6 @@ export const PLATFORM_CATALOG: PlatformMeta[] = [
     },
   },
   {
-
     platform: 'x',
     displayName: 'X',
     category: 'social',
@@ -85,9 +81,7 @@ type VerifierMetaOverride = Partial<Omit<PlatformMeta, 'tile' | 'detail'>> & {
   detail?: Partial<PlatformMeta['detail']>;
 };
 
-const VERIFIER_META_OVERRIDES: Record<string, VerifierMetaOverride> = {
-
-};
+const VERIFIER_META_OVERRIDES: Record<string, VerifierMetaOverride> = {};
 
 function metaForVerifier(base: PlatformMeta, verifierId: string): PlatformMeta {
   const override = VERIFIER_META_OVERRIDES[verifierId];
@@ -159,7 +153,6 @@ export function buildTasks(
     .sort((a, b) => orderOf(a.platform) - orderOf(b.platform));
 
   for (const verifier of sorted) {
-
     const base = CATALOG_BY_PLATFORM.get(verifier.platform) ?? metaForUnknownPlatform(verifier);
     const meta = metaForVerifier(base, verifier.id);
     seenPlatforms.add(verifier.platform);
@@ -179,7 +172,10 @@ export function buildTasks(
   return tasks.sort((a, b) => orderOf(a.meta.platform) - orderOf(b.meta.platform));
 }
 
-export function tasksInCategory(tasks: VerifyTask[], category: VerifyCategory | 'all'): VerifyTask[] {
+export function tasksInCategory(
+  tasks: VerifyTask[],
+  category: VerifyCategory | 'all',
+): VerifyTask[] {
   return category === 'all' ? tasks : tasks.filter((t) => t.meta.category === category);
 }
 

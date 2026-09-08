@@ -7,10 +7,13 @@ import { optionalProofTargetPatterns } from './src/shared/proof-targets';
 import { toMatchPatterns } from './src/shared/connect-origins';
 
 function assertNoMocks(outDir: string, logger: { info: (msg: string) => void }): void {
-  const output = execSync(`node ${resolve('scripts/assert-no-mocks.mjs')} ${JSON.stringify(outDir)}`, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
+  const output = execSync(
+    `node ${resolve('scripts/assert-no-mocks.mjs')} ${JSON.stringify(outDir)}`,
+    {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+    },
+  );
   logger.info(output.trim());
 }
 
@@ -37,13 +40,15 @@ function buildCommit(): string {
 }
 
 function envTag(mode: string): string {
-
   const target = process.env.VITE_KAITO_ENV || (mode === 'development' ? 'dev' : undefined);
   if (!target) return 'unknown';
   if (target === 'production') return 'prod';
   const normalized = target === 'development' ? 'dev' : target;
 
-  if (normalized === 'dev' && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(process.env.VITE_KAITO_API_BASE_URL || '')) {
+  if (
+    normalized === 'dev' &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(process.env.VITE_KAITO_API_BASE_URL || '')
+  ) {
     return 'local';
   }
   return normalized;
@@ -75,10 +80,7 @@ function extensionKey(): string | undefined {
   return extensionIdentity() === 'unpinned' ? undefined : PROD_EXTENSION_KEY;
 }
 
-const REQUIRED_HOST_PERMISSIONS = [
-  'https://x.com/*',
-  'https://*.x.com/*',
-];
+const REQUIRED_HOST_PERMISSIONS = ['https://x.com/*', 'https://*.x.com/*'];
 
 const OPTIONAL_VERIFIER_HOST_PERMISSIONS = optionalProofTargetPatterns();
 
@@ -112,13 +114,14 @@ export default defineConfig({
 
     resolve: {
       alias: {
-        'json-formatter-js/dist/json-formatter.css': resolve('node_modules/json-formatter-js/dist/json-formatter.css'),
+        'json-formatter-js/dist/json-formatter.css': resolve(
+          'node_modules/json-formatter-js/dist/json-formatter.css',
+        ),
       },
     },
   }),
   hooks: {
     'zip:start': (wxt) => {
-
       wxt.config.zip.artifactTemplate = zipArtifactTemplate(zipTag(wxt.config.mode));
 
       wxt.logger.info(`[kaito] zip artifact: ${wxt.config.zip.artifactTemplate}`);
@@ -141,7 +144,12 @@ export default defineConfig({
     action: {
       default_title: 'Kaito Pulse',
 
-      default_icon: { 16: 'icons/16.png', 32: 'icons/32.png', 48: 'icons/48.png', 128: 'icons/128.png' },
+      default_icon: {
+        16: 'icons/16.png',
+        32: 'icons/32.png',
+        48: 'icons/48.png',
+        128: 'icons/128.png',
+      },
     },
 
     permissions: ['storage', 'alarms', 'scripting', 'webRequest'],
@@ -150,6 +158,5 @@ export default defineConfig({
     externally_connectable: {
       matches: deriveConnectableMatches(),
     },
-
   }),
 });

@@ -3,7 +3,9 @@ import { For, type Component } from 'solid-js';
 export const POPUP_TABS = ['Aura', 'Social', 'Trading', 'X Analytics'] as const;
 export type PopupTab = (typeof POPUP_TABS)[number];
 
-export const TabBar: Component<{ active: PopupTab; onSelect: (tab: PopupTab) => void }> = (props) => (
+export const TabBar: Component<{ active: PopupTab; onSelect: (tab: PopupTab) => void }> = (
+  props,
+) => (
   <div class="pv-tabs" role="tablist">
     <For each={POPUP_TABS}>
       {(tab) => (

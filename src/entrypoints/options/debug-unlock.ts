@@ -1,4 +1,3 @@
-
 import { debugUnlockedItem } from '@/shared/storage';
 
 export async function loadDebugUnlocked(): Promise<boolean> {
@@ -18,9 +17,16 @@ export function subscribeDebugUnlocked(cb: (unlocked: boolean) => void): () => v
 }
 
 const KONAMI_SEQUENCE: readonly string[] = [
-  'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
-  'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight',
-  'KeyB', 'KeyA',
+  'ArrowUp',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowLeft',
+  'ArrowRight',
+  'KeyB',
+  'KeyA',
 ];
 
 export function attachKonami(onMatch: () => void): () => void {

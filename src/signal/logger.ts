@@ -4,14 +4,14 @@ type LogLevel = 'log' | 'info' | 'warn' | 'error';
 
 const APP_NAMESPACE = 'signal-ext';
 
-let enabledNamespaces = new Set<string>();
+const enabledNamespaces = new Set<string>();
 
 function enableNamespaces(input: string) {
   enabledNamespaces.clear();
 
   const patterns = input
     .split(/[\s,]+/)
-    .map(p => p.trim())
+    .map((p) => p.trim())
     .filter(Boolean);
 
   for (const pattern of patterns) {
@@ -51,17 +51,15 @@ export function createLogger(namespace: string) {
   const baseNs = `signal-ext:${namespace}`;
 
   function build(level: LogLevel) {
-
     const enabled = isEnabled(baseNs) || isEnabled(`${baseNs}:${level}`);
 
     if (!enabled) {
-
-      return () => { };
+      return () => {};
     }
 
     const raw =
-      (console[level] as ((...args: unknown[]) => void) | undefined)?.bind(console)
-      ?? console.log.bind(console);
+      (console[level] as ((...args: unknown[]) => void) | undefined)?.bind(console) ??
+      console.log.bind(console);
 
     const prefix = `%c[${baseNs}${level !== 'log' ? ':' + level : ''}]`;
     const style = levelStyle(level);

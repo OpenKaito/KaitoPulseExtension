@@ -1,4 +1,3 @@
-
 import type { AttentionBehaviorEvent } from '@/shared/attention';
 import { createAttentionEventId, sanitizePageUrl } from '@/shared/attention';
 
@@ -11,7 +10,6 @@ const TICK_MS = 30_000;
 const STALE_TICK_MS = TICK_MS * 3;
 
 export class PresenceTracker {
-
   private readonly tabId = createAttentionEventId();
   private spanStartedAt: number | null = null;
   private idle = false;

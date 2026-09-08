@@ -35,7 +35,6 @@ class FollowRelay {
         sendResponse(result);
       },
       (error) => {
-
         logger.error(`follow click for ${twitterId} threw`, error);
         sendResponse({ ok: false, error: 'follow_relay_exception' });
       },
@@ -66,7 +65,10 @@ function queryFollowControl(twitterId: string): HTMLElement | null {
 
 const POLL_INTERVAL_MS = 100;
 
-function waitFor(predicate: () => HTMLElement | null, timeoutMs: number): Promise<HTMLElement | null> {
+function waitFor(
+  predicate: () => HTMLElement | null,
+  timeoutMs: number,
+): Promise<HTMLElement | null> {
   return new Promise((resolve) => {
     const start = performance.now();
     const tick = (): void => {
@@ -121,15 +123,21 @@ function watchForFollowConfirmation(twitterId: string, control: HTMLElement): vo
 }
 
 function notifyFollowConfirmed(twitterId: string): void {
-  chrome.runtime.sendMessage({ type: 'kaito:followFromRecommendationConfirmed', twitterId } satisfies TabMessage).catch((error) => {
-    logger.error(`follow confirmation relay for ${twitterId} failed`, error);
-  });
+  chrome.runtime
+    .sendMessage({
+      type: 'kaito:followFromRecommendationConfirmed',
+      twitterId,
+    } satisfies TabMessage)
+    .catch((error) => {
+      logger.error(`follow confirmation relay for ${twitterId} failed`, error);
+    });
 }
 
-async function watchFollowConfirmation(twitterId: string): Promise<FollowFromRecommendationResponse> {
+async function watchFollowConfirmation(
+  twitterId: string,
+): Promise<FollowFromRecommendationResponse> {
   const control = await waitFor(() => queryFollowControl(twitterId), FIND_CONTROL_TIMEOUT_MS);
   if (!control) {
-
     return { ok: true };
   }
 

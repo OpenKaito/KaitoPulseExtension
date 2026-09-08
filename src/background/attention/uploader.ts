@@ -1,4 +1,3 @@
-
 import { api } from '@/lib/api';
 import { getStoredSession } from '@/lib/client-storage';
 import {
@@ -14,12 +13,19 @@ import {
 } from '@/shared/storage';
 import { byteLength, peekPendingBatch, removeSentBatch } from './buffer';
 import { getAttentionConfig, isConfigStale } from './remote-config';
-import { createAttentionEventId, type AttentionBehaviorEvent, type AttentionEventBatch } from '@/shared/attention';
+import {
+  createAttentionEventId,
+  type AttentionBehaviorEvent,
+  type AttentionEventBatch,
+} from '@/shared/attention';
 import { ApiError } from '@/shared/contracts';
 import { logDev } from '@/lib/env';
 
 const FLUSH_ALARM = 'attn-upload-flush';
 const DEFAULT_FLUSH_PERIOD_SEC = 30;
+// Chrome clamps anything shorter up to this anyway.
+const MIN_ALARM_DELAY_MS = DEFAULT_FLUSH_PERIOD_SEC * 1000;
+const BLOCKED_RETRY_MS = 5 * 60_000;
 
 const MAX_BATCH_BYTES = 1024 * 1024;
 const SERVER_MAX_BATCH_EVENTS = 500;
@@ -35,8 +41,11 @@ let flushToken = 0;
 
 const FLUSH_STALE_MS = 2 * 60_000;
 
+// The alarm is one-shot and only exists while there is something to send. A
+// standing periodic alarm wakes the worker forever, which keeps the extension
+// permanently non-idle and makes Chrome defer a pending update until the browser
+// is restarted.
 export function startAttentionUploader(): void {
-  chrome.alarms.create(FLUSH_ALARM, { periodInMinutes: DEFAULT_FLUSH_PERIOD_SEC / 60 });
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === FLUSH_ALARM) void flushOnce();
   });
@@ -44,22 +53,65 @@ export function startAttentionUploader(): void {
     authWatchStarted = true;
 
     sessionItem.watch((session) => {
-      if (session) void attnPausedAuthItem.setValue(false);
+      if (!session) return;
+      void attnPausedAuthItem.setValue(false).then(() => scheduleAttentionFlush());
     });
   }
+  void resumePendingFlush();
 }
 
-async function flushOnce(): Promise<void> {
+export async function scheduleAttentionFlush(delayMs = MIN_ALARM_DELAY_MS): Promise<void> {
+  const delay = Math.max(delayMs, MIN_ALARM_DELAY_MS);
+  const existing = await chrome.alarms.get(FLUSH_ALARM);
+  if (
+    existing &&
+    existing.periodInMinutes === undefined &&
+    existing.scheduledTime <= Date.now() + delay
+  ) {
+    return;
+  }
+  chrome.alarms.create(FLUSH_ALARM, { delayInMinutes: delay / 60_000 });
+}
 
+async function resumePendingFlush(): Promise<void> {
+  const existing = await chrome.alarms.get(FLUSH_ALARM);
+  // Alarms survive an update, so an install coming from 1.0.2 still carries the
+  // periodic one this version stopped creating.
+  if (existing?.periodInMinutes !== undefined) await chrome.alarms.clear(FLUSH_ALARM);
+  if (await hasPendingEvents()) await scheduleAttentionFlush();
+}
+
+async function hasPendingEvents(): Promise<boolean> {
+  const [events, serveEvents] = await Promise.all([
+    attnPendingEventsItem.getValue(),
+    attnPendingServeEventsItem.getValue(),
+  ]);
+  return events.length > 0 || serveEvents.length > 0;
+}
+
+async function scheduleNextFlush(outcome: FlushOutcome): Promise<void> {
+  if (outcome === 'drained') {
+    await chrome.alarms.clear(FLUSH_ALARM);
+    return;
+  }
+  const cursor = await attnCursorItem.getValue();
+  const base = outcome === 'blocked' ? BLOCKED_RETRY_MS : MIN_ALARM_DELAY_MS;
+  await scheduleAttentionFlush(Math.max(cursor.nextRetryAt - Date.now(), base));
+}
+
+type FlushOutcome = 'drained' | 'pending' | 'blocked';
+
+async function flushOnce(): Promise<void> {
   const startedAt = Date.now();
   if (flushStartedAt !== 0 && startedAt - flushStartedAt < FLUSH_STALE_MS) return;
   const token = ++flushToken;
   flushStartedAt = startedAt;
+  let outcome: FlushOutcome = 'blocked';
   try {
-    await flushOnceInner();
+    outcome = await flushOnceInner();
   } finally {
-
     if (flushToken === token) flushStartedAt = 0;
+    await scheduleNextFlush(outcome);
   }
 }
 
@@ -77,20 +129,20 @@ async function purgeIfNotConsented(): Promise<boolean> {
   return false;
 }
 
-async function flushOnceInner(): Promise<void> {
-  if (!(await purgeIfNotConsented())) return;
-  if (await attnPausedAuthItem.getValue()) return;
+async function flushOnceInner(): Promise<FlushOutcome> {
+  if (!(await purgeIfNotConsented())) return 'drained';
+  if (await attnPausedAuthItem.getValue()) return 'blocked';
   const cursor = await attnCursorItem.getValue();
-  if (Date.now() < cursor.nextRetryAt) return;
+  if (Date.now() < cursor.nextRetryAt) return 'pending';
 
   const config = await getAttentionConfig();
-  if (!config.collectEnabled || (await isConfigStale())) return;
+  if (!config.collectEnabled || (await isConfigStale())) return 'blocked';
 
   const session = await getStoredSession();
-  if (!session) return;
+  if (!session) return 'blocked';
 
   const fp = await attnFingerprintItem.getValue();
-  if (!fp) return;
+  if (!fp) return 'blocked';
 
   const context = { sessionUrl: '', extVersion: chrome.runtime.getManifest().version, fp };
   const envelope = {
@@ -105,7 +157,7 @@ async function flushOnceInner(): Promise<void> {
   const maxEvents = Math.min(config.maxBatchEvents, SERVER_MAX_BATCH_EVENTS);
 
   const { events, serveEvents } = await peekPendingBatch(maxEvents, eventBudget);
-  if (events.length === 0 && serveEvents.length === 0) return;
+  if (events.length === 0 && serveEvents.length === 0) return 'drained';
 
   const batch: AttentionEventBatch = {
     ...envelope,
@@ -128,6 +180,7 @@ async function flushOnceInner(): Promise<void> {
   } catch (error) {
     await handleUploadError(error, events, serveEvents.length);
   }
+  return 'pending';
 }
 
 async function reportRejections(
@@ -152,7 +205,6 @@ async function handleUploadError(
     return;
   }
   if (status === 400 || status === 413) {
-
     logDev('attention upload dropped (malformed/oversized batch)', status, events.length);
     await removeSentBatch(new Set(events.map((e) => e.eventId)), serveEventCount);
     await attnCursorItem.setValue({ nextRetryAt: 0, backoffLevel: 0 });

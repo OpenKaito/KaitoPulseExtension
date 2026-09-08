@@ -1,4 +1,3 @@
-
 import { createMemo, createSignal } from 'solid-js';
 import type { ProofErrorCode, WorkerState } from '@/shared/messages';
 import type {
@@ -95,7 +94,6 @@ export function errorDescription(
     case 'platform_account_id_missing':
       return `We couldn't read an account identifier from ${platformName}, so this verification can't be linked to your Kaito account. This is on our side — please report it.`;
     case 'unsupported_account_type':
-
       return reason?.includes('x_analytics_requires_premium')
         ? `X Premium is required to verify account analytics — X only exposes this data to Premium accounts. Subscribe on X, then retry.`
         : `Unable to verify your ${platformName} account. Please make sure you're logged in and try again.`;
@@ -198,18 +196,18 @@ export interface VerifyController {
 }
 
 export type UnbindPlatformResult = {
-
   unbound: boolean;
   releasedAccounts: number;
   revokedProofs: number;
 };
 
 export type CreateVerifyControllerOptions = {
-
   ownerWindowId?: () => number | undefined;
 };
 
-export function createVerifyController(options: CreateVerifyControllerOptions = {}): VerifyController {
+export function createVerifyController(
+  options: CreateVerifyControllerOptions = {},
+): VerifyController {
   const [state, setState] = createSignal<WorkerState | undefined>(undefined);
   const [view, setView] = createSignal<VerifyView>({ name: 'hub' });
   const [busy, setBusy] = createSignal(false);
@@ -256,12 +254,13 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
   });
 
   const ready = createMemo<boolean>(() => state() !== undefined);
-  const signedIn = createMemo<boolean>(() => Boolean(state()?.signedIn || accountLabel(state()?.me)));
+  const signedIn = createMemo<boolean>(() =>
+    Boolean(state()?.signedIn || accountLabel(state()?.me)),
+  );
 
   async function bootstrap(): Promise<void> {
     setBusy(true);
     try {
-
       if (!state()) {
         const [session, cachedMe, snapshot] = await Promise.all([
           sessionItem.getValue(),
@@ -301,7 +300,6 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
         if (progress && !suppressedByCancel) {
           setView({ name: 'progress', taskId: progress.verifierId });
         } else if (!progress) {
-
           if (!busy()) {
             canceling = false;
             canceledVerifierId = undefined;
@@ -309,9 +307,7 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
           }
         }
       }
-    } catch {
-
-    }
+    } catch {}
   }
 
   async function startVerification(taskId: string): Promise<void> {
@@ -343,7 +339,11 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
 
       if (canceling) return;
       const error = response?.result?.error;
-      setView({ name: 'result', taskId, kind: error ? resultKindForError(error.code) : 'verified' });
+      setView({
+        name: 'result',
+        taskId,
+        kind: error ? resultKindForError(error.code) : 'verified',
+      });
     } catch (error) {
       if (canceling) return;
       setBootError((error as Error)?.message || String(error));
@@ -365,15 +365,12 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
       const response = await sendVerifyMessage({ action: 'cancelProof' });
       if (response?.state) setState(response.state);
       if (response?.accepted === false) {
-
         canceling = false;
         canceledVerifierId = undefined;
         setCancelRefused(true);
         if (taskId) setView({ name: 'progress', taskId });
       }
-    } catch {
-
-    }
+    } catch {}
   }
 
   async function requestSignIn(): Promise<void> {
@@ -421,7 +418,6 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
       if (response?.state) setState(response.state);
       setView({ name: 'hub' });
     } catch (error) {
-
       setBootError((error as Error)?.message || String(error));
     } finally {
       setBusy(false);
@@ -451,7 +447,8 @@ export function createVerifyController(options: CreateVerifyControllerOptions = 
     back: () => {
       const v = view();
 
-      if (v.name === 'result' || v.name === 'consent') setView({ name: 'detail', taskId: v.taskId });
+      if (v.name === 'result' || v.name === 'consent')
+        setView({ name: 'detail', taskId: v.taskId });
       else if (v.name !== 'progress') setView({ name: 'hub' });
     },
     startVerification,

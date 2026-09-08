@@ -1,4 +1,4 @@
-import type { AvatarSignalProfile } from "../types";
+import type { AvatarSignalProfile } from '../types';
 
 export function detectAvatarShape(avatarRoot: HTMLElement): 'circle' | 'square' {
   const hasSquareClip =

@@ -1,4 +1,3 @@
-
 import { meCacheItem, sessionItem } from '@/shared/storage';
 import type { SignalSettings, SignalSurfaceKey } from './settings';
 

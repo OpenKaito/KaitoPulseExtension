@@ -1,4 +1,3 @@
-
 export const exact = (value: number): string => Math.round(value).toLocaleString('en-US');
 
 const COMPACT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });

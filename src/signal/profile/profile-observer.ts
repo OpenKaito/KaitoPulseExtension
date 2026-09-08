@@ -1,10 +1,9 @@
-import { createLogger } from "../logger";
-import { findProfileHeader, getViewedHandle } from "./profile-dom";
+import { createLogger } from '../logger';
+import { findProfileHeader, getViewedHandle } from './profile-dom';
 
 const SCAN_DELAY = 150;
 
 export interface ProfileObserverCallbacks {
-
   onMount: (handle: string, header: HTMLElement) => void;
 
   onEnsure: (handle: string, header: HTMLElement) => void;
@@ -13,7 +12,7 @@ export interface ProfileObserverCallbacks {
 }
 
 export class ProfileObserver {
-  private readonly logger = createLogger("profile-observer");
+  private readonly logger = createLogger('profile-observer');
   private readonly doc: Document;
   private readonly callbacks: ProfileObserverCallbacks;
   private observer: MutationObserver | null = null;
@@ -45,7 +44,7 @@ export class ProfileObserver {
 
     if (!handle || !header) {
       if (this.currentHandle !== null) {
-        this.logger.log("left profile", this.currentHandle);
+        this.logger.log('left profile', this.currentHandle);
         this.currentHandle = null;
         this.callbacks.onUnmount();
       }
@@ -54,7 +53,7 @@ export class ProfileObserver {
 
     if (handle !== this.currentHandle) {
       if (this.currentHandle !== null) this.callbacks.onUnmount();
-      this.logger.log("entered profile", handle);
+      this.logger.log('entered profile', handle);
       this.currentHandle = handle;
       this.callbacks.onMount(handle, header);
       return;

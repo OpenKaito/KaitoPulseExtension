@@ -1,4 +1,3 @@
-
 import { BehaviorEventBuffer } from './buffer';
 import { ImpressionTracker } from './impression-tracker';
 import { ClickTracker } from './click-tracker';
@@ -52,12 +51,10 @@ export class BehaviorTracker {
     this.presenceTracker = new PresenceTracker(doc, emitAttention);
     this.snapshotSync = new SnapshotSync(this.impressionTracker);
     this.onVisibilityChange = guard(() => {
-
       this.presenceTracker.setVisible(this.doc.visibilityState !== 'hidden');
       if (this.doc.visibilityState === 'hidden') {
         this.impressionTracker.flushAllOpenSpans();
       } else {
-
         this.impressionTracker.rearmVisibleSpans();
       }
     }, 'behavior.visibilitychange');

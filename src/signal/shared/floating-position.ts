@@ -1,6 +1,4 @@
-
 export interface FloatingPositionOptions {
-
   gap?: number;
 
   margin?: number;

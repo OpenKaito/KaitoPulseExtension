@@ -4,6 +4,7 @@ import { AccountSizeDots } from '@/shared/AccountSizeDots';
 import { clampTier, formatAccountSize } from '@/shared/account-size';
 import { PlatformIconCluster } from '../components/PlatformIconCluster';
 import { PlatformList } from '../components/PlatformList';
+import { PnlArrow } from '../components/PnlArrow';
 import { TradingVisibilityRow } from '../components/TradingVisibilityRow';
 import { UnlockState } from '../components/UnlockState';
 import { auraOnboarded, popupData, tradeLoading, tradingVerified } from '../data/store';
@@ -22,7 +23,9 @@ const NoVerifiedAccounts: Component = () => (
     <div class="pv-state__copy pv-state__copy--verify">
       <p class="pv-state__title pv-state__title--verify">Verify a trading account</p>
       {}
-      <p class="pv-state__body">Verify an account to see your account value, P&amp;L, and trading activity.</p>
+      <p class="pv-state__body">
+        Verify an account to see your account value, P&amp;L, and trading activity.
+      </p>
     </div>
     {}
     <button type="button" class="pv-cta pv-cta--verify" onClick={openVerificationHub}>
@@ -32,7 +35,10 @@ const NoVerifiedAccounts: Component = () => (
 );
 
 const ValueBar: Component<{ lead?: boolean }> = (props) => (
-  <span class={`rf-sk ${props.lead ? 'pv-sk--trade-lead' : 'pv-sk--trade-value'}`} aria-hidden="true" />
+  <span
+    class={`rf-sk ${props.lead ? 'pv-sk--trade-lead' : 'pv-sk--trade-value'}`}
+    aria-hidden="true"
+  />
 );
 
 export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void }> = (props) => {
@@ -72,7 +78,9 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
         <section class="pv-tsum">
           <div class="pv-tsum__head">
             <p class="pv-tsum__title">Trading summary</p>
-            <p class="pv-tsum__helper">Totals across every supported platform for your public wallet.</p>
+            <p class="pv-tsum__helper">
+              Totals across every supported platform for your public wallet.
+            </p>
           </div>
 
           <div class="pv-tsum__body">
@@ -90,7 +98,10 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
                       when={profile().accountSize != null}
                       fallback={<p>{subDollar() ?? NO_VALUE}</p>}
                     >
-                      <AccountSizeDots tier={clampTier(profile().accountSize as number)} size={18} />
+                      <AccountSizeDots
+                        tier={clampTier(profile().accountSize as number)}
+                        size={18}
+                      />
                       <p>{formatAccountSize(clampTier(profile().accountSize as number))}</p>
                     </Show>
                   </Show>
@@ -107,14 +118,8 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
                 <div class="pv-tcard__value">
                   <Show when={!tradeLoading()} fallback={<ValueBar />}>
                     {}
-                    <Show when={tone()}>
-                      <span
-                        class="pv-pnl-caret"
-                        classList={{ 'pv-pnl-caret--down': tone() === 'loss' }}
-                        aria-hidden="true"
-                      >
-                        {tone() === 'loss' ? '▼' : '▲'}
-                      </span>
+                    <Show when={tone()} keyed>
+                      {(dir) => <PnlArrow tone={dir} />}
                     </Show>
                     <p
                       classList={{ 'pv-teal': tone() === 'profit', 'pv-loss': tone() === 'loss' }}
@@ -147,7 +152,11 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
           </div>
         </section>
 
-        <PlatformList groups={groups()} loading={tradeLoading()} onOpenPlatform={props.onOpenPlatform} />
+        <PlatformList
+          groups={groups()}
+          loading={tradeLoading()}
+          onOpenPlatform={props.onOpenPlatform}
+        />
       </Show>
     </Show>
   );

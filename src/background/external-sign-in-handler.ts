@@ -82,7 +82,6 @@ function routeExternalRequest(
     const state = getState();
     const verifications: ExternalVerifyStatusResponse['verifications'] = {};
     for (const [verifierId, proof] of Object.entries(state.verifications)) {
-
       verifications[verifierId] = { verifiedAt: proof.verifiedAt };
     }
     const active = state.proofProgress;
@@ -106,11 +105,17 @@ function routeExternalRequest(
   if (message?.type === 'openVerification') {
     const verifier = getState().verifiers.find((item) => item.id === message.verifierId);
     if (!verifier) {
-      respond({ ok: false, reason: 'verifier_not_found' } satisfies ExternalOpenVerificationResponse);
+      respond({
+        ok: false,
+        reason: 'verifier_not_found',
+      } satisfies ExternalOpenVerificationResponse);
       return false;
     }
     if (typeof sender.tab?.id !== 'number') {
-      respond({ ok: false, reason: 'missing_sender_tab' } satisfies ExternalOpenVerificationResponse);
+      respond({
+        ok: false,
+        reason: 'missing_sender_tab',
+      } satisfies ExternalOpenVerificationResponse);
       return false;
     }
 
@@ -124,7 +129,10 @@ function routeExternalRequest(
         respond(
           opened
             ? ({ ok: true, opened: true } satisfies ExternalOpenVerificationResponse)
-            : ({ ok: false, reason: 'panel_unavailable' } satisfies ExternalOpenVerificationResponse),
+            : ({
+                ok: false,
+                reason: 'panel_unavailable',
+              } satisfies ExternalOpenVerificationResponse),
         );
       },
     );
@@ -134,7 +142,6 @@ function routeExternalRequest(
   if (message?.type === 'openSurface') {
     const { surface } = message;
     if (surface === 'verify') {
-
       const verifierId = message.params?.verifierId;
       const verifier = verifierId
         ? getState().verifiers.find((item) => item.id === verifierId)
@@ -278,18 +285,16 @@ function routeExternalRequest(
 }
 
 export function registerSignInMessageHandler() {
-  chrome.runtime.onMessageExternal.addListener(
-    (message: ExternalRequest, sender, sendResponse) => {
-      logDev('external message', message?.type, sender.url);
+  chrome.runtime.onMessageExternal.addListener((message: ExternalRequest, sender, sendResponse) => {
+    logDev('external message', message?.type, sender.url);
 
-      if (!isAllowedOrigin(sender.url, ENV.connectAllowedOrigins)) {
-        sendResponse({ ok: false, reason: 'origin_not_allowed' } satisfies ExternalSignInResponse);
-        return false;
-      }
+    if (!isAllowedOrigin(sender.url, ENV.connectAllowedOrigins)) {
+      sendResponse({ ok: false, reason: 'origin_not_allowed' } satisfies ExternalSignInResponse);
+      return false;
+    }
 
-      return routeExternalRequest(message, sender, sendResponse);
-    },
-  );
+    return routeExternalRequest(message, sender, sendResponse);
+  });
 
   chrome.runtime.onConnectExternal.addListener((port) => {
     if (!isAllowedOrigin(port.sender?.url, ENV.connectAllowedOrigins)) {
@@ -312,7 +317,9 @@ export function registerSignInMessageHandler() {
       routeExternalRequest(message, sender, (response) => {
         try {
           port.postMessage(
-            message?.requestId ? { ...(response as object), requestId: message.requestId } : response,
+            message?.requestId
+              ? { ...(response as object), requestId: message.requestId }
+              : response,
           );
         } catch {
           externalPorts.delete(port);

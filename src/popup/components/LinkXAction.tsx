@@ -11,7 +11,11 @@ export const LinkXAction: Component<{ surface: string }> = (props) => {
     if (busy()) return;
     setBusy(true);
     try {
-      await sendKaitoMessage({ target: 'kaitoExtension', action: 'openSignIn', url: buildLinkTwitterUrl() });
+      await sendKaitoMessage({
+        target: 'kaitoExtension',
+        action: 'openSignIn',
+        url: buildLinkTwitterUrl(),
+      });
     } finally {
       setBusy(false);
     }
@@ -28,7 +32,12 @@ export const LinkXAction: Component<{ surface: string }> = (props) => {
         <span>to unlock your {props.surface}</span>
       </p>
       {}
-      <button type="button" class="pv-linkx__button" disabled={busy()} onClick={() => void linkNow()}>
+      <button
+        type="button"
+        class="pv-linkx__button"
+        disabled={busy()}
+        onClick={() => void linkNow()}
+      >
         <span>Link Now</span>
       </button>
     </div>

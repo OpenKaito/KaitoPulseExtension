@@ -1,4 +1,3 @@
-
 export type OwnerFocusCallbacks = [
   isOwnerDocumentFocused: () => boolean,
   addOwnerWindowFocusListener: (listener: () => void) => () => void,

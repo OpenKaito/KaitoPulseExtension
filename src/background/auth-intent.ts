@@ -4,13 +4,13 @@ import type {
   RecordAuthIntentResponse,
   TakeAuthIntentResponse,
 } from '@/shared/messages';
-import {
-  pendingAuthIntentsItem,
-  type PendingAuthIntent,
-  type PendingAuthIntentKind,
-  type PendingAuthIntentMap,
-  type StoredPendingAuthIntent,
+import type {
+  PendingAuthIntent,
+  PendingAuthIntentKind,
+  PendingAuthIntentMap,
+  StoredPendingAuthIntent,
 } from '@/shared/storage';
+import { pendingAuthIntentsItem } from './auth-intent-storage';
 
 const INTENT_TTL_MS = 15 * 60 * 1000;
 
@@ -40,7 +40,10 @@ function publicIntent(intent: StoredPendingAuthIntent): PendingAuthIntent {
 
 function withoutExpired(map: PendingAuthIntentMap, now: number): PendingAuthIntentMap {
   const next: PendingAuthIntentMap = {};
-  for (const [kind, intent] of Object.entries(map) as [PendingAuthIntentKind, StoredPendingAuthIntent][]) {
+  for (const [kind, intent] of Object.entries(map) as [
+    PendingAuthIntentKind,
+    StoredPendingAuthIntent,
+  ][]) {
     if (intent && now - intent.createdAt <= INTENT_TTL_MS) next[kind] = intent;
   }
   return next;
@@ -88,7 +91,6 @@ async function take(
   const map = withoutExpired(await pendingAuthIntentsItem.getValue(), Date.now());
   const intent = map[kind];
   if (!isOwnedBy(intent, senderTabId, contextId)) {
-
     await pendingAuthIntentsItem.setValue(map);
     return { ok: true, intent: null };
   }

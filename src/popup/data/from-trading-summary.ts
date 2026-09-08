@@ -1,9 +1,13 @@
-
 import type { TradingAccount, TradingSummaryResponse } from '@/shared/trading-summary';
 import { isPerpOnlyPnl, pnlUsdOf } from '@/shared/trading-summary';
 import type { HoverCardResult } from '@/shared/social-card';
 import { accountSizeTierFromBucket } from '@/shared/account-size';
-import { formatJoined, platformBrandColor, platformDisplayName, shortenAddress } from '../format/platforms';
+import {
+  formatJoined,
+  platformBrandColor,
+  platformDisplayName,
+  shortenAddress,
+} from '../format/platforms';
 import { epochOf, formatCalculated } from '../format/time';
 import {
   formatNativeAmount,
@@ -14,9 +18,15 @@ import {
 } from '../format/trading';
 import type { IncludedAccount, PlatformGroup, PopupData } from './types';
 
-function profileFor(platform: string, card: HoverCardResult | undefined): IncludedAccount['profile'] {
-  if (platform !== 'polymarket' || !card?.polymarket) return undefined;
-  const profile = card.polymarket.profile;
+function profileFor(
+  platform: string,
+  card: HoverCardResult | undefined,
+  polymarketAccounts: number,
+): IncludedAccount['profile'] {
+  if (platform !== 'polymarket' || polymarketAccounts !== 1) return undefined;
+  const block = card?.polymarket;
+  if (!block || (block.selectedFrom != null && block.selectedFrom !== 1)) return undefined;
+  const profile = block.profile;
   return {
     name: profile.name || profile.pseudonym || platformDisplayName(platform),
     avatarUrl: profile.avatar,
@@ -25,8 +35,11 @@ function profileFor(platform: string, card: HoverCardResult | undefined): Includ
   };
 }
 
-function toIncludedAccount(account: TradingAccount, card: HoverCardResult | undefined): IncludedAccount {
-
+function toIncludedAccount(
+  account: TradingAccount,
+  card: HoverCardResult | undefined,
+  polymarketAccounts: number,
+): IncludedAccount {
   const pnlUsd = pnlUsdOf(account);
   return {
     platform: account.platform,
@@ -34,7 +47,7 @@ function toIncludedAccount(account: TradingAccount, card: HoverCardResult | unde
     brandColor: platformBrandColor(account.platform),
     accountLabel: shortenAddress(account.accountId),
     accountId: account.accountId,
-    profile: profileFor(account.platform, card),
+    profile: profileFor(account.platform, card, polymarketAccounts),
     valueLabel: account.valueLabel,
     value: account.valueUsd,
     pnl: pnlUsd,
@@ -123,7 +136,10 @@ export function withTradingSummary(
 ): PopupData {
   if (!summary) return base;
 
-  const includedAccounts = summary.accounts.map((account) => toIncludedAccount(account, hoverCard));
+  const polymarketAccounts = summary.accounts.filter((a) => a.platform === 'polymarket').length;
+  const includedAccounts = summary.accounts.map((account) =>
+    toIncludedAccount(account, hoverCard, polymarketAccounts),
+  );
 
   return {
     ...base,
@@ -135,7 +151,8 @@ export function withTradingSummary(
 
       accountSize: accountSizeTierFromBucket(summary.accountValue.bucket),
 
-      accountValueUsd: summary.accountValue.coveredAccounts > 0 ? summary.accountValue.totalUsd : null,
+      accountValueUsd:
+        summary.accountValue.coveredAccounts > 0 ? summary.accountValue.totalUsd : null,
       allTimePnlUsd: summary.allTimePnl.value,
 
       allTimePnlApproximate: summary.allTimePnl.fxApproximate,

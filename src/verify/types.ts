@@ -1,4 +1,3 @@
-
 import type { ExtensionProof, ExtensionVerifier } from '@/shared/contracts';
 
 export type VerifyCategory = 'ai' | 'crypto' | 'trading' | 'social';
@@ -8,7 +7,6 @@ export type VerifyKind = 'zktls' | 'wallet' | 'oauth';
 export type PayTier = 'high' | 'medium' | 'low';
 
 export interface PlatformMeta {
-
   platform: string;
   displayName: string;
   category: VerifyCategory;
@@ -24,7 +22,6 @@ export interface PlatformMeta {
   tile: { letter: string; bg: string; fg: string };
 
   detail: {
-
     requirement: string;
 
     verifies: string;
@@ -43,11 +40,9 @@ export interface PlatformMeta {
 
 export type TaskStatus =
   | { state: 'available' }
-
   | { state: 'verified'; proof: ExtensionProof; daysSince: number };
 
 export interface VerifyTask {
-
   id: string;
   meta: PlatformMeta;
 

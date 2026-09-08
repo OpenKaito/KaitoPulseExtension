@@ -11,9 +11,15 @@
 # named publish or withhold, and an unclassified one stops the script.
 #
 # Usage:
-#   pnpm release                 # version gate, build, self-check, local tag
+#   # bump package.json's version, and COMMIT it — the checks below require the
+#   # tag to be HEAD, which an uncommitted bump cannot satisfy
+#   pnpm release                 # version gate, both builds, self-checks, local tag
+#   # smoke-test the pinned artifact pnpm release printed
 #   git push origin v<version>
 #   pnpm publish:oss             # this script; review the diff, then push
+#
+# `pnpm release:preflight` runs this and pnpm release together with DRY_RUN=1:
+# every gate reports, nothing is tagged, committed or pushed.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -30,6 +36,19 @@ SUBMODULE_PATH="vendor/primus-core"
 step() { printf '\n▸ %s\n' "$1"; }
 fail() { printf '\n✗ %s\n' "$1" >&2; exit 1; }
 
+# DRY_RUN=1 turns this into a preflight: it classifies, exports, scans, clones
+# and stages exactly as always, but creates NO commit and NO tag, and a failing
+# gate reports instead of stopping so one run shows everything wrong. Reached
+# through `pnpm release:preflight`. The gates are not reimplemented there — they
+# are these, reported rather than enforced.
+DRY_RUN="${DRY_RUN:-}"
+BLOCKERS=0
+blocked() {
+  BLOCKERS=$((BLOCKERS + 1))
+  printf '\n✗ %s\n' "$1" >&2
+  [ -n "$DRY_RUN" ] || exit 1
+}
+
 # ── 1. The export must correspond to a released tag ─────────────────────────
 VERSION="$(node -p "require('./package.json').version")"
 TAG="v${VERSION}"
@@ -37,17 +56,27 @@ TAG="v${VERSION}"
 step "publishing ${TAG}"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  fail "the working tree has uncommitted changes; the export is built from HEAD."
+  blocked "the working tree has uncommitted changes; the export is built from HEAD.\
+${DRY_RUN:+
+  So the export below does NOT include them — it is what HEAD would publish,
+  not what your tree holds.}"
 fi
+# Guarded: rev-parse on a missing tag is a hard error, and in a preflight the
+# missing-tag gate above has already reported and continued.
+HAVE_TAG=1
 if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-  fail "no local tag ${TAG}. Run 'pnpm release' first — it is the gate that
+  HAVE_TAG=0
+  blocked "no local tag ${TAG}. Run 'pnpm release' first — it is the gate that
   refuses to package a version twice."
 fi
-if [ "$(git rev-parse "${TAG}^{commit}")" != "$(git rev-parse HEAD)" ]; then
-  fail "${TAG} does not point at HEAD; the export would carry a tree that was
+if [ "$HAVE_TAG" = 1 ] &&
+   [ "$(git rev-parse "${TAG}^{commit}")" != "$(git rev-parse HEAD)" ]; then
+  blocked "${TAG} does not point at HEAD; the export would carry a tree that was
   never released under that version."
 fi
-echo "  ✓ ${TAG} is at HEAD, working tree clean"
+if [ "$BLOCKERS" -eq 0 ]; then
+  echo "  ✓ ${TAG} is at HEAD, working tree clean"
+fi
 
 # ── 2. Classify every top-level path ────────────────────────────────────────
 step "classifying the tree against ${MANIFEST}"
@@ -155,7 +184,7 @@ else
 fi
 
 if git -C "$CHECKOUT_DIR" rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-  fail "${TAG} already exists in the public repository. Bump the version."
+  blocked "${TAG} already exists in the public repository. Bump the version."
 fi
 
 # Wholesale replacement, not a merge: a file deleted upstream has to disappear
@@ -171,11 +200,64 @@ git -C "$CHECKOUT_DIR" update-index --add \
   --cacheinfo "160000,${SUBMODULE_SHA},${SUBMODULE_PATH}"
 
 if git -C "$CHECKOUT_DIR" diff --cached --quiet; then
-  fail "the export is identical to the previous commit — nothing to publish."
+  if [ -n "$DRY_RUN" ]; then
+    echo "  · identical to the previous commit — there would be nothing to publish"
+  else
+    fail "the export is identical to the previous commit — nothing to publish."
+  fi
+fi
+
+# ── 6. The paths nobody classified ──────────────────────────────────────────
+#
+# The manifest classifies TOP-LEVEL paths, so `publish src` carries every file
+# added under src/ since the last release without anyone having looked at it as
+# a publishing decision. That is the one gap the allowlist cannot close, and a
+# per-file manifest would not close it either — a list of 350 entries rots into
+# a rubber stamp within two releases.
+#
+# The delta does close it. These are the paths that have never been public,
+# computed against the previous published commit rather than against a tag, so
+# it holds on the very first publish too. It is short per release, which is the
+# entire point: short enough that a person actually reads it.
+step "paths this release makes public for the first time"
+ADDED="$(git -C "$CHECKOUT_DIR" diff --cached --name-status --diff-filter=A | cut -f2-)"
+ADDED_COUNT="$(printf '%s' "$ADDED" | grep -c . || true)"
+if [ "$ADDED_COUNT" -eq 0 ]; then
+  echo "  · none — every published path already existed in the previous release"
+else
+  printf '%s\n' "$ADDED" | sed 's/^/  + /'
+  echo
+  echo "  ⚠ ${ADDED_COUNT} path(s) above have never been public, and the manifest"
+  echo "    classified none of them individually. Read the list before pushing."
 fi
 
 step "staged change"
 git -C "$CHECKOUT_DIR" diff --cached --stat | tail -30
+
+KEEP_CHECKOUT=1
+
+if [ -n "$DRY_RUN" ]; then
+  cat <<DRY
+
+$(if [ "$BLOCKERS" -eq 0 ]; then
+    echo "✓ dry run clean — ${TAG} would export as staged above."
+  else
+    echo "✗ dry run — ${BLOCKERS} blocker(s) above."
+  fi)
+
+   staged, uncommitted: ${CHECKOUT_DIR}
+
+   Read the first-time-public list above. The staged tree itself:
+
+     git -C ${CHECKOUT_DIR} diff --cached
+     git -C ${CHECKOUT_DIR} diff --cached --stat
+
+   No commit, no tag, nothing pushed. Delete the checkout when done.
+
+DRY
+  [ "$BLOCKERS" -eq 0 ]
+  exit
+fi
 
 git -C "$CHECKOUT_DIR" commit --quiet -F - <<COMMIT_EOF
 release ${TAG}
@@ -186,21 +268,24 @@ the published .crx, or 'gh attestation verify' against the release assets.
 COMMIT_EOF
 git -C "$CHECKOUT_DIR" tag -a "$TAG" -m "release ${TAG}"
 
-KEEP_CHECKOUT=1
 cat <<NEXT
 
 ✅ prepared ${TAG}
    checkout: ${CHECKOUT_DIR}
 
-   Nothing pushed. Read the diff — this is the last reversible moment:
+   Nothing pushed. Read the first-time-public list above and the diff below —
+   this is the last reversible moment:
 
      git -C ${CHECKOUT_DIR} show --stat
      git -C ${CHECKOUT_DIR} diff HEAD~1
 
-   Then, commit before tag so the tag never lands on a missing commit:
+   Then push both refs in ONE transaction. --atomic is not a nicety here: two
+   pushes can leave main updated with the tag missing (the release workflow
+   never fires, and the public tree is a version ahead of its own history) or
+   a tag pointing at a commit nobody can fetch. Either half-published state has
+   to be repaired in the open, on a branch that cannot be rewritten.
 
-     git -C ${CHECKOUT_DIR} push origin ${OSS_BRANCH}
-     git -C ${CHECKOUT_DIR} push origin ${TAG}
+     git -C ${CHECKOUT_DIR} push --atomic origin ${OSS_BRANCH} ${TAG}
 
    The tag triggers the release workflow there: it rebuilds from this commit,
    re-runs every release assertion, attests both zips, and drafts the Release.

@@ -1,5 +1,8 @@
-
-import type { AttentionBehaviorEvent, AttentionFingerprint, AttentionServeEvent } from '@/shared/attention';
+import type {
+  AttentionBehaviorEvent,
+  AttentionFingerprint,
+  AttentionServeEvent,
+} from '@/shared/attention';
 import { normalizeAttentionConfig } from '@/shared/attention';
 import { sendKaitoMessage } from '@/signal/messaging';
 import { createLogger } from '@/signal/logger';
@@ -15,7 +18,9 @@ export class AttentionContentBuffer {
   private fpPromise: Promise<AttentionFingerprint> | undefined;
   private events: AttentionBehaviorEvent[] = [];
   private serveEvents: AttentionServeEvent[] = [];
-  private readonly scheduler = new FlushScheduler(() => { void this.flush(); });
+  private readonly scheduler = new FlushScheduler(() => {
+    void this.flush();
+  });
 
   private collectEnabled = true;
   private serveSetEnabled = true;
@@ -45,7 +50,14 @@ export class AttentionContentBuffer {
   }
 
   pushServeEvents(events: AttentionServeEvent[]): void {
-    if (this.scheduler.disposed || this.discarded || !this.collectEnabled || !this.serveSetEnabled || events.length === 0) return;
+    if (
+      this.scheduler.disposed ||
+      this.discarded ||
+      !this.collectEnabled ||
+      !this.serveSetEnabled ||
+      events.length === 0
+    )
+      return;
     this.serveEvents.push(...events);
     if (this.serveEvents.length >= FLUSH_SIZE_THRESHOLD) void this.flush();
   }
@@ -56,8 +68,8 @@ export class AttentionContentBuffer {
     const events = this.events.splice(0, this.events.length);
     const serveEvents = this.serveEvents.splice(0, this.serveEvents.length);
     try {
-
-      const fp = this.fp ?? (await (this.fpPromise ??= collectFingerprint().then((v) => (this.fp = v))));
+      const fp =
+        this.fp ?? (await (this.fpPromise ??= collectFingerprint().then((v) => (this.fp = v))));
       await sendKaitoMessage({
         target: 'kaitoExtension',
         action: 'recordAttentionEvents',

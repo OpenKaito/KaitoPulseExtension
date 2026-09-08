@@ -1,9 +1,37 @@
+import type { MockConfig, MockScenarioPreset, MockSwitch } from './settings';
 
-import type { MockConfig, MockSwitch } from './settings';
+export type {
+  MockConfig,
+  MockFollowers,
+  MockHyperliquid,
+  MockWalletDetail,
+  MockOption,
+  MockPolymarket,
+  MockPreview,
+  MockPreviewChip,
+  MockPreviewLine,
+  MockPreviewTone,
+  MockProfileCardScenario,
+  MockProfileMode,
+  MockScenario,
+  MockScenarioPreset,
+  MockSwitch,
+  MockTotals,
+  MockWallets,
+} from './settings';
 
-export type { MockConfig, MockScenario, MockSwitch, MockTotals } from './settings';
-
-export const MOCK_DEFAULTS: MockConfig = { popup: 'live', hoverCardTotals: 'off', hoverCardScope: '' };
+export const MOCK_DEFAULTS: MockConfig = {
+  popup: 'live',
+  hoverCardTotals: 'off',
+  hoverCardFollowers: 'off',
+  hoverCardHyperliquid: 'off',
+  hoverCardPolymarket: 'off',
+  hoverCardWalletDetail: 'off',
+  hoverCardWallets: 'off',
+  hoverCardScenario: 'live',
+  hoverCardProfileMode: 'off',
+  hoverCardScope: '',
+};
 
 export function mockConfig(): MockConfig {
   return MOCK_DEFAULTS;
@@ -22,3 +50,5 @@ export function watchMockConfig(_cb: (config: MockConfig) => void): () => void {
 }
 
 export const MOCK_SWITCHES: MockSwitch[] = [];
+
+export const MOCK_SCENARIOS: MockScenarioPreset[] = [];

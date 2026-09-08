@@ -1,6 +1,4 @@
-
 const RETIRED_LOCAL_KEYS: readonly string[] = [
-
   'kaitoChatGptHydrationDebug',
   'kaitoChatGptRequestDebug',
   'kaitoChatGptRequestTrace',

@@ -1,4 +1,3 @@
-
 export type SocialCardScope = 'ai' | 'crypto' | 'trading';
 
 export const SOCIAL_CARD_SCOPES: readonly SocialCardScope[] = ['crypto', 'ai', 'trading'];
@@ -17,7 +16,6 @@ export function scopeFromCategoryKey(key: string): SocialCardScope | null {
 }
 
 export interface VoicesSocialCardProfile {
-
   user_id?: string;
   name: string;
   username: string;

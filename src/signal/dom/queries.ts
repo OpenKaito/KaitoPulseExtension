@@ -1,9 +1,11 @@
-import { SIGNAL_DOM_SELECTORS as SELECTORS } from "./selectors";
-import type { SignalSurfaceKey } from "../settings";
+import { SIGNAL_DOM_SELECTORS as SELECTORS } from './selectors';
+import type { SignalSurfaceKey } from '../settings';
 
 export function findPrimaryAvatarRoot(root: ParentNode): HTMLElement | null {
-  return (root.querySelector(SELECTORS.AVATAR_CONTAINER) as HTMLElement | null) ??
-    (root.querySelector(SELECTORS.AVATAR) as HTMLElement | null);
+  return (
+    (root.querySelector(SELECTORS.AVATAR_CONTAINER) as HTMLElement | null) ??
+    (root.querySelector(SELECTORS.AVATAR) as HTMLElement | null)
+  );
 }
 
 export function canonicalAvatarRoot(candidate: HTMLElement): HTMLElement {

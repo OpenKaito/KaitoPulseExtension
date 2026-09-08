@@ -8,8 +8,17 @@ import type {
 import { createLogger } from '@/signal/logger';
 import { api } from '@/lib/api';
 import { getStoredSession } from '@/lib/client-storage';
-import { applyHoverCardMock, watchHoverCardMock } from '@/mock/hover-card';
+import {
+  applyBadgesPlatformMock,
+  applyHoverCardMock,
+  applyWalletDetailMock,
+  watchHoverCardMock,
+} from '@/mock/hover-card';
+import { ApiError } from '@/shared/contracts';
+import type { WalletDetailOutcome, WalletDetailRequest } from '@/shared/wallet-detail';
+import { walletDetailOutcomeFor } from '@/shared/wallet-detail';
 import { toAuthedError } from './authed-error';
+import { cachedFetchBadges } from './edge-cache';
 import { authedCall } from './worker-core';
 import {
   pickDefaultScope,
@@ -21,7 +30,9 @@ import {
 const logger = createLogger('social-card');
 
 watchHoverCardMock((description) => {
-  logger.warn(`⚠️ hover-card totals MOCKED (${description}) — do not treat this as evidence of production behaviour`);
+  logger.warn(
+    `⚠️ hover-card totals MOCKED (${description}) — do not treat this as evidence of production behaviour`,
+  );
 });
 
 const BADGES_BATCH_LIMIT = 50;
@@ -38,8 +49,12 @@ export async function handleFetchBadges(twitterIds: string[]): Promise<FetchBadg
   }
 
   try {
-    const response = await api.getBadges(capped, stored.sessionToken);
-    return { items: response.items };
+    const items = await cachedFetchBadges(capped, async (missIds) => {
+      const response = await api.getBadges(missIds, stored.sessionToken);
+      return response.items;
+    });
+
+    return { items: await applyBadgesPlatformMock(capped, items) };
   } catch (error) {
     logger.error('fetchBadges error', error);
     return { items: {}, error: (error as Error)?.message || 'badges fetch failed' };
@@ -62,6 +77,28 @@ export async function handleFetchHoverCard(twitterId: string): Promise<FetchHove
   }
 }
 
+export async function handleFetchWalletDetail(
+  request: WalletDetailRequest,
+): Promise<WalletDetailOutcome> {
+  const mocked = await applyWalletDetailMock(request);
+  if (mocked) return mocked;
+
+  const stored = await getStoredSession();
+  if (!stored?.sessionToken) {
+    return { outcome: 'unavailable', error: 'signed out' };
+  }
+
+  try {
+    return { outcome: 'ok', detail: await api.getWalletDetail(request, stored.sessionToken) };
+  } catch (error) {
+    const outcome = walletDetailOutcomeFor(error instanceof ApiError ? error.status : 0);
+    if (outcome === 'withheld') return { outcome };
+
+    logger.warn(`walletDetail(${request.platform}) failed`, error);
+    return { outcome, error: (error as Error)?.message || 'wallet-detail fetch failed' };
+  }
+}
+
 export async function handleGetSocialCard(
   twitterId: string,
   candidates?: SocialCardScope[],
@@ -69,7 +106,6 @@ export async function handleGetSocialCard(
   const scopes = candidates?.length ? candidates : SOCIAL_CARD_SCOPES;
   let overviewByScope: Partial<Record<SocialCardScope, VoicesSocialCardOverview>>;
   try {
-
     const settled = await Promise.all(
       scopes.map(async (scope) => {
         try {

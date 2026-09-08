@@ -1,4 +1,3 @@
-
 export const IMG_PROXY_BASE = 'https://img.kaito.ai';
 
 const IMG_WIDTH_BUCKETS = [
@@ -7,8 +6,9 @@ const IMG_WIDTH_BUCKETS = [
 
 export function imgBucket(cssPx: number): number {
   const target = cssPx * (globalThis.devicePixelRatio || 1);
-  return IMG_WIDTH_BUCKETS.find((s) => s >= target) ??
-    IMG_WIDTH_BUCKETS[IMG_WIDTH_BUCKETS.length - 1];
+  return (
+    IMG_WIDTH_BUCKETS.find((s) => s >= target) ?? IMG_WIDTH_BUCKETS[IMG_WIDTH_BUCKETS.length - 1]
+  );
 }
 
 export function buildImgProxyUrl(src: string, width: number): string {
@@ -22,17 +22,6 @@ export function isXcomRenderableHost(rawUrl: string): boolean {
   try {
     const host = new URL(rawUrl).hostname.toLowerCase();
     return XCOM_IMG_ALLOWED_HOSTS.some((d) => host === d || host.endsWith(`.${d}`));
-  } catch {
-    return false;
-  }
-}
-
-const DIRECT_FETCH_HOSTS = ['app.hyperliquid.xyz'];
-
-export function isDirectFetchHost(rawUrl: string): boolean {
-  try {
-    const host = new URL(rawUrl).hostname.toLowerCase();
-    return DIRECT_FETCH_HOSTS.includes(host);
   } catch {
     return false;
   }

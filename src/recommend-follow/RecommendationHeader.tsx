@@ -6,14 +6,15 @@ import { viewer, signOut } from './store';
 const FALLBACK_MENU_LABEL = 'Kaito.ai';
 
 export function RecommendationHeader(): JSX.Element {
-
-  const menuLabel = () => viewer()?.kaitoName || viewer()?.username || viewer()?.email || FALLBACK_MENU_LABEL;
+  const menuLabel = () =>
+    viewer()?.kaitoName || viewer()?.username || viewer()?.email || FALLBACK_MENU_LABEL;
   const [open, setOpen] = createSignal(false);
   const [signingOut, setSigningOut] = createSignal(false);
   let accountRef: HTMLDivElement | undefined;
 
   const onDocumentMouseDown = (event: MouseEvent): void => {
-    if (accountRef && event.target instanceof Node && !accountRef.contains(event.target)) setOpen(false);
+    if (accountRef && event.target instanceof Node && !accountRef.contains(event.target))
+      setOpen(false);
   };
   onMount(() => document.addEventListener('mousedown', onDocumentMouseDown));
   onCleanup(() => document.removeEventListener('mousedown', onDocumentMouseDown));

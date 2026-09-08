@@ -11,7 +11,9 @@ export async function openPinnedPopupWindow(
   url: string,
   size: PopupSize = KAITO_POPUP_SIZE,
 ): Promise<chrome.windows.Window | undefined> {
-  const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => undefined);
+  const win = await chrome.windows
+    .getLastFocused({ windowTypes: ['normal'] })
+    .catch(() => undefined);
   const create: chrome.windows.CreateData = {
     url,
     type: 'popup',
@@ -19,7 +21,12 @@ export async function openPinnedPopupWindow(
     height: size.height,
     focused: true,
   };
-  if (win && typeof win.left === 'number' && typeof win.top === 'number' && typeof win.width === 'number') {
+  if (
+    win &&
+    typeof win.left === 'number' &&
+    typeof win.top === 'number' &&
+    typeof win.width === 'number'
+  ) {
     create.left = Math.max(0, win.left + win.width - size.width - POPUP_MARGIN);
     create.top = win.top + POPUP_MARGIN;
   }
@@ -29,14 +36,15 @@ export async function openPinnedPopupWindow(
 const VERIFY_RETURN_KEY = 'kaito.verifyReturn';
 
 interface VerifyReturnTarget {
-
   windowId?: number;
 
   tabId: number;
 }
 
 export async function openVerifyWindow(verifierId: string, originTabId?: number): Promise<void> {
-  const url = chrome.runtime.getURL(`verify-window.html?verifierId=${encodeURIComponent(verifierId)}`);
+  const url = chrome.runtime.getURL(
+    `verify-window.html?verifierId=${encodeURIComponent(verifierId)}`,
+  );
   const created = await openPinnedPopupWindow(url);
 
   if (typeof originTabId !== 'number') {
@@ -44,7 +52,12 @@ export async function openVerifyWindow(verifierId: string, originTabId?: number)
     return;
   }
   await chrome.storage.session
-    ?.set({ [VERIFY_RETURN_KEY]: { windowId: created?.id, tabId: originTabId } satisfies VerifyReturnTarget })
+    ?.set({
+      [VERIFY_RETURN_KEY]: {
+        windowId: created?.id,
+        tabId: originTabId,
+      } satisfies VerifyReturnTarget,
+    })
     .catch(() => undefined);
 }
 
@@ -74,7 +87,9 @@ export async function openPopupWindow(): Promise<void> {
 
 export async function openToolbarPopup(): Promise<boolean> {
   if (typeof chrome.action.openPopup !== 'function') return false;
-  const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => undefined);
+  const win = await chrome.windows
+    .getLastFocused({ windowTypes: ['normal'] })
+    .catch(() => undefined);
   if (typeof win?.id !== 'number') return false;
 
   if (!win.focused) {

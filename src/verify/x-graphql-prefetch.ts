@@ -1,8 +1,6 @@
-
 const DAY_MS = 86_400_000;
 
 type XGraphqlOperation = {
-
   name: string;
 
   host: 'x.com' | 'api.x.com';
@@ -25,7 +23,11 @@ const VIEWER_FEATURES = {
   responsive_web_graphql_timeline_navigation_enabled: true,
 } as const;
 
-const VIEWER_FIELD_TOGGLES = { isDelegate: false, withPayments: false, withAuxiliaryUserLabels: false } as const;
+const VIEWER_FIELD_TOGGLES = {
+  isDelegate: false,
+  withPayments: false,
+  withAuxiliaryUserLabels: false,
+} as const;
 const VIEWER_VARIABLES = { withCommunitiesMemberships: true } as const;
 
 function accountOverviewVariables(): Record<string, unknown> {
@@ -50,7 +52,6 @@ function accountOverviewVariables(): Record<string, unknown> {
 }
 
 const OPERATIONS: Record<string, XGraphqlOperation> = {
-
   Viewer: {
     name: 'Viewer',
     host: 'api.x.com',
@@ -71,7 +72,8 @@ const OPERATIONS: Record<string, XGraphqlOperation> = {
     basePath: '/i/api/graphql',
     pinnedQueryId: '_P1caq0YB4SVuEtFLPDMfQ',
     requiresTransactionId: false,
-    buildParams: () => new URLSearchParams({ variables: JSON.stringify(accountOverviewVariables()) }),
+    buildParams: () =>
+      new URLSearchParams({ variables: JSON.stringify(accountOverviewVariables()) }),
   },
 };
 
@@ -130,7 +132,9 @@ async function resolveQueryId(operation: XGraphqlOperation): Promise<string> {
 
   const bundles = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'))
     .map((script) => script.src)
-    .filter((src) => /abs\.twimg\.com\/responsive-web\/.*\/(main|bundle)\.[0-9a-f]+\.js$/.test(src));
+    .filter((src) =>
+      /abs\.twimg\.com\/responsive-web\/.*\/(main|bundle)\.[0-9a-f]+\.js$/.test(src),
+    );
 
   const needle = new RegExp(`queryId:"([A-Za-z0-9_-]+)",operationName:"${operation.name}"`);
   for (const src of bundles) {
@@ -141,9 +145,7 @@ async function resolveQueryId(operation: XGraphqlOperation): Promise<string> {
         resolvedQueryIds.set(operation.name, match[1]);
         return match[1];
       }
-    } catch {
-
-    }
+    } catch {}
   }
 
   resolvedQueryIds.set(operation.name, operation.pinnedQueryId);
@@ -167,7 +169,6 @@ async function fire(operation: XGraphqlOperation): Promise<void> {
   if (auth.transactionId) headers['x-client-transaction-id'] = auth.transactionId;
 
   await fetch(url, {
-
     credentials: 'include',
 
     cache: 'no-store',
@@ -189,9 +190,7 @@ export function armGraphqlPrefetch(operationName: string): void {
   window.setTimeout(() => {
     lastFiredAt.set(operationName, Date.now());
     void fire(operation)
-      .catch(() => {
-
-      })
+      .catch(() => {})
       .finally(() => {
         pending.delete(operationName);
       });
@@ -210,9 +209,7 @@ export function forceGraphqlPrefetch(operationName: string): void {
       if (!hasCredentialsFor(operation)) return;
       lastFiredAt.set(operationName, Date.now());
       await fire(operation);
-    } catch {
-
-    }
+    } catch {}
   })();
 }
 

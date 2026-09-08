@@ -1,9 +1,9 @@
-import type { AdFlagWriteResponse } from "@/shared/messages";
-import { SIGNAL_CONFIG } from "../config";
-import { createLogger } from "../logger";
-import { sendKaitoMessage } from "../messaging";
-import { SwrCache } from "../swr-cache";
-import type { AdFlagReason } from "./types";
+import type { AdFlagWriteResponse } from '@/shared/messages';
+import { SIGNAL_CONFIG } from '../config';
+import { createLogger } from '../logger';
+import { sendKaitoMessage } from '../messaging';
+import { SwrCache } from '../swr-cache';
+import type { AdFlagReason } from './types';
 
 export interface AdFlagItem {
   count: number;
@@ -11,9 +11,7 @@ export interface AdFlagItem {
   myReason: string | null;
 }
 
-export type AdFlagWriteOutcome =
-  | { ok: true }
-  | { ok: false; error: string; status?: number };
+export type AdFlagWriteOutcome = { ok: true } | { ok: false; error: string; status?: number };
 
 const WINDOW_MS = 250;
 const MAX_BATCH = 50;
@@ -25,7 +23,7 @@ function itemEquals(a: AdFlagItem | null, b: AdFlagItem | null): boolean {
 }
 
 export class AdFlagStore {
-  private readonly logger = createLogger("ad-flag-store");
+  private readonly logger = createLogger('ad-flag-store');
   private readonly cache: SwrCache<AdFlagItem>;
 
   constructor() {
@@ -37,7 +35,7 @@ export class AdFlagStore {
       batchWindowMs: WINDOW_MS,
       maxBatch: MAX_BATCH,
       equals: itemEquals,
-      label: "ad-flags",
+      label: 'ad-flags',
       fetchKeys: (ids) => this.fetchFlags(ids),
     });
   }
@@ -60,8 +58,8 @@ export class AdFlagStore {
     });
 
     const response = await sendKaitoMessage({
-      target: "kaitoExtension",
-      action: "putAdFlag",
+      target: 'kaitoExtension',
+      action: 'putAdFlag',
       tweetId,
       reason,
     });
@@ -77,8 +75,8 @@ export class AdFlagStore {
     });
 
     const response = await sendKaitoMessage({
-      target: "kaitoExtension",
-      action: "removeAdFlag",
+      target: 'kaitoExtension',
+      action: 'removeAdFlag',
       tweetId,
     });
     return this.reconcile(tweetId, before, response);
@@ -94,10 +92,9 @@ export class AdFlagStore {
     response: AdFlagWriteResponse,
   ): AdFlagWriteOutcome {
     if (response.error || !response.result) {
-
       this.cache.set(tweetId, before ?? null);
-      this.logger.warn("ad-flag write failed", response.error, response.status);
-      return { ok: false, error: response.error || "write_failed", status: response.status };
+      this.logger.warn('ad-flag write failed', response.error, response.status);
+      return { ok: false, error: response.error || 'write_failed', status: response.status };
     }
     this.cache.set(tweetId, {
       count: response.result.count,
@@ -108,13 +105,13 @@ export class AdFlagStore {
 
   private async fetchFlags(ids: string[]): Promise<Map<string, AdFlagItem | null>> {
     const response = await sendKaitoMessage({
-      target: "kaitoExtension",
-      action: "queryAdFlags",
+      target: 'kaitoExtension',
+      action: 'queryAdFlags',
       tweetIds: ids,
     });
 
     if (response.error || !response.items) {
-      throw new Error(response.error || "ad-flag query failed");
+      throw new Error(response.error || 'ad-flag query failed');
     }
     const map = new Map<string, AdFlagItem | null>();
     for (const id of ids) {
@@ -126,9 +123,7 @@ export class AdFlagStore {
               count: item.count,
               myReason: item.my_reason ?? null,
             }
-          :
-
-            null,
+          : null,
       );
     }
     return map;

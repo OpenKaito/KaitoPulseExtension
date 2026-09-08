@@ -1,10 +1,13 @@
-import type { UserInfoData } from "../types";
-import { ProfileObserver } from "./profile-observer";
-import { getUsernameHistory, loadUserInfoData } from "./profile-data";
-import { findHandleAnchor, findTabNavAnchor, findProfileHeaderBlockAnchor } from "./profile-dom";
-import { createUsernameHistory, type UsernameHistoryHandle } from "./username-history";
-import { createUserInfoModule, type UserInfoHandle } from "./user-info-module";
-import { isEnabled, type SignalSettings } from "../settings";
+import type { UserInfoData } from '../types';
+import { ProfileObserver } from './profile-observer';
+import { getUsernameHistory, loadUserInfoData } from './profile-data';
+import { findHandleAnchor, findTabNavAnchor, findProfileHeaderBlockAnchor } from './profile-dom';
+import { createUsernameHistory, type UsernameHistoryHandle } from './username-history';
+import { createUserInfoModule, type UserInfoHandle } from './user-info-module';
+import { isEnabled, type SignalSettings } from '../settings';
+import { createLogger } from '../logger';
+
+const logger = createLogger('profile-modules');
 
 const USER_INFO_PARTIAL_POKE_MS = 5_000;
 
@@ -101,9 +104,9 @@ export class ProfileModulesController {
     this.userInfo = null;
     const handle = createUserInfoModule(this.userInfoData);
     if (headerBlock) {
-      headerBlock.insertAdjacentElement("afterend", handle.root);
+      headerBlock.insertAdjacentElement('afterend', handle.root);
     } else {
-      navAnchor!.insertAdjacentElement("beforebegin", handle.root);
+      navAnchor!.insertAdjacentElement('beforebegin', handle.root);
     }
     this.userInfo = handle;
   }
@@ -119,7 +122,7 @@ export class ProfileModulesController {
       .then((result) => {
         if (seq !== this.loadSeq) return;
         this.userInfoLoading = false;
-        if (result.status === "ok") {
+        if (result.status === 'ok') {
           const firstLoad = this.userInfoData === null;
           const healed = this.userInfoPartial && !result.partial;
           this.userInfoData = result.data;
@@ -129,17 +132,15 @@ export class ProfileModulesController {
           this.userInfoSettled = !result.partial;
 
           if (firstLoad || healed) this.renderUserInfo();
-        } else if (result.status === "empty") {
-
+        } else if (result.status === 'empty') {
           this.userInfoSettled = true;
           this.userInfoErrored = false;
-        } else if (result.status === "error") {
-
+        } else if (result.status === 'error') {
           this.userInfoErrored = true;
         }
-
       })
-      .catch(() => {
+      .catch((error) => {
+        logger.error('user info load failed', error);
         if (seq === this.loadSeq) this.userInfoLoading = false;
       });
   }

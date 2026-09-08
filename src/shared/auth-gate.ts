@@ -16,7 +16,6 @@ function sendAuthIntentRequest<R extends WithoutContextId<AuthIntentRequest>>(
   request: R,
 ): Promise<ReplyFor<R['action']>> {
   return sendOverKaitoPort<ReplyFor<R['action']>>(
-
     { ...request, contextId: AUTH_CONTEXT_ID },
     {
       disconnectMessage: 'auth intent broker disconnected',

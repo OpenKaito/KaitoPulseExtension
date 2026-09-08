@@ -1,6 +1,4 @@
-
 export interface ViewerIdentity {
-
   handle: string | null;
 
   id: string | null;

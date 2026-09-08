@@ -1,9 +1,6 @@
-
 export type AuraSummaryResponse = {
-
   total: number;
   earned: {
-
     total: number;
 
     claim: number;
@@ -13,14 +10,12 @@ export type AuraSummaryResponse = {
     attention: number;
   };
   referral: {
-
     total: number;
 
     count: number;
   };
 
   rank: {
-
     rank: number;
 
     percentile: number;
@@ -33,13 +28,11 @@ export type AuraSummaryResponse = {
   onboarded: boolean;
 
   invite: {
-
     code: string;
 
     shortUrl: string | null;
   } | null;
   asOf: {
-
     realtime: string;
 
     settledThrough: string | null;

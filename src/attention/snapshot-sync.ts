@@ -1,4 +1,3 @@
-
 import type { ImpressionTracker } from '@/behavior/impression-tracker';
 import { attnOpenSpanSnapshotItem } from '@/shared/storage';
 import type { AttentionBehaviorEvent } from '@/shared/attention';
@@ -12,7 +11,9 @@ export class SnapshotSync {
   constructor(private readonly impressionTracker: ImpressionTracker) {}
 
   start(): void {
-    this.timer = setInterval(() => { void this.sync(); }, SYNC_INTERVAL_MS);
+    this.timer = setInterval(() => {
+      void this.sync();
+    }, SYNC_INTERVAL_MS);
   }
 
   private async sync(): Promise<void> {
@@ -26,7 +27,9 @@ export class SnapshotSync {
   }
 }
 
-export async function recoverCrashedSpans(pushEvent: (event: AttentionBehaviorEvent) => void): Promise<void> {
+export async function recoverCrashedSpans(
+  pushEvent: (event: AttentionBehaviorEvent) => void,
+): Promise<void> {
   const snapshot = await attnOpenSpanSnapshotItem.getValue();
   if (!snapshot || snapshot.spans.length === 0) return;
   for (const span of snapshot.spans) {

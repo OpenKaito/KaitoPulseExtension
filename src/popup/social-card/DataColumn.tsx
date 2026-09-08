@@ -66,7 +66,9 @@ const ActivityHeatmap: Component<{ data: SocialCardData }> = (props) => {
       <div class="sc-heat__months">
         <For each={layout().months}>
           {(month) => (
-            <span style={{ 'grid-column': `${month.startCol + 1} / ${month.endCol + 1}` }}>{month.label}</span>
+            <span style={{ 'grid-column': `${month.startCol + 1} / ${month.endCol + 1}` }}>
+              {month.label}
+            </span>
           )}
         </For>
       </div>
@@ -96,7 +98,11 @@ interface StatBlockProps {
 function splitBold(label: string, boldPart: string): [string, string, string] {
   const at = label.toLowerCase().indexOf(boldPart.toLowerCase());
   if (at < 0) return [label, '', ''];
-  return [label.slice(0, at), label.slice(at, at + boldPart.length), label.slice(at + boldPart.length)];
+  return [
+    label.slice(0, at),
+    label.slice(at, at + boldPart.length),
+    label.slice(at + boldPart.length),
+  ];
 }
 
 const StatBlock: Component<StatBlockProps> = (props) => {
@@ -134,7 +140,11 @@ const StatBlock: Component<StatBlockProps> = (props) => {
             <p class="sc-stat__sub">{props.rankSub}</p>
           </Show>
         </div>
-        <div class="sc-stat__divider" aria-hidden="true" style={{ width: '137px', height: '1px' }} />
+        <div
+          class="sc-stat__divider"
+          aria-hidden="true"
+          style={{ width: '137px', height: '1px' }}
+        />
         <div class="sc-stat__cell sc-stat__cell--top">
           <p class="sc-stat__label">Top</p>
           <p class="sc-stat__value">{props.topValue}</p>
@@ -161,7 +171,9 @@ const SmartFollowersStatBlock: Component<{
       primaryLabelSmall={props.scope === 'trading'}
       primaryValue={exact(props.total)}
       rankValue={rankOrNA(props.stats.highestRank)}
-      rankBadge={hasRank() && props.stats.highestRankDate === todayIso() ? 'reached today' : undefined}
+      rankBadge={
+        hasRank() && props.stats.highestRankDate === todayIso() ? 'reached today' : undefined
+      }
       topValue={rankPercent(props.stats.topPct)}
       topSub={`of ${word()} Twitter`}
       series={props.stats.line}
@@ -169,7 +181,9 @@ const SmartFollowersStatBlock: Component<{
   );
 };
 
-const MindshareStatBlock: Component<{ scope: SocialCardData['scope']; stats: MindshareStats }> = (props) => {
+const MindshareStatBlock: Component<{ scope: SocialCardData['scope']; stats: MindshareStats }> = (
+  props,
+) => {
   const copy = () => SCOPE_COPY[props.scope];
   return (
     <StatBlock

@@ -33,6 +33,10 @@ export type ListPreferencesResponse = { preferences: ExtensionPreference[] };
 
 export const TRADING_TOTALS_PUBLIC_KEY = 'trading_totals_public';
 
+export const TRADING_ACCOUNT_VALUE_PUBLIC_KEY = 'trading_account_value_public';
+
+export const TRADING_ALL_TIME_PNL_PUBLIC_KEY = 'trading_all_time_pnl_public';
+
 export type ExtensionVerifier = {
   id: string;
   name: string;

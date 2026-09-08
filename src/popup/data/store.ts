@@ -1,4 +1,3 @@
-
 import { createSignal } from 'solid-js';
 import { sendKaitoMessage } from '@/signal/messaging';
 import { meCacheItem } from '@/shared/storage';
@@ -11,7 +10,11 @@ import { withHoverCard } from './from-hover-card';
 import { withSocialFollowers } from './from-social-summary';
 import { withTradingSummary } from './from-trading-summary';
 import type { ExtensionSocialCard, ExtensionSocialFollower } from '@/shared/extension-social';
-import { scopeFromCategoryKey, type SocialCardBundle, type SocialCardScope } from '@/shared/voices-social-card';
+import {
+  scopeFromCategoryKey,
+  type SocialCardBundle,
+  type SocialCardScope,
+} from '@/shared/voices-social-card';
 import { toSocialCardData, type SocialCardData } from '../social-card/view-model';
 import { bundleFromSummaryCardData } from '../social-card/from-summary';
 import { SOCIAL_CARD_ENABLED } from '../social-card/enabled';
@@ -71,11 +74,12 @@ export const viewer = (): ExtensionMeResponse | undefined => workerState()?.me;
 
 export const xLinked = (): boolean => fixturesActive() || !!viewer()?.twitterId;
 
+export const xVerified = (): boolean => data().profile.verifiedFollowers != null;
+
 export const tradingVerified = (): boolean =>
   fixturesActive() || Object.keys(workerState()?.verifications ?? {}).length > 0;
 
 export const auraOnboarded = (): boolean => {
-
   if (import.meta.env.DEV && scenario() !== 'live') return scenario() !== 'onboarding';
   return auraSummary()?.onboarded !== false;
 };
@@ -99,7 +103,9 @@ export { auraSummary };
 const [hoverCard, setHoverCard] = createSignal<HoverCardResult | undefined>(undefined);
 export { hoverCard };
 
-const [tradingSummary, setTradingSummary] = createSignal<TradingSummaryResponse | undefined>(undefined);
+const [tradingSummary, setTradingSummary] = createSignal<TradingSummaryResponse | undefined>(
+  undefined,
+);
 export { tradingSummary };
 
 const [socialCardRaw, setSocialCard] = createSignal<SocialCardData | undefined>(undefined);
@@ -107,15 +113,36 @@ const [socialCardRaw, setSocialCard] = createSignal<SocialCardData | undefined>(
 export const socialCard = (): SocialCardData | undefined =>
   import.meta.env.DEV && scenario() === 'data' ? FIXTURE_SOCIAL_CARD : socialCardRaw();
 
-const [socialCardLinksRaw, setSocialCardLinks] = createSignal<ExtensionSocialCard | undefined>(undefined);
+const [socialCardLinksRaw, setSocialCardLinks] = createSignal<ExtensionSocialCard | undefined>(
+  undefined,
+);
 
-const [socialFollowers, setSocialFollowers] = createSignal<ExtensionSocialFollower[] | undefined>(undefined);
+const [socialFollowers, setSocialFollowers] = createSignal<ExtensionSocialFollower[] | undefined>(
+  undefined,
+);
 
 export const socialCardLinks = (): ExtensionSocialCard | undefined =>
   import.meta.env.DEV && scenario() === 'data' ? FIXTURE_SOCIAL_CARD_LINKS : socialCardLinksRaw();
 
-const [tradingTotalsPublic, setTradingTotalsPublic] = createSignal<boolean | null | undefined>(undefined);
+const [tradingTotalsPublic, setTradingTotalsPublic] = createSignal<boolean | null | undefined>(
+  undefined,
+);
 export { tradingTotalsPublic };
+
+type FieldSwitch = boolean | null | undefined | 'absent';
+const [accountValuePublic, setAccountValuePublic] = createSignal<FieldSwitch>(undefined);
+const [allTimePnlPublic, setAllTimePnlPublic] = createSignal<FieldSwitch>(undefined);
+
+export function tradingTotalsVisible(): boolean | null | undefined {
+  const master = tradingTotalsPublic();
+  if (master === undefined) return undefined;
+  if (master !== true) return master;
+  const av = accountValuePublic();
+  const pnl = allTimePnlPublic();
+  if (av === 'absent' && pnl === 'absent') return true;
+  if (av === undefined || pnl === undefined) return undefined;
+  return av === true || pnl === true;
+}
 
 const [visibilityLoadingRaw, setVisibilityLoading] = createSignal(true);
 
@@ -132,7 +159,6 @@ export async function saveTradingTotalsPublic(enabled: boolean): Promise<boolean
     setTradingTotalsPublic(response.result.enabled);
     return true;
   } catch {
-
     return false;
   }
 }
@@ -146,6 +172,8 @@ export async function signOut(): Promise<void> {
   setHoverCard(undefined);
   setTradingSummary(undefined);
   setTradingTotalsPublic(undefined);
+  setAccountValuePublic(undefined);
+  setAllTimePnlPublic(undefined);
 
   setSocialCard(undefined);
   setSocialCardLinks(undefined);
@@ -183,9 +211,7 @@ function withAuraSummary(
 }
 
 function recompute(): void {
-
   if (import.meta.env.DEV && scenario() === 'data') {
-
     validateFixtures();
     setData(FIXTURE_DATA);
     return;
@@ -212,7 +238,6 @@ function applyScenario(next: FixtureScenario): void {
 
 async function loadSocialCard(twitterId: string | undefined): Promise<void> {
   try {
-
     if (!twitterId) return;
     void ensureCardFonts();
     const candidates = (hoverCard()?.smartFollowers?.categories ?? [])
@@ -226,26 +251,28 @@ async function loadSocialCard(twitterId: string | undefined): Promise<void> {
     });
 
     if (response.bundle) setSocialCard(toSocialCardData(response.bundle) ?? undefined);
-  } catch {
-
-  }
+  } catch {}
 }
 
 async function loadSocialCardActivity(bundle: SocialCardBundle): Promise<void> {
   try {
-    const response = await sendKaitoMessage({ target: 'kaitoExtension', action: 'getSocialCardActivity' });
+    const response = await sendKaitoMessage({
+      target: 'kaitoExtension',
+      action: 'getSocialCardActivity',
+    });
     const activity = response.result?.activity;
     if (!activity) return;
     setSocialCard(toSocialCardData({ ...bundle, activity }) ?? undefined);
-  } catch {
-
-  }
+  } catch {}
 }
 
 async function loadSocialSummary(): Promise<boolean> {
   try {
     if (SOCIAL_CARD_ENABLED) void ensureCardFonts();
-    const response = await sendKaitoMessage({ target: 'kaitoExtension', action: 'getSocialSummary' });
+    const response = await sendKaitoMessage({
+      target: 'kaitoExtension',
+      action: 'getSocialSummary',
+    });
 
     if (!response.result) return false;
     setSocialCardLinks(response.result.socialCard);
@@ -261,7 +288,6 @@ async function loadSocialSummary(): Promise<boolean> {
     void loadSocialCardActivity(bundle);
     return true;
   } catch {
-
     return false;
   }
 }
@@ -309,11 +335,12 @@ export async function initPopupData(): Promise<void> {
     await Promise.all([
       (async () => {
         try {
-
-          const aura = await sendKaitoMessage({ target: 'kaitoExtension', action: 'getAuraSummary' });
+          const aura = await sendKaitoMessage({
+            target: 'kaitoExtension',
+            action: 'getAuraSummary',
+          });
           if (aura.result) setAuraSummary(aura.result);
         } catch {
-
         } finally {
           setAuraLoading(false);
           recompute();
@@ -322,11 +349,14 @@ export async function initPopupData(): Promise<void> {
       (async () => {
         try {
           if (twitterId) {
-            const card = await sendKaitoMessage({ target: 'kaitoExtension', action: 'fetchHoverCard', twitterId });
+            const card = await sendKaitoMessage({
+              target: 'kaitoExtension',
+              action: 'fetchHoverCard',
+              twitterId,
+            });
             if (card.result) setHoverCard(card.result);
           }
         } catch {
-
         } finally {
           setCardLoading(false);
           recompute();
@@ -340,11 +370,12 @@ export async function initPopupData(): Promise<void> {
       summaryLoad,
       (async () => {
         try {
-
-          const trading = await sendKaitoMessage({ target: 'kaitoExtension', action: 'getTradingSummary' });
+          const trading = await sendKaitoMessage({
+            target: 'kaitoExtension',
+            action: 'getTradingSummary',
+          });
           if (trading.result) setTradingSummary(trading.result);
         } catch {
-
         } finally {
           setTradeLoading(false);
           recompute();
@@ -352,22 +383,26 @@ export async function initPopupData(): Promise<void> {
       })(),
       (async () => {
         try {
-
           const visibility = await sendKaitoMessage({
             target: 'kaitoExtension',
             action: 'getTradingTotalsPublic',
           });
 
           if ('enabled' in visibility) setTradingTotalsPublic(visibility.enabled);
-        } catch {
 
+          setAccountValuePublic(
+            'accountValuePublic' in visibility ? visibility.accountValuePublic : 'absent',
+          );
+          setAllTimePnlPublic(
+            'allTimePnlPublic' in visibility ? visibility.allTimePnlPublic : 'absent',
+          );
+        } catch {
         } finally {
           setVisibilityLoading(false);
         }
       })(),
     ]);
   } catch {
-
   } finally {
     recompute();
 

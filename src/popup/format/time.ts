@@ -1,4 +1,3 @@
-
 function shortDate(date: Date): string {
   const sameYear = date.getFullYear() === new Date().getFullYear();
   return date.toLocaleString('en-US', {
@@ -48,7 +47,11 @@ export function formatUpdated(iso: string | null | undefined): string | null {
 export function formatCalculated(iso: string | null | undefined): string | null {
   const date = parse(iso);
   if (!date) return null;
-  const time = date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const time = date.toLocaleString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
   return `Calculated ${shortDate(date)}, ${time}`;
 }
 

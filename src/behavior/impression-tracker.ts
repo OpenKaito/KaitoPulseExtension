@@ -1,4 +1,3 @@
-
 import { getArticleAuthorHandle, getArticleTweetId } from '@/signal/dom/adapter';
 import { twitterIdMap } from '@/signal/twitter-id-map';
 import { isPromotedArticle } from './dom-helpers';
@@ -14,7 +13,6 @@ const TALL_CARD_MIN_HEIGHT = 200;
 const PRUNE_INTERVAL_MS = 10_000;
 
 interface TrackedArticle {
-
   visibleSinceMs: number | null;
   accumulatedMs: number;
 }
@@ -32,7 +30,6 @@ function isSubstantiallyVisible(article: HTMLElement): boolean {
 }
 
 export class ImpressionTracker {
-
   private readonly tracked = new Map<HTMLElement, TrackedArticle>();
   private readonly observer: IntersectionObserver;
   private readonly pruneTimer: ReturnType<typeof setInterval>;
@@ -63,7 +60,8 @@ export class ImpressionTracker {
     if (!state) return;
     const now = performance.now();
     const visibleNow =
-      entry.intersectionRatio >= VISIBLE_THRESHOLD || entry.intersectionRect.height >= TALL_CARD_MIN_HEIGHT;
+      entry.intersectionRatio >= VISIBLE_THRESHOLD ||
+      entry.intersectionRect.height >= TALL_CARD_MIN_HEIGHT;
 
     if (visibleNow && state.visibleSinceMs === null) {
       state.visibleSinceMs = now;

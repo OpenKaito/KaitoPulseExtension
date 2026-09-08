@@ -34,9 +34,7 @@ export function assertAllowedTarget(fullUrl: string): void {
   for (const base of configuredBases) {
     try {
       allowedOrigins.add(normalizeOrigin(new URL(base)));
-    } catch {
-
-    }
+    } catch {}
   }
 
   if (!allowedOrigins.has(normalizeOrigin(target))) {
@@ -44,7 +42,10 @@ export function assertAllowedTarget(fullUrl: string): void {
   }
 }
 
-export async function backgroundFetch<T>(url: string, options: SignalFetchOptions = {}): Promise<T> {
+export async function backgroundFetch<T>(
+  url: string,
+  options: SignalFetchOptions = {},
+): Promise<T> {
   const fullUrl = resolveUrl(url, options.baseURL);
   assertAllowedTarget(fullUrl);
   logger.log(`[Background] Direct fetch: ${fullUrl}`);
@@ -92,7 +93,7 @@ export async function backgroundFetch<T>(url: string, options: SignalFetchOption
     }
 
     const text = await response.text();
-    const parsed = text ? JSON.parse(text) as unknown : undefined;
+    const parsed = text ? (JSON.parse(text) as unknown) : undefined;
     logger.log(`[Background] Fetch success: ${fullUrl}`);
     finishDebugRequest(debugId, {
       status: response.status,

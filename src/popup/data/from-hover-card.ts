@@ -1,10 +1,8 @@
-
 import type { HoverCardResult } from '@/shared/social-card';
 import type { PopupData, SmartFollower } from './types';
 
 function toSmartFollowers(card: HoverCardResult): SmartFollower[] {
   return (card.smartFollowers?.topFollowers ?? []).map((follower, i) => ({
-
     twitterId: follower.username || String(i),
     username: follower.name || follower.username,
     handle: `@${follower.username}`,
@@ -22,6 +20,8 @@ export function withHoverCard(base: PopupData, card: HoverCardResult): PopupData
     profile: {
       ...base.profile,
       smartFollowers: card.smartFollowers?.total ?? null,
+
+      verifiedFollowers: card.socialFollowers?.verified ?? null,
     },
     social: {
       categories: (card.smartFollowers?.categories ?? []).map((category) => ({

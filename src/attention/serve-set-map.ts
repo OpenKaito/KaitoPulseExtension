@@ -1,4 +1,3 @@
-
 import type { AttentionServeEvent } from '@/shared/attention';
 import { SERVE_SET_MESSAGE, type AttentionServeSetMessage } from './serve-set-extractor';
 
@@ -17,7 +16,9 @@ function isValidEvent(value: unknown): value is AttentionServeEvent {
   );
 }
 
-export function startServeSetListener(onServeEvents: (events: AttentionServeEvent[]) => void): () => void {
+export function startServeSetListener(
+  onServeEvents: (events: AttentionServeEvent[]) => void,
+): () => void {
   const listener = (event: MessageEvent): void => {
     if (event.source !== window) return;
     if (event.origin !== window.location.origin) return;

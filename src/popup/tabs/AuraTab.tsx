@@ -7,10 +7,13 @@ import { auraLoading, auraOnboarded, popupData } from '../data/store';
 import { NO_VALUE, formatCount } from '../format/numbers';
 import { openAuraSetup } from '../links';
 
-const ReferFriends: Component<{ inviteUrl?: string | null; inviteCode?: string | null }> = (props) => {
+const ReferFriends: Component<{ inviteUrl?: string | null; inviteCode?: string | null }> = (
+  props,
+) => {
   const [copied, setCopied] = createSignal(false);
 
-  const shown = (): string => (props.inviteUrl ?? props.inviteCode ?? '').replace(/^https?:\/\//, '');
+  const shown = (): string =>
+    (props.inviteUrl ?? props.inviteCode ?? '').replace(/^https?:\/\//, '');
   const payload = (): string => (props.inviteUrl ? `https://${shown()}` : (props.inviteCode ?? ''));
 
   const copy = async (): Promise<void> => {
@@ -18,20 +21,25 @@ const ReferFriends: Component<{ inviteUrl?: string | null; inviteCode?: string |
       await navigator.clipboard.writeText(payload());
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch {
-
-    }
+    } catch {}
   };
 
   return (
     <section class="pv-section">
       <div class="pv-section__head">
         <p class="pv-section__title">Refer friends</p>
-        <p class="pv-section__sub">Earn 10% of each friend’s head start when they install &amp; login</p>
+        <p class="pv-section__sub">
+          Earn 10% of each friend’s head start when they install &amp; login
+        </p>
       </div>
       <div class="pv-invite">
         <p class="pv-invite__url">{shown()}</p>
-        <button type="button" class="pv-invite__copy" disabled={copied()} onClick={() => void copy()}>
+        <button
+          type="button"
+          class="pv-invite__copy"
+          disabled={copied()}
+          onClick={() => void copy()}
+        >
           {}
           <span class="pv-invite__copy-label">{copied() ? 'Copied' : 'Copy link'}</span>
         </button>
@@ -72,7 +80,10 @@ export const AuraTab: Component = () => {
           loading={auraLoading()}
           items={[
             { label: 'Total', value: formatCount(stats().total) },
-            { label: 'Rank', value: stats().rank == null ? NO_VALUE : `#${formatCount(stats().rank)}` },
+            {
+              label: 'Rank',
+              value: stats().rank == null ? NO_VALUE : `#${formatCount(stats().rank)}`,
+            },
             { label: 'Earned', value: formatCount(stats().earned) },
             { label: 'Referral', value: formatCount(stats().referral) },
           ]}

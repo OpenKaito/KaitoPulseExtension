@@ -1,4 +1,3 @@
-
 import { startProofArmingRelay } from '@/verify/proof-arming-relay';
 import { guard } from '@/lib/guard';
 import { clearProofArmed, PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
@@ -23,14 +22,20 @@ export default defineUnlistedScript({
     }, 'proofRuntime.teardown');
     document.addEventListener(PROOF_RUNTIME_TEARDOWN_EVENT, teardown);
 
-    window.addEventListener('pagehide', guard((event: PageTransitionEvent) => {
-      if (!event.persisted) return;
-      stopArming?.();
-      stopArming = null;
-    }, 'pagehide'));
-    window.addEventListener('pageshow', guard((event: PageTransitionEvent) => {
-      if (!event.persisted || tornDown || stopArming) return;
-      stopArming = startProofArmingRelay(document);
-    }, 'pageshow'));
+    window.addEventListener(
+      'pagehide',
+      guard((event: PageTransitionEvent) => {
+        if (!event.persisted) return;
+        stopArming?.();
+        stopArming = null;
+      }, 'pagehide'),
+    );
+    window.addEventListener(
+      'pageshow',
+      guard((event: PageTransitionEvent) => {
+        if (!event.persisted || tornDown || stopArming) return;
+        stopArming = startProofArmingRelay(document);
+      }, 'pageshow'),
+    );
   },
 });

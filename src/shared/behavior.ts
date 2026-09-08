@@ -1,4 +1,3 @@
-
 export type BehaviorEventKind = 'impression' | 'click' | 'follow' | 'unfollow';
 
 export type BehaviorSurface = 'feed' | 'usercell' | 'hovercard' | 'profile';
@@ -26,7 +25,6 @@ export interface ImpressionPayload {
 }
 
 export interface ClickPayload {
-
   tweetId: string | null;
   targetType: ClickTargetType;
   engagementKind?: EngagementKind;

@@ -1,4 +1,3 @@
-
 import { PROOF_RUNTIME_TEARDOWN_EVENT, whenProofArmed } from '@/shared/proof-arming';
 
 export default defineUnlistedScript({
@@ -34,9 +33,7 @@ function prefetchAxisMe(): void {
       fetch(ME_PATH, {
         credentials: 'include',
         headers: { accept: 'application/json' },
-      }).catch(() => {
-
-      });
+      }).catch(() => {});
     }, PREFETCH_DELAY_MS);
   });
 }

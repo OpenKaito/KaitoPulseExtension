@@ -1,17 +1,17 @@
+type LandingOverride =
+  | { verifierId: string; platform?: never; path: string }
+  | { platform: string; verifierId?: never; path: string };
 
-type LandingOverride = { verifierId: string; platform?: never; path: string } | { platform: string; verifierId?: never; path: string };
-
-const LANDING_OVERRIDES: readonly LandingOverride[] = [
-  { verifierId: 'x_analytics_overview', path: '/i/account_analytics' },
-  { platform: 'polymarket', path: '/portfolio' },
-];
+const LANDING_OVERRIDES: readonly LandingOverride[] = [];
 
 export function verifierLandingUrl(
   verifier: { id: string; platform: string },
-  guideUrl: string
+  guideUrl: string,
 ): string {
   const override = LANDING_OVERRIDES.find((entry) =>
-    entry.verifierId === undefined ? entry.platform === verifier.platform : entry.verifierId === verifier.id
+    entry.verifierId === undefined
+      ? entry.platform === verifier.platform
+      : entry.verifierId === verifier.id,
   );
   if (!override) {
     return guideUrl;

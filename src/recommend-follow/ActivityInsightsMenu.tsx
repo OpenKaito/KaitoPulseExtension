@@ -10,7 +10,8 @@ export function ActivityInsightsMenu(): JSX.Element {
   let menuRef: HTMLDivElement | undefined;
 
   const onDocumentMouseDown = (event: MouseEvent): void => {
-    if (menuRef && event.target instanceof Node && !menuRef.contains(event.target)) setMenuOpen(false);
+    if (menuRef && event.target instanceof Node && !menuRef.contains(event.target))
+      setMenuOpen(false);
   };
   onMount(() => document.addEventListener('mousedown', onDocumentMouseDown));
   onCleanup(() => document.removeEventListener('mousedown', onDocumentMouseDown));
@@ -39,7 +40,11 @@ export function ActivityInsightsMenu(): JSX.Element {
           <span class="rf-insights-menu__label" id="rf-insights-menu-label">
             Activity insights
           </span>
-          <Switch checked={true} onClick={() => setConfirmOpen(true)} labelledBy="rf-insights-menu-label" />
+          <Switch
+            checked={true}
+            onClick={() => setConfirmOpen(true)}
+            labelledBy="rf-insights-menu-label"
+          />
         </div>
       </Show>
       <Show when={confirmOpen()}>

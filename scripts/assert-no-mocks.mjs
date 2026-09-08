@@ -10,7 +10,8 @@ const MOCK_DIR = join(ROOT, 'src/mock');
 const SRC_DIR = join(ROOT, 'src');
 const DEFAULT_TARGET = join(ROOT, 'dist/chrome-mv3');
 
-const isMockSource = (name) => name.endsWith('.ts') && !name.endsWith('.stub.ts') && name !== 'parity.ts';
+const isMockSource = (name) =>
+  name.endsWith('.ts') && !name.endsWith('.stub.ts') && name !== 'parity.ts';
 
 function walk(dir, keep) {
   const out = [];
@@ -25,7 +26,6 @@ function walk(dir, keep) {
 function needlesFrom(source) {
   const found = new Set();
   for (const [, , text] of source.matchAll(/(['"])([^'"\n]{8,80})\1/g)) {
-
     if (/^[@~./]/.test(text) || text.includes('node:')) continue;
     found.add(text);
   }
@@ -44,13 +44,14 @@ try {
   targetIsDir = false;
 }
 if (!targetIsDir) {
-  console.error(`[assert-no-mocks] ${relative(ROOT, target)} is not a directory — nothing was checked`);
+  console.error(
+    `[assert-no-mocks] ${relative(ROOT, target)} is not a directory — nothing was checked`,
+  );
   process.exit(2);
 }
 
 const mockFiles = readdirSync(MOCK_DIR).filter(isMockSource);
 if (mockFiles.length === 0) {
-
   console.log('[assert-no-mocks] no mock modules in src/mock/ — nothing to check');
   process.exit(0);
 }
@@ -88,11 +89,12 @@ if (bare.length > 0) {
 let vendorCopies = new Set();
 try {
   vendorCopies = new Set(readdirSync(VENDOR_BUILD));
-} catch {
+} catch {}
 
-}
-
-const artifacts = walk(target, (p) => /\.(js|mjs|css|html|json)$/.test(p) && !vendorCopies.has(basename(p)));
+const artifacts = walk(
+  target,
+  (p) => /\.(js|mjs|css|html|json)$/.test(p) && !vendorCopies.has(basename(p)),
+);
 const hits = [];
 for (const path of artifacts) {
   const content = readFileSync(path, 'utf8');
@@ -103,7 +105,8 @@ for (const path of artifacts) {
 
 if (hits.length > 0) {
   console.error(`[assert-no-mocks] ✖ mock content in ${relative(ROOT, target)}:`);
-  for (const hit of hits) console.error(`  ${hit.path} contains ${JSON.stringify(hit.needle)} (src/mock/${hit.from})`);
+  for (const hit of hits)
+    console.error(`  ${hit.path} contains ${JSON.stringify(hit.needle)} (src/mock/${hit.from})`);
   console.error(
     '  The resolve-time swap did not happen. Check that wxt.config.ts still passes ' +
       "mockStub(env.mode !== 'development') and that scripts/vite-mock-stub.ts's MOCK_MODULES lists every mock.",

@@ -1,4 +1,3 @@
-
 export type AccountSizeTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 const TIER_LABELS: Record<AccountSizeTier, string> = {
@@ -22,7 +21,9 @@ export const ACCOUNT_SIZE_DOT_CELLS = ACCOUNT_SIZE_DOT_AXIS.flatMap((cy) =>
   ACCOUNT_SIZE_DOT_AXIS.map((cx) => ({ cx, cy })),
 );
 
-export function accountSizeTierFromBucket(bucket: string | null | undefined): AccountSizeTier | null {
+export function accountSizeTierFromBucket(
+  bucket: string | null | undefined,
+): AccountSizeTier | null {
   if (!bucket) return null;
   const found = (Object.keys(TIER_LABELS) as Array<`${AccountSizeTier}`>).find(
     (tier) => TIER_LABELS[Number(tier) as AccountSizeTier] === bucket,
@@ -31,6 +32,8 @@ export function accountSizeTierFromBucket(bucket: string | null | undefined): Ac
 }
 
 export const ACCOUNT_SIZE_FLOOR_USD = 1;
+
+export const ACCOUNT_SIZE_FLOOR_TIER: AccountSizeTier = 1;
 
 export function formatAccountSize(tier: AccountSizeTier): string {
   return TIER_LABELS[tier];

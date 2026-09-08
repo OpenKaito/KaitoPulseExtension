@@ -1,4 +1,3 @@
-
 type NoneMissing<T extends never> = T;
 
 type Missing<Real, Stub> = Exclude<keyof Real, keyof Stub> | Exclude<keyof Stub, keyof Real>;

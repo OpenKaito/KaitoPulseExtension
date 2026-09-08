@@ -4,16 +4,19 @@ import { logDev } from '@/lib/env';
 import {
   clearLastResult,
   clearStoredSession,
+  getBootstrapFreshAt,
   getCachedMe,
   getLastAttestation,
   getLastResult,
   getStoredSession,
+  getVerifySnapshot,
+  setBootstrapFreshAt,
   setCachedMe,
   setLastAttestation,
   setLastResult,
   setStoredSession,
   setVerifySnapshot,
-  StoredSession,
+  type StoredSession,
 } from '@/lib/client-storage';
 import {
   ApiError,
@@ -39,12 +42,17 @@ import {
   runAttestation,
   targetUrlMatches,
 } from './primus-adapter';
-import { openPinnedPopupWindow, openPopupWindow, openToolbarPopup } from '@/background/popup-window';
+import {
+  openPinnedPopupWindow,
+  openPopupWindow,
+  openToolbarPopup,
+} from '@/background/popup-window';
 import { verifierLandingUrl } from '@/shared/verifier-landing';
 import { verifierUrlMatches } from '@/shared/verifier-url';
 import { runVerifierPreflight, VerifierPreflightError } from './verifier-preflight';
 import { isSupportedVerifyPlatform } from '@/verify/catalog';
 import { refreshRemoteConfig } from './attention/remote-config';
+import { clearEdgeCaches, invalidateBadge } from './edge-cache';
 import { activateVerifierRuntime, type VerifierRuntime } from './verifier-runtime';
 
 const state: WorkerState = {
@@ -58,6 +66,12 @@ const PROOF_LOCK_NAME = 'kaito-extension-proof-flow';
 const AUTO_PROOF_ENABLED = false;
 const AUTO_PROOF_DEBOUNCE_MS = 5 * 60 * 1000;
 const AUTO_PROOF_KEEPALIVE_MS = 12 * 60 * 1000;
+// MV3 kills the service worker after ~30s idle, and every wake re-runs
+// bootstrap. Within this window bootstrap hydrates from the persisted
+// me-cache + verify snapshot instead of re-fetching the trio; every mutating
+// flow (sign-in, proof submit, unbind, terms accept) refreshes through the
+// same caches, and the verify hub's 'init' message forces a network pass.
+const BOOTSTRAP_FRESH_TTL_MS = 10 * 60 * 1000;
 const LAST_RESULT_TOAST_KEY_STORAGE = 'kaito.lastResultToastKey';
 
 const LEGACY_TAB_OVERLAY_ENABLED = false;
@@ -111,9 +125,8 @@ function setProofProgress(
   verifierId: string,
   stage: ProofStage,
   message: string,
-  extra: Pick<NonNullable<WorkerState['proofProgress']>, 'targetTabId' | 'guideUrl'> = {}
+  extra: Pick<NonNullable<WorkerState['proofProgress']>, 'targetTabId' | 'guideUrl'> = {},
 ): void {
-
   if (activeProofSession?.verifierId === verifierId && activeProofSession.interruptedError) {
     return;
   }
@@ -121,7 +134,8 @@ function setProofProgress(
     verifierId,
     stage,
     message,
-    startedAt: state.proofProgress?.verifierId === verifierId ? state.proofProgress.startedAt : Date.now(),
+    startedAt:
+      state.proofProgress?.verifierId === verifierId ? state.proofProgress.startedAt : Date.now(),
     targetTabId: extra.targetTabId ?? state.proofProgress?.targetTabId,
     guideUrl: extra.guideUrl ?? state.proofProgress?.guideUrl,
   };
@@ -150,7 +164,7 @@ async function restoreActiveProofProgress(): Promise<void> {
   }
   state.proofProgress = stored;
   expireStaleProofProgress(
-    'proof_engine_stalled: Verification background task stopped before proof completed'
+    'proof_engine_stalled: Verification background task stopped before proof completed',
   );
 }
 
@@ -159,15 +173,26 @@ function beginProofTabGuard(verifierId: string, ownerWindowId?: number): void {
   ensureProofTabGuardListener();
 }
 
-function updateProofTargetTab(verifierId: string, tabId: number, guideUrl: string, verifierName: string): void {
-
-  if (!activeProofSession || activeProofSession.verifierId !== verifierId || activeProofSession.interruptedError) {
+function updateProofTargetTab(
+  verifierId: string,
+  tabId: number,
+  guideUrl: string,
+  verifierName: string,
+): void {
+  if (
+    !activeProofSession ||
+    activeProofSession.verifierId !== verifierId ||
+    activeProofSession.interruptedError
+  ) {
     return;
   }
   activeProofSession.targetTabId = tabId;
   activeProofSession.guideUrl = guideUrl;
   if (state.proofProgress?.verifierId === verifierId) {
-    setProofProgress(verifierId, state.proofProgress.stage, state.proofProgress.message, { targetTabId: tabId, guideUrl });
+    setProofProgress(verifierId, state.proofProgress.stage, state.proofProgress.message, {
+      targetTabId: tabId,
+      guideUrl,
+    });
   }
   void injectVerificationOverlay(tabId, verifierName).catch((error) => {
     logDev('inject verification overlay failed', {
@@ -180,7 +205,7 @@ function updateProofTargetTab(verifierId: string, tabId: number, guideUrl: strin
 
 function finishProofTabGuard(
   verifierId: string,
-  result?: { kind: 'success' | 'error'; title: string; message: string }
+  result?: { kind: 'success' | 'error'; title: string; message: string },
 ): void {
   if (activeProofSession?.verifierId !== verifierId) {
     return;
@@ -189,9 +214,13 @@ function finishProofTabGuard(
   const guideUrl = activeProofSession.guideUrl;
   activeProofSession = undefined;
   if (result) {
-    showVerificationResultOverlayForTabs(typeof tabId === 'number' ? [tabId] : [], guideUrl, result);
+    showVerificationResultOverlayForTabs(
+      typeof tabId === 'number' ? [tabId] : [],
+      guideUrl,
+      result,
+    );
   } else if (typeof tabId === 'number') {
-      void removeVerificationOverlay(tabId).catch(() => undefined);
+    void removeVerificationOverlay(tabId).catch(() => undefined);
   }
 }
 
@@ -207,7 +236,7 @@ function reportProofFailureToBackend(summary: ProofRunSummary, stage?: ProofStag
 
       message: error.message?.slice(0, 256),
       stage,
-    })
+    }),
   ).catch((error) => {
     logDev('proof failure report failed', error);
   });
@@ -224,8 +253,7 @@ function expireStaleProofProgress(message?: string): boolean {
   }
 
   const errorMessage =
-    message ||
-    'proof_engine_stalled: Verification background task stopped before proof completed';
+    message || 'proof_engine_stalled: Verification background task stopped before proof completed';
   logDev('stale proof progress detected', {
     verifierId: progress.verifierId,
     message: errorMessage,
@@ -234,7 +262,8 @@ function expireStaleProofProgress(message?: string): boolean {
   });
   const summary: ProofRunSummary = {
     verifierId: progress.verifierId,
-    requestId: state.lastResult?.verifierId === progress.verifierId ? state.lastResult.requestId : '',
+    requestId:
+      state.lastResult?.verifierId === progress.verifierId ? state.lastResult.requestId : '',
     error: {
       message: errorMessage,
       code: 'proof_engine_stalled',
@@ -251,11 +280,15 @@ function expireStaleProofProgress(message?: string): boolean {
     logDev('persist stale proof failure failed', error);
   });
   if (typeof progress.targetTabId === 'number' || progress.guideUrl) {
-    showVerificationResultOverlayForTabs(typeof progress.targetTabId === 'number' ? [progress.targetTabId] : [], progress.guideUrl, {
-      kind: 'error',
-      title: 'Kaito verification failed',
-      message: proofErrorUserMessage(summary.error!),
-    });
+    showVerificationResultOverlayForTabs(
+      typeof progress.targetTabId === 'number' ? [progress.targetTabId] : [],
+      progress.guideUrl,
+      {
+        kind: 'error',
+        title: 'Kaito verification failed',
+        message: proofErrorUserMessage(summary.error!),
+      },
+    );
   }
   return true;
 }
@@ -263,7 +296,7 @@ function expireStaleProofProgress(message?: string): boolean {
 function showVerificationResultOverlayForTabs(
   preferredTabIds: number[],
   guideUrl: string | undefined,
-  result: { kind: 'success' | 'error'; title: string; message: string }
+  result: { kind: 'success' | 'error'; title: string; message: string },
 ): void {
   if (!LEGACY_TAB_OVERLAY_ENABLED) return;
   const replay = (tabId: number) => {
@@ -287,17 +320,20 @@ function showVerificationResultOverlayForTabs(
     return;
   }
 
-  void chrome.tabs?.query({}).then((tabs) => {
-    for (const tab of tabs) {
-      if (typeof tab.id !== 'number' || !tab.url || seen.has(tab.id)) {
-        continue;
+  void chrome.tabs
+    ?.query({})
+    .then((tabs) => {
+      for (const tab of tabs) {
+        if (typeof tab.id !== 'number' || !tab.url || seen.has(tab.id)) {
+          continue;
+        }
+        if (verifierUrlMatches(tab.url, guideUrl)) {
+          seen.add(tab.id);
+          replay(tab.id);
+        }
       }
-      if (verifierUrlMatches(tab.url, guideUrl)) {
-        seen.add(tab.id);
-        replay(tab.id);
-      }
-    }
-  }).catch(() => undefined);
+    })
+    .catch(() => undefined);
 }
 
 async function notifyStoredProofError(): Promise<void> {
@@ -307,7 +343,9 @@ async function notifyStoredProofError(): Promise<void> {
   }
 
   const key = `${result.verifierId}:${result.requestId}:${result.error.message}`;
-  const stored = await chrome.storage.local.get(LAST_RESULT_TOAST_KEY_STORAGE).catch(() => undefined);
+  const stored = await chrome.storage.local
+    .get(LAST_RESULT_TOAST_KEY_STORAGE)
+    .catch(() => undefined);
   if (key === lastResultToastKey || stored?.[LAST_RESULT_TOAST_KEY_STORAGE] === key) {
     return;
   }
@@ -342,7 +380,10 @@ function ensureProofTabGuardListener(): void {
     if (!activeProofSession || activeProofSession.targetTabId !== tabId || !changeInfo.url) {
       return;
     }
-    if (activeProofSession.guideUrl && !verifierUrlMatches(changeInfo.url, activeProofSession.guideUrl)) {
+    if (
+      activeProofSession.guideUrl &&
+      !verifierUrlMatches(changeInfo.url, activeProofSession.guideUrl)
+    ) {
       markProofInterrupted(new Error('verification_interrupted: verifier tab navigated away'));
     }
   });
@@ -374,7 +415,10 @@ function interruptActiveProof(reason: string): WorkerState {
   const session = activeProofSession;
   if (session && !session.interruptedError) {
     markProofInterrupted(new Error(`verification_interrupted: ${reason}`));
-    if (typeof session.targetTabId === 'number' && isExtensionCreatedVerifierTab(session.targetTabId)) {
+    if (
+      typeof session.targetTabId === 'number' &&
+      isExtensionCreatedVerifierTab(session.targetTabId)
+    ) {
       void chrome.tabs?.remove(session.targetTabId).catch(() => undefined);
     }
   }
@@ -464,7 +508,7 @@ async function removeVerificationOverlay(tabId: number): Promise<void> {
 
 async function showVerificationResultOverlay(
   tabId: number,
-  result: { kind: 'success' | 'error'; title: string; message: string }
+  result: { kind: 'success' | 'error'; title: string; message: string },
 ): Promise<void> {
   await chrome.scripting.executeScript({
     target: { tabId },
@@ -483,7 +527,9 @@ async function showVerificationResultOverlay(
         'max-width:340px',
         'padding:10px 12px',
         'border-radius:8px',
-        payload.kind === 'success' ? 'background:rgba(8,94,60,.94)' : 'background:rgba(132,32,41,.95)',
+        payload.kind === 'success'
+          ? 'background:rgba(8,94,60,.94)'
+          : 'background:rgba(132,32,41,.95)',
         'color:#fff',
         'font:13px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
         'box-shadow:0 10px 30px rgba(0,0,0,.26)',
@@ -506,11 +552,15 @@ async function showVerificationResultOverlay(
   });
 }
 
-function normalizeMe(me: (ExtensionMeResponse & {
-  privy_id?: string;
-  twitter_id?: string;
-  avatar_url?: string;
-}) | undefined): ExtensionMeResponse | undefined {
+function normalizeMe(
+  me:
+    | (ExtensionMeResponse & {
+        privy_id?: string;
+        twitter_id?: string;
+        avatar_url?: string;
+      })
+    | undefined,
+): ExtensionMeResponse | undefined {
   if (!me) return undefined;
   return {
     privyId: me.privyId || me.privy_id,
@@ -520,7 +570,9 @@ function normalizeMe(me: (ExtensionMeResponse & {
     avatarUrl: me.avatarUrl || me.avatar_url,
     kaitoName: me.kaitoName,
 
-    ...('activityInsightsEnabled' in me ? { activityInsightsEnabled: me.activityInsightsEnabled } : {}),
+    ...('activityInsightsEnabled' in me
+      ? { activityInsightsEnabled: me.activityInsightsEnabled }
+      : {}),
     ...('termsAccepted' in me ? { termsAccepted: me.termsAccepted } : {}),
   };
 }
@@ -593,7 +645,6 @@ function mergeMeWithCache(
 
   const kaitoName = fresh.kaitoName || cached.kaitoName;
   if (!fresh.email && !fresh.twitterId && !fresh.username) {
-
     return {
       privyId: fresh.privyId || cached.privyId,
       email: cached.email,
@@ -601,12 +652,19 @@ function mergeMeWithCache(
       username: cached.username,
       avatarUrl: cached.avatarUrl,
       kaitoName,
-      ...('activityInsightsEnabled' in fresh ? { activityInsightsEnabled: fresh.activityInsightsEnabled } : {}),
+      ...('activityInsightsEnabled' in fresh
+        ? { activityInsightsEnabled: fresh.activityInsightsEnabled }
+        : {}),
 
       ...('termsAccepted' in fresh ? { termsAccepted: fresh.termsAccepted } : {}),
     };
   }
-  if (!fresh.avatarUrl && fresh.twitterId && fresh.twitterId === cached.twitterId && cached.avatarUrl) {
+  if (
+    !fresh.avatarUrl &&
+    fresh.twitterId &&
+    fresh.twitterId === cached.twitterId &&
+    cached.avatarUrl
+  ) {
     return { ...fresh, avatarUrl: cached.avatarUrl, kaitoName };
   }
   return { ...fresh, kaitoName };
@@ -631,9 +689,11 @@ export async function refreshMe(): Promise<ExtensionMeResponse> {
 }
 
 function persistVerifySnapshot(): void {
-  void setVerifySnapshot({ verifiers: state.verifiers, verifications: state.verifications }).catch((error) => {
-    logDev('persist verify snapshot failed', error);
-  });
+  void setVerifySnapshot({ verifiers: state.verifiers, verifications: state.verifications }).catch(
+    (error) => {
+      logDev('persist verify snapshot failed', error);
+    },
+  );
 }
 
 export async function refreshVerifiers(): Promise<ExtensionVerifier[]> {
@@ -669,7 +729,7 @@ export async function unbindPlatform(platform: string): Promise<UnbindPlatformRe
   return result;
 }
 
-export async function bootstrap(): Promise<WorkerState> {
+export async function bootstrap(options: { force?: boolean } = {}): Promise<WorkerState> {
   console.log('[TIMING] bootstrap start', performance.now());
   const stored = await getStoredSession();
   state.lastResult = await getLastResult();
@@ -683,6 +743,27 @@ export async function bootstrap(): Promise<WorkerState> {
 
   const cached = await getCachedMe();
   if (cached) applyMe(cached);
+
+  if (!options.force && cached) {
+    const [freshAt, snapshot] = await Promise.all([getBootstrapFreshAt(), getVerifySnapshot()]);
+    const now = Date.now();
+    // now < freshAt means the clock moved backwards; treat as stale.
+    const fresh =
+      typeof freshAt === 'number' && now >= freshAt && now - freshAt < BOOTSTRAP_FRESH_TTL_MS;
+    if (fresh && snapshot) {
+      state.verifiers = snapshot.verifiers;
+      state.verifications = snapshot.verifications;
+      if (state.status !== 'attesting' && state.status !== 'submitting') {
+        setStatus('idle');
+      }
+      await restoreAutoVerifications().catch((error) => {
+        logDev('restore auto verifications failed', error);
+      });
+      await notifyStoredProofError();
+      console.log('[TIMING] bootstrap end (cache hit)', performance.now());
+      return getState();
+    }
+  }
   console.log('[TIMING] bootstrap before network group', performance.now());
 
   const [meResult, verifiersResult, proofsResult] = await Promise.allSettled([
@@ -702,6 +783,12 @@ export async function bootstrap(): Promise<WorkerState> {
 
   if (proofsResult.status === 'rejected') {
     logDev('refresh proofs failed', proofsResult.reason);
+  }
+
+  if (failures.length === 0 && proofsResult.status === 'fulfilled') {
+    await setBootstrapFreshAt(Date.now()).catch((error) => {
+      logDev('persist bootstrap freshness failed', error);
+    });
   }
 
   if (failures.length > 0) {
@@ -739,22 +826,26 @@ export async function ensureStartupBootstrap(): Promise<void> {
 
 export async function runProofFlow(
   verifierId: string,
-  options: ProofFlowOptions = {}
+  options: ProofFlowOptions = {},
 ): Promise<ProofRunSummary> {
   return withProofLock(verifierId, () => runProofFlowUnlocked(verifierId, options));
 }
 
 async function withProofLock(
   verifierId: string,
-  run: () => Promise<ProofRunSummary>
+  run: () => Promise<ProofRunSummary>,
 ): Promise<ProofRunSummary> {
-  const locks = (globalThis.navigator as { locks?: {
-    request: <T>(
-      name: string,
-      options: { ifAvailable: true },
-      callback: (lock: unknown) => Promise<T> | T
-    ) => Promise<T>;
-  } }).locks;
+  const locks = (
+    globalThis.navigator as {
+      locks?: {
+        request: <T>(
+          name: string,
+          options: { ifAvailable: true },
+          callback: (lock: unknown) => Promise<T> | T,
+        ) => Promise<T>;
+      };
+    }
+  ).locks;
 
   if (locks?.request) {
     return locks.request(PROOF_LOCK_NAME, { ifAvailable: true }, (lock) => {
@@ -789,7 +880,7 @@ function duplicateProofSummary(verifierId: string): ProofRunSummary {
 
 async function runProofFlowUnlocked(
   verifierId: string,
-  options: ProofFlowOptions
+  options: ProofFlowOptions,
 ): Promise<ProofRunSummary> {
   const summary: ProofRunSummary = { verifierId, requestId: '' };
   let verifierRuntime: VerifierRuntime | undefined;
@@ -824,10 +915,14 @@ async function runProofFlowUnlocked(
     const template = buildPrimusTemplate(sign.template, verifier);
     const guideUrl = resolveGuideUrl(verifier, template);
     if (!guideUrl) {
-
       throw new Error(`proof_target_not_allowed:${verifierId}`);
     }
-    setProofProgress(verifierId, state.proofProgress?.stage ?? 'preparing', state.proofProgress?.message ?? 'Preparing verification request', { guideUrl });
+    setProofProgress(
+      verifierId,
+      state.proofProgress?.stage ?? 'preparing',
+      state.proofProgress?.message ?? 'Preparing verification request',
+      { guideUrl },
+    );
     verifierRuntime = await activateVerifierRuntime(guideUrl);
     throwIfProofInterrupted(verifierId);
 
@@ -846,33 +941,34 @@ async function runProofFlowUnlocked(
     const attachDuringNavigation =
       pageSignedCapture || (source === 'auto' && options.trigger === 'page_loading');
 
-    const attestation = await runAttestation(
-      guideUrl,
-      sign.signedRequest,
-      template,
-      {
-
-        tabId: pageSignedCapture ? undefined : options.tabId,
-        silent: source === 'auto',
-        allowCreateTab: source !== 'auto' || pageSignedCapture,
-        forceCreateTab: pageSignedCapture,
-        attachDuringNavigation,
-        waitForTargetData: !attachDuringNavigation,
-        onProgress: (stage, message) => setProofProgress(verifierId, stage, message),
-        onTargetTab: async (tabId) => {
-          updateProofTargetTab(verifierId, tabId, guideUrl, verifier.name);
-          await verifierRuntime?.prepareTab(tabId);
-        },
-        isCanceled: () => activeProofSession?.verifierId === verifierId && Boolean(activeProofSession.interruptedError),
-      }
-    );
+    const attestation = await runAttestation(guideUrl, sign.signedRequest, template, {
+      tabId: pageSignedCapture ? undefined : options.tabId,
+      silent: source === 'auto',
+      allowCreateTab: source !== 'auto' || pageSignedCapture,
+      forceCreateTab: pageSignedCapture,
+      attachDuringNavigation,
+      waitForTargetData: !attachDuringNavigation,
+      onProgress: (stage, message) => setProofProgress(verifierId, stage, message),
+      onTargetTab: async (tabId) => {
+        updateProofTargetTab(verifierId, tabId, guideUrl, verifier.name);
+        await verifierRuntime?.prepareTab(tabId);
+      },
+      isCanceled: () =>
+        activeProofSession?.verifierId === verifierId &&
+        Boolean(activeProofSession.interruptedError),
+    });
     throwIfProofInterrupted(verifierId);
     summary.attestation = attestation;
     await setLastAttestation(attestation);
 
     setStatus('submitting');
     setProofProgress(verifierId, 'submitting', 'Submitting proof');
-    logDev('submitProof attestation keys', attestation && typeof attestation === 'object' ? Object.keys(attestation) : `<not object: ${typeof attestation}>`);
+    logDev(
+      'submitProof attestation keys',
+      attestation && typeof attestation === 'object'
+        ? Object.keys(attestation)
+        : `<not object: ${typeof attestation}>`,
+    );
 
     if (activeProofSession?.verifierId === verifierId) {
       activeProofSession.pastPointOfNoReturn = true;
@@ -896,6 +992,13 @@ async function runProofFlowUnlocked(
     };
 
     persistVerifySnapshot();
+    // The user will look for their own badge right after verifying; don't
+    // leave a stale (usually negative) cache entry in the way.
+    if (state.me?.twitterId) {
+      void invalidateBadge(state.me.twitterId).catch((error) => {
+        logDev('invalidate own badge after proof failed', error);
+      });
+    }
     finishProofTabGuard(verifierId, {
       kind: 'success',
       title: 'Kaito verification complete',
@@ -907,8 +1010,10 @@ async function runProofFlowUnlocked(
     setStatus('idle');
     clearProofProgress(verifierId);
   } catch (error) {
-
-    const interruption = activeProofSession?.verifierId === verifierId ? activeProofSession.interruptedError : undefined;
+    const interruption =
+      activeProofSession?.verifierId === verifierId
+        ? activeProofSession.interruptedError
+        : undefined;
     summary.error = serializeError(interruption ?? error);
 
     reportProofFailureToBackend(summary, state.proofProgress?.stage);
@@ -940,7 +1045,7 @@ async function runProofFlowUnlocked(
 async function enableAutoProof(
   verifierId: string,
   template: PrimusTemplateMetadata | undefined,
-  guideUrl?: string
+  guideUrl?: string,
 ): Promise<void> {
   if (!AUTO_PROOF_ENABLED) {
     return;
@@ -956,7 +1061,11 @@ async function enableAutoProof(
   }
 }
 
-function armAutoProof(verifierId: string, template: PrimusTemplateMetadata | undefined, guideUrl?: string): void {
+function armAutoProof(
+  verifierId: string,
+  template: PrimusTemplateMetadata | undefined,
+  guideUrl?: string,
+): void {
   armAutoProofTargetUrls(verifierId, getPrimusTemplateTargetUrls(template), guideUrl, Date.now());
 }
 
@@ -964,7 +1073,7 @@ function armAutoProofTargetUrls(
   verifierId: string,
   targetUrls: string[],
   guideUrl?: string,
-  lastStartedAt = 0
+  lastStartedAt = 0,
 ): void {
   if (targetUrls.length === 0) {
     return;
@@ -1008,7 +1117,7 @@ function restoreAutoVerification(autoVerification: AutoVerification): void {
   armAutoProofTargetUrls(
     autoVerification.verifierId,
     autoVerification.targetUrlExpressions,
-    verifier ? verifierLandingUrl(verifier, verifier.guide.url) : undefined
+    verifier ? verifierLandingUrl(verifier, verifier.guide.url) : undefined,
   );
 }
 
@@ -1026,7 +1135,7 @@ function ensureAutoProofListener(): void {
 function onAutoProofTabUpdated(
   tabId: number,
   changeInfo: chrome.tabs.OnUpdatedInfo,
-  tab: chrome.tabs.Tab
+  tab: chrome.tabs.Tab,
 ): void {
   if (changeInfo.status !== 'loading' && !changeInfo.url) {
     return;
@@ -1046,7 +1155,7 @@ function onAutoProofRequestCompleted(details: chrome.webRequest.OnCompletedDetai
 async function maybeRunAutoProofForPageLoad(
   tabId: number,
   pageUrl: string | undefined,
-  isActive: boolean | undefined
+  isActive: boolean | undefined,
 ): Promise<void> {
   if (!pageUrl || !isActive) {
     return;
@@ -1057,7 +1166,7 @@ async function maybeRunAutoProofForPageLoad(
   }
 
   const config = [...autoProofsByVerifier.values()].find((entry) =>
-    pageUrlMatchesAutoProofConfig(pageUrl, entry)
+    pageUrlMatchesAutoProofConfig(pageUrl, entry),
   );
   if (!config) {
     return;
@@ -1072,7 +1181,7 @@ async function maybeRunAutoProof(details: chrome.webRequest.OnCompletedDetails):
   }
 
   const config = [...autoProofsByVerifier.values()].find((entry) =>
-    entry.targetUrls.some((targetUrl) => targetUrlMatches(details.url, targetUrl))
+    entry.targetUrls.some((targetUrl) => targetUrlMatches(details.url, targetUrl)),
   );
   if (!config) {
     return;
@@ -1089,7 +1198,7 @@ async function maybeRunAutoProof(details: chrome.webRequest.OnCompletedDetails):
 async function startAutoProof(
   config: AutoProofConfig,
   tabId: number,
-  metadata: { trigger: 'page_loading' | 'target_request'; pageUrl?: string; url?: string }
+  metadata: { trigger: 'page_loading' | 'target_request'; pageUrl?: string; url?: string },
 ): Promise<void> {
   if (activeProofVerifierIds.has(config.verifierId)) {
     return;
@@ -1163,44 +1272,46 @@ function exactUrlFromTargetExpression(value: string): string | undefined {
 }
 
 async function keepAutoProofWorkerAlive(tabId: number): Promise<void> {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    args: [AUTO_PROOF_KEEPALIVE_MS],
-    func: (timeoutMs: number) => {
-      const key = '__kaitoAutoProofKeepAlive';
-      const global = globalThis as typeof globalThis & {
-        [key]?: {
-          port: chrome.runtime.Port;
-          timer: number;
+  await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      args: [AUTO_PROOF_KEEPALIVE_MS],
+      func: (timeoutMs: number) => {
+        const key = '__kaitoAutoProofKeepAlive';
+        const global = globalThis as typeof globalThis & {
+          [key]?: {
+            port: chrome.runtime.Port;
+            timer: number;
+          };
         };
-      };
-      const existing = global[key];
-      if (existing) {
-        clearTimeout(existing.timer);
-        existing.port.disconnect();
-      }
-
-      const port = chrome.runtime.connect({ name: 'kaitoAutoProofKeepAlive' });
-      const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
-      global[key] = { port, timer };
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer);
-        if (global[key]?.port === port) {
-          delete global[key];
+        const existing = global[key];
+        if (existing) {
+          clearTimeout(existing.timer);
+          existing.port.disconnect();
         }
+
+        const port = chrome.runtime.connect({ name: 'kaitoAutoProofKeepAlive' });
+        const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
+        global[key] = { port, timer };
+        port.onDisconnect.addListener(() => {
+          clearTimeout(timer);
+          if (global[key]?.port === port) {
+            delete global[key];
+          }
+        });
+      },
+    })
+    .catch((error) => {
+      logDev('auto proof keepalive injection failed; continuing', {
+        tabId,
+        error: error instanceof Error ? error.message : String(error),
       });
-    },
-  }).catch((error) => {
-    logDev('auto proof keepalive injection failed; continuing', {
-      tabId,
-      error: error instanceof Error ? error.message : String(error),
     });
-  });
 }
 
 function buildPrimusTemplate(
   template: PrimusTemplateMetadata | undefined,
-  verifier: ExtensionVerifier
+  verifier: ExtensionVerifier,
 ): PrimusTemplateMetadata | undefined {
   if (!template) {
     return undefined;
@@ -1233,15 +1344,25 @@ function getPrimusTemplateDefaults(verifier: ExtensionVerifier): {
   };
 }
 
-function resolveGuideUrl(verifier: ExtensionVerifier, template: PrimusTemplateMetadata | undefined): string | null {
+/**
+ * The backend catalog's guide URL is the product-owned landing page. The
+ * immutable Primus template URL remains a fallback for older catalog entries.
+ */
+function resolveGuideUrl(
+  verifier: ExtensionVerifier,
+  template: PrimusTemplateMetadata | undefined,
+): string | null {
   const allowed = resolveAllowedGuideUrl(verifier, template);
   return allowed === null ? null : verifierLandingUrl(verifier, allowed);
 }
 
 function resolveAllowedGuideUrl(
   verifier: ExtensionVerifier,
-  template: PrimusTemplateMetadata | undefined
+  template: PrimusTemplateMetadata | undefined,
 ): string | null {
+  if (verifier.guide.url) {
+    return checkProofTargetUrl(verifier.guide.url);
+  }
   if (template?.dataPageTemplate) {
     try {
       const parsed = JSON.parse(template.dataPageTemplate) as { baseUrl?: unknown };
@@ -1249,11 +1370,11 @@ function resolveAllowedGuideUrl(
         return checkProofTargetUrl(parsed.baseUrl);
       }
     } catch {
-
+      // Malformed template payload; there is no URL to fall back to.
     }
   }
 
-  return checkProofTargetUrl(verifier.guide.url);
+  return null;
 }
 
 export async function signInWithPrivySession(
@@ -1268,7 +1389,10 @@ export async function signInWithPrivySession(
     me.kaitoName = overrides.kaitoName;
   }
 
-  logDev('sign-in: /sessions me.termsAccepted =', 'termsAccepted' in me ? me.termsAccepted : '(absent)');
+  logDev(
+    'sign-in: /sessions me.termsAccepted =',
+    'termsAccepted' in me ? me.termsAccepted : '(absent)',
+  );
   await setStoredSession({
     sessionToken: response.sessionToken,
     signedInAt: Date.now(),
@@ -1276,6 +1400,10 @@ export async function signInWithPrivySession(
 
   void refreshRemoteConfig({ force: true });
   applyMe(me);
+  // Ad-flag cache entries carry the previous viewer's my_reason.
+  await clearEdgeCaches().catch((error) => {
+    logDev('clear edge caches on sign-in failed', error);
+  });
 
   try {
     const [verifiersResult, proofsResult] = await Promise.allSettled([
@@ -1289,6 +1417,11 @@ export async function signInWithPrivySession(
     if (verifiersResult.status === 'rejected') {
       throw verifiersResult.reason;
     }
+    if (proofsResult.status === 'fulfilled') {
+      await setBootstrapFreshAt(Date.now()).catch((error) => {
+        logDev('persist bootstrap freshness failed', error);
+      });
+    }
   } finally {
     await setCachedMe(me);
   }
@@ -1301,7 +1434,9 @@ const SIGN_IN_WINDOW_ID_KEY = 'kaitoSignInWindowId';
 
 export async function setPendingSignInReturnTab(tabId: number | undefined): Promise<void> {
   if (typeof tabId === 'number') {
-    await chrome.storage.session?.set({ [PENDING_SIGN_IN_RETURN_TAB_KEY]: tabId }).catch(() => undefined);
+    await chrome.storage.session
+      ?.set({ [PENDING_SIGN_IN_RETURN_TAB_KEY]: tabId })
+      .catch(() => undefined);
   } else {
     await chrome.storage.session?.remove(PENDING_SIGN_IN_RETURN_TAB_KEY).catch(() => undefined);
   }
@@ -1309,17 +1444,22 @@ export async function setPendingSignInReturnTab(tabId: number | undefined): Prom
 
 export async function openSignInWindow(url: string): Promise<void> {
   const stored = await chrome.storage.session?.get(SIGN_IN_WINDOW_ID_KEY).catch(() => undefined);
-  const existingId = typeof stored?.[SIGN_IN_WINDOW_ID_KEY] === 'number'
-    ? stored[SIGN_IN_WINDOW_ID_KEY] as number
-    : undefined;
+  const existingId =
+    typeof stored?.[SIGN_IN_WINDOW_ID_KEY] === 'number'
+      ? (stored[SIGN_IN_WINDOW_ID_KEY] as number)
+      : undefined;
   if (existingId !== undefined) {
-    const focused = await chrome.windows.update(existingId, { focused: true, state: 'normal' }).catch(() => undefined);
+    const focused = await chrome.windows
+      .update(existingId, { focused: true, state: 'normal' })
+      .catch(() => undefined);
     if (focused) return;
   }
   const loadingUrl = chrome.runtime.getURL(`sign-in-loading.html?to=${encodeURIComponent(url)}`);
   const created = await openPinnedPopupWindow(loadingUrl);
   if (typeof created?.id === 'number') {
-    await chrome.storage.session?.set({ [SIGN_IN_WINDOW_ID_KEY]: created.id }).catch(() => undefined);
+    await chrome.storage.session
+      ?.set({ [SIGN_IN_WINDOW_ID_KEY]: created.id })
+      .catch(() => undefined);
   }
 }
 
@@ -1332,7 +1472,13 @@ async function isLoginTabOursToClose(
   if (loginTab === undefined) return false;
   if (loginTab.windowId === signInWindowId) return true;
 
-  logDev('sign-in: login tab', loginTabId, 'is not in our sign-in window', signInWindowId, '— leaving it open');
+  logDev(
+    'sign-in: login tab',
+    loginTabId,
+    'is not in our sign-in window',
+    signInWindowId,
+    '— leaving it open',
+  );
   return false;
 }
 
@@ -1340,19 +1486,23 @@ export async function returnToOriginTabAfterSignIn(loginTabId: number | undefine
   const stored = await chrome.storage.session
     ?.get([PENDING_SIGN_IN_RETURN_TAB_KEY, SIGN_IN_WINDOW_ID_KEY])
     .catch(() => undefined);
-  const returnTabId = typeof stored?.[PENDING_SIGN_IN_RETURN_TAB_KEY] === 'number'
-    ? stored[PENDING_SIGN_IN_RETURN_TAB_KEY] as number
-    : undefined;
-  const signInWindowId = typeof stored?.[SIGN_IN_WINDOW_ID_KEY] === 'number'
-    ? stored[SIGN_IN_WINDOW_ID_KEY] as number
-    : undefined;
+  const returnTabId =
+    typeof stored?.[PENDING_SIGN_IN_RETURN_TAB_KEY] === 'number'
+      ? (stored[PENDING_SIGN_IN_RETURN_TAB_KEY] as number)
+      : undefined;
+  const signInWindowId =
+    typeof stored?.[SIGN_IN_WINDOW_ID_KEY] === 'number'
+      ? (stored[SIGN_IN_WINDOW_ID_KEY] as number)
+      : undefined;
 
   if (typeof returnTabId !== 'number' && typeof signInWindowId !== 'number') {
-    logDev('sign-in: page-initiated handshake, nothing of ours to restore — leaving tabs and surfaces alone');
+    logDev(
+      'sign-in: page-initiated handshake, nothing of ours to restore — leaving tabs and surfaces alone',
+    );
     return;
   }
 
-  if (typeof loginTabId === 'number' && await isLoginTabOursToClose(loginTabId, signInWindowId)) {
+  if (typeof loginTabId === 'number' && (await isLoginTabOursToClose(loginTabId, signInWindowId))) {
     await chrome.tabs.remove(loginTabId).catch(() => undefined);
   }
 
@@ -1364,7 +1514,9 @@ export async function returnToOriginTabAfterSignIn(loginTabId: number | undefine
     if (await openToolbarPopup()) {
       logDev('sign-in: reopened the toolbar popup');
     } else {
-      logDev('sign-in: chrome.action.openPopup unavailable/refused — opening a popup window instead');
+      logDev(
+        'sign-in: chrome.action.openPopup unavailable/refused — opening a popup window instead',
+      );
       await openPopupWindow();
     }
     return;
@@ -1383,7 +1535,6 @@ async function discardUnsentActivity(): Promise<void> {
     attnPendingServeEventsItem.setValue([]),
     attnOpenSpanSnapshotItem.removeValue(),
   ]).catch((error) => {
-
     logDev('discarding unsent activity failed; session still cleared', error);
   });
 }
@@ -1397,6 +1548,9 @@ export async function signOut(): Promise<void> {
   }
   await discardUnsentActivity();
   await clearStoredSession();
+  await clearEdgeCaches().catch((error) => {
+    logDev('clear edge caches on sign-out failed', error);
+  });
   state.me = undefined;
   state.signedIn = false;
   state.verifiers = [];
@@ -1406,7 +1560,6 @@ export async function signOut(): Promise<void> {
 }
 
 export async function resetSession(): Promise<WorkerState> {
-
   await discardUnsentActivity();
   await clearStoredSession();
   state.me = undefined;
@@ -1468,7 +1621,6 @@ function proofErrorUserMessage(error: NonNullable<ProofRunSummary['error']>): st
     case 'third_party_login_required':
       return 'Sign in to this platform, then retry verification.';
     case 'unsupported_account_type':
-
       return error.message?.includes('x_analytics_requires_premium')
         ? 'X Premium is required to verify account analytics. This account does not have access to its analytics data.'
         : 'This account type is not supported for this verification.';
@@ -1495,12 +1647,20 @@ function proofErrorUserMessage(error: NonNullable<ProofRunSummary['error']>): st
 function classifyProofError(message: string, reason?: string, status?: number): ProofErrorCode {
   const text = `${reason || ''} ${message}`.toLowerCase();
 
-  if (text.includes('-1002003') || text.includes('quota exhausted') || text.includes('quote has been exhausted')) {
+  if (
+    text.includes('-1002003') ||
+    text.includes('quota exhausted') ||
+    text.includes('quote has been exhausted')
+  ) {
     return 'proof_quota_exhausted';
   }
   if (text.includes('sign_in_required')) return 'sign_in_required';
   if (text.includes('wallet_not_connected')) return 'wallet_not_connected';
-  if (status === 401 || text.includes('session_token_invalid') || text.includes('session') && text.includes('revoked')) {
+  if (
+    status === 401 ||
+    text.includes('session_token_invalid') ||
+    (text.includes('session') && text.includes('revoked'))
+  ) {
     return 'session_invalid';
   }
   if (text.includes('verification_already_running')) return 'verification_already_running';
@@ -1516,7 +1676,11 @@ function classifyProofError(message: string, reason?: string, status?: number): 
   if (text.includes('proof_capture_failed')) return 'proof_capture_failed';
   if (text.includes('proof_engine_stalled')) return 'proof_engine_stalled';
   if (text.includes('verification_interrupted')) return 'page_interrupted';
-  if (text.includes('tab was closed') || text.includes('no tab with id') || text.includes('verifier tab was closed')) {
+  if (
+    text.includes('tab was closed') ||
+    text.includes('no tab with id') ||
+    text.includes('verifier tab was closed')
+  ) {
     return 'page_closed';
   }
   if (text.includes('target_data_not_ready') || text.includes('target data missing')) {
@@ -1545,7 +1709,8 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     text.includes('upstream_') ||
     text.includes('00011') ||
     text.includes('unstable connection')
-  ) return 'network_error';
+  )
+    return 'network_error';
   return 'unknown_error';
 }
 

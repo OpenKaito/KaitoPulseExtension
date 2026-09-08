@@ -2,7 +2,13 @@ import { For, Show, createSignal, type Component } from 'solid-js';
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from '@/verify/ui/icons';
 import { BrandChip } from './BrandChip';
 import type { IncludedAccount, PlatformGroup } from '../data/types';
-import { FX_APPROXIMATE_TITLE, approxFigure, formatSignedUsdCents, formatUsd, pnlTone } from '../format/numbers';
+import {
+  FX_APPROXIMATE_TITLE,
+  approxFigure,
+  formatSignedUsdCents,
+  formatUsd,
+  pnlTone,
+} from '../format/numbers';
 
 const Metric: Component<{
   label: string;
@@ -15,7 +21,10 @@ const Metric: Component<{
   const tone = () => (props.signed ? pnlTone(props.value) : null);
   const native = () => (props.value == null ? props.native : null);
   const figure = () =>
-    approxFigure(props.signed ? formatSignedUsdCents(props.value) : formatUsd(props.value), props.approx);
+    approxFigure(
+      props.signed ? formatSignedUsdCents(props.value) : formatUsd(props.value),
+      props.approx,
+    );
   return (
     <div class="pv-pmetric">
       <p class="pv-pmetric__label">
@@ -29,7 +38,6 @@ const Metric: Component<{
           'pv-loss': tone() === 'loss',
           'pv-pmetric__value--native': native() != null,
         }}
-
         title={figure().approx && native() == null ? FX_APPROXIMATE_TITLE : undefined}
       >
         <Show when={native()} fallback={figure().text}>
@@ -76,7 +84,9 @@ const SingleIdentity: Component<{ account: IncludedAccount }> = (props) => {
   );
 };
 
-const GroupIdentity: Component<{ group: PlatformGroup; onOpen: (platform: string) => void }> = (props) => {
+const GroupIdentity: Component<{ group: PlatformGroup; onOpen: (platform: string) => void }> = (
+  props,
+) => {
   const single = () => (props.group.accounts.length === 1 ? props.group.accounts[0] : undefined);
   const countLabel = (): string => {
     const total = props.group.accounts.length;
@@ -87,7 +97,11 @@ const GroupIdentity: Component<{ group: PlatformGroup; onOpen: (platform: string
     <Show
       when={single()}
       fallback={
-        <button type="button" class="pv-pcard__more" onClick={() => props.onOpen(props.group.platform)}>
+        <button
+          type="button"
+          class="pv-pcard__more"
+          onClick={() => props.onOpen(props.group.platform)}
+        >
           <span>{countLabel()}</span>
           <span class="pv-chevron-right" aria-hidden="true">
             <ChevronDownIcon size={12} />
@@ -109,8 +123,9 @@ const PlatformCardSkeleton: Component = () => (
   </div>
 );
 
-const PlatformCard: Component<{ group: PlatformGroup; onOpen: (platform: string) => void }> = (props) => {
-
+const PlatformCard: Component<{ group: PlatformGroup; onOpen: (platform: string) => void }> = (
+  props,
+) => {
   const single = (): IncludedAccount | undefined =>
     props.group.accounts.length === 1 ? props.group.accounts[0] : undefined;
   const value = () => single()?.value ?? props.group.value;
@@ -139,7 +154,9 @@ const PlatformCard: Component<{ group: PlatformGroup; onOpen: (platform: string)
       </div>
 
       {}
-      <Show when={props.group.timestampLabel}>{(when) => <p class="pv-pcard__when">{when()}</p>}</Show>
+      <Show when={props.group.timestampLabel}>
+        {(when) => <p class="pv-pcard__when">{when()}</p>}
+      </Show>
     </div>
   );
 };
@@ -170,7 +187,6 @@ export const PlatformList: Component<{
       >
         <Show
           when={props.groups.length > 0}
-
           fallback={<p class="pv-plist__empty">No verified platforms to show yet.</p>}
         >
           <For each={props.groups}>

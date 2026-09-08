@@ -57,7 +57,8 @@ export function DebugLogSection<T>(props: {
       <div class="debug-muted">
         {props.status()}
         <Show when={props.filter().trim()}>
-          {' '}· {visibleCount()} / {props.totalCount()} match “{props.filter().trim()}”
+          {' '}
+          · {visibleCount()} / {props.totalCount()} match “{props.filter().trim()}”
         </Show>
       </div>
       <div class="debug-list">

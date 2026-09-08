@@ -1,4 +1,3 @@
-
 import type { BehaviorEvent } from '@/shared/behavior';
 import { sendKaitoMessage } from '@/signal/messaging';
 import { createLogger } from '@/signal/logger';
@@ -7,7 +6,9 @@ import { FLUSH_SIZE_THRESHOLD, FlushScheduler } from '@/lib/flush-scheduler';
 export class BehaviorEventBuffer {
   private readonly logger = createLogger('behavior.buffer');
   private queue: BehaviorEvent[] = [];
-  private readonly scheduler = new FlushScheduler(() => { void this.flush(); });
+  private readonly scheduler = new FlushScheduler(() => {
+    void this.flush();
+  });
 
   start(): void {
     this.scheduler.start();

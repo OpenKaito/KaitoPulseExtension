@@ -7,22 +7,46 @@
 # repeat upload of the same version, so a version may only be packaged once.
 #
 # Past the gate:
-#   1. pnpm zip:upload — the ONLY build that leaves out the manifest `key`
-#      (UNPINNED_EXTENSION_ID), because the Web Store assigns the id on publish.
-#      Every other build is pinned to the allowlisted extension id. It runs in
-#      production mode; the version is baked into the manifest and zip filename.
-#   2. A pre-release self-check (scripts/verify-release-build.sh): the manifest
-#      version matches package.json, it carries no `key`, host_permissions and
-#      externally_connectable carry no dev or localhost origin, the production
-#      backend is compiled in, and the signal content script still satisfies the
-#      x.com CSP constraints.
-#   3. A local annotated tag v<version>. Pushing it here publishes nothing —
-#      the release is built in the public repository, from what
-#      `pnpm publish:oss` exports. Push it anyway; this gate reads it next time.
+#   1. A clean-tree gate. The tag this script creates points at HEAD, and
+#      `pnpm publish:oss` refuses to export unless the tag IS HEAD — so an
+#      uncommitted version bump has no path forward: tag it now and the tag
+#      lands on the pre-bump commit, commit it after and the tag no longer
+#      points at HEAD. Either way publish:oss stops. Fail here instead, before
+#      the build, where the fix is one commit.
+#   2. dist/*.zip is deleted. Every zip carries its version and a timestamp in
+#      its filename, but a stale zip from an earlier version is still a zip that
+#      matches the globs below, and the smoke test is run against a path this
+#      script prints. Removing them makes "the newest match" and "what this run
+#      built" the same file by construction.
+#   3. Both release artifacts are built and verified, the same two the public
+#      repository's release workflow builds, and for the same reason: they
+#      differ in one manifest field and the two audiences need opposite values
+#      of it.
 #
-# Usage: edit package.json's "version" by hand, then
+#        pnpm zip:upload  no `key` (UNPINNED_EXTENSION_ID) — the Chrome Web
+#                         Store assigns the id on publish. The ONLY uploadable
+#                         build, and the only build that leaves the key out.
+#        pnpm zip         `key` present — pinned to the allowlisted extension
+#                         id, so someone who unzips it and loads it unpacked
+#                         can actually sign in. THIS is the smoke-test build:
+#                         the key-less one cannot sign in outside the store.
+#
+#      Each is verified by scripts/verify-release-build.sh — manifest version
+#      matches package.json, the `key` matches the identity, host_permissions
+#      and externally_connectable carry no dev or localhost origin, the
+#      production backend is compiled in, and the signal content script still
+#      satisfies the x.com CSP constraints. The script is shared with the
+#      release workflow so the two cannot drift.
+#   4. A local annotated tag v<version>, created only after everything above
+#      passed — a failed release must not leave a tag behind. Pushing it here
+#      publishes nothing; the release is built in the public repository, from
+#      what `pnpm publish:oss` exports. Push it anyway; this gate reads it next
+#      time.
+#
+# Usage: bump package.json's "version" by hand, COMMIT IT, then
 #
 #   pnpm release
+#   # smoke-test the pinned artifact this prints
 #   git push origin v<version>
 #   pnpm publish:oss             # then follow what it prints
 #
@@ -34,21 +58,37 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# DRY_RUN=1 turns this into a preflight: every gate still runs and still
+# reports, but a failing one no longer stops the script and NO TAG IS CREATED.
+# The point of a preflight is to see everything wrong at once — a real release
+# stops at the first gate instead, because past it every later step is working
+# on a tree the operator has already been told not to release.
+#
+# Reached through `pnpm release:preflight`, which runs this and publish:oss
+# together. Not a second implementation of the gates: the same ones, reported
+# rather than enforced.
+DRY_RUN="${DRY_RUN:-}"
+BLOCKERS=0
+blocked() {
+  BLOCKERS=$((BLOCKERS + 1))
+  printf '✗ %s\n' "$1" >&2
+  [ -n "$DRY_RUN" ] || exit 1
+}
+
 VERSION="$(node -p "require('./package.json').version")"
 TAG="v${VERSION}"
 
 echo "▸ current version: ${VERSION}"
 
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-  cat >&2 <<EOF
-✗ ${TAG} has already been released (the git tag exists).
+  blocked "${TAG} has already been released (the git tag exists).
   A real release starts by bumping the version:
-    1. Edit "version" in package.json (patch/minor/major is your call)
-    2. Run pnpm release again
-EOF
-  exit 1
+    1. Edit \"version\" in package.json (patch/minor/major is your call)
+    2. Commit it
+    3. Run pnpm release again"
+else
+  echo "✓ ${TAG} has not been released locally (no such tag)"
 fi
-echo "✓ ${TAG} has not been released locally (no such tag)"
 
 # URL from package.json rather than a second copy of the string.
 # GIT_TERMINAL_PROMPT=0 so an unauthenticated checkout fails fast instead of
@@ -56,67 +96,130 @@ echo "✓ ${TAG} has not been released locally (no such tag)"
 OSS_URL="$(node -p "require('./package.json').repository.url" | sed 's/^git+//')"
 if OSS_TAGS="$(GIT_TERMINAL_PROMPT=0 git ls-remote --tags "${OSS_URL}" "refs/tags/${TAG}" 2>/dev/null)"; then
   if [ -n "${OSS_TAGS}" ]; then
-    cat >&2 <<EOF
-✗ ${TAG} has already been published (the tag exists in ${OSS_URL}).
+    blocked "${TAG} has already been published (the tag exists in ${OSS_URL}).
   A published version is published — the Chrome Web Store will reject a repeat
-  upload of it. Bump "version" in package.json and run pnpm release again.
-EOF
-    exit 1
+  upload of it. Bump \"version\" in package.json and run pnpm release again."
+  else
+    echo "✓ ${TAG} has not been published (no such tag in the public repository)"
   fi
-  echo "✓ ${TAG} has not been published (no such tag in the public repository)"
 else
   echo "  ⚠ could not reach ${OSS_URL} — the published-version check was skipped."
   echo "    The local tag above is the only gate that ran."
 fi
 
-echo "▸ wxt zip (production, unpinned extension id)…"
-pnpm zip:upload
+# ── Clean tree ────────────────────────────────────────────────────────────
+# Tracked changes only, the same test publish:oss applies — `git archive` reads
+# HEAD, so an untracked file is not part of what gets exported either way.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  blocked "the working tree has uncommitted changes. The tag would point at HEAD
+  without them, and pnpm publish:oss refuses to export unless the tag IS HEAD.
 
-# ── Pre-release self-check ────────────────────────────────────────────────
-# The assertions live in scripts/verify-release-build.sh, shared with the
-# tag-triggered GitHub Release workflow so the two cannot drift. IDENTITY=unpinned
-# because this is the Web Store upload artifact: it must carry NO manifest key.
-# (The workflow additionally builds the pinned download artifact and checks that
-# one with IDENTITY=pinned.)
-echo "▸ pre-release self-check…"
+  Commit first — the version bump belongs in its own commit:
+    git commit -am \"chore(release): ${VERSION}\"
+
+$(git status --short | sed 's/^/    /')"
+else
+  echo "✓ working tree clean"
+fi
+
+# ── Build both artifacts ──────────────────────────────────────────────────
+# Deleted, not moved aside: dist/ is gitignored scratch space, and keeping the
+# previous version's zips has no upside that outweighs a smoke test run against
+# the wrong one.
+if compgen -G "dist/*.zip" >/dev/null; then
+  echo "▸ removing $(ls dist/*.zip | wc -l | tr -d ' ') stale zip(s) from dist/"
+  rm -f dist/*.zip
+fi
+
+# Both builds write to dist/chrome-mv3, so each is verified immediately after it
+# is built, before the next overwrites it. Store artifact first, so the tree is
+# left holding the pinned build — that is the one to smoke-test, and from
+# dist/chrome-mv3 it can be loaded unpacked without unzipping anything.
+echo "▸ wxt zip (production, no manifest key — Web Store upload artifact)…"
+pnpm zip:upload
+echo "▸ pre-release self-check (unpinned)…"
 if ! VERSION="${VERSION}" DIST="dist/chrome-mv3" IDENTITY=unpinned \
      bash scripts/verify-release-build.sh; then
-  echo "✗ self-check failed — do not upload the zip that was produced (most likely this was not a production build)." >&2
-  exit 1
+  blocked "self-check failed — do not upload the zip that was produced (most likely this was not a production build)."
 fi
 
-if ! git diff --quiet -- package.json || ! git diff --cached --quiet -- package.json; then
-  echo "  ⚠ package.json has uncommitted changes; the tag will point at HEAD, without them. Commit first."
+echo "▸ wxt zip (production, pinned extension id — smoke-test artifact)…"
+pnpm zip
+echo "▸ pre-release self-check (pinned)…"
+if ! VERSION="${VERSION}" DIST="dist/chrome-mv3" IDENTITY=pinned \
+     bash scripts/verify-release-build.sh; then
+  blocked "self-check failed — the pinned build is not releasable, so there is nothing to smoke-test."
 fi
+
+# Only a zip tagged with BOTH halves counts: `prod` (production backend, from
+# VITE_KAITO_ENV) and the identity half (`nokey` / `storeid`, from
+# UNPINNED_EXTENSION_ID) — see zipTag() in wxt.config.ts. Matching the pair, not
+# the `prod` substring, is what makes it impossible for this script to print a
+# dev, local, unknown or mis-identified build as the artifact and have someone
+# upload it by hand. Hard failures, and before the tag: a run that cannot name
+# its own artifacts has not released anything.
+shopt -s nullglob
+STORE=(dist/*-prod-nokey-*.zip)
+PINNED=(dist/*-prod-storeid-*.zip)
+shopt -u nullglob
+for pair in "nokey:${#STORE[@]}" "storeid:${#PINNED[@]}"; do
+  if [ "${pair#*:}" -ne 1 ]; then
+    blocked "expected exactly 1 dist/*-prod-${pair%%:*}-*.zip, found ${pair#*:}.
+  Most likely VITE_KAITO_ENV is not 'production' in your .env, so the build was
+  tagged dev/local/unknown rather than prod. Do not upload anything."
+  fi
+done
+
+if [ -n "$DRY_RUN" ]; then
+  cat <<DRY
+
+$(if [ "$BLOCKERS" -eq 0 ]; then
+    echo "✓ dry run clean — ${VERSION} would package."
+  else
+    echo "✗ dry run — ${BLOCKERS} blocker(s) above."
+  fi)
+
+   would be smoke-tested: ${PINNED[0]:-(none built)}
+   would be uploaded:     ${STORE[0]:-(none built)}
+
+   No tag was created. Nothing was pushed.
+DRY
+  [ "$BLOCKERS" -eq 0 ]
+  exit
+fi
+
 git tag -a "${TAG}" -m "release ${TAG}"
 echo "✓ created local tag ${TAG}"
 
-# Only a zip tagged with BOTH halves counts: `prod` (production backend, from
-# VITE_KAITO_ENV) and `nokey` (no manifest key, from UNPINNED_EXTENSION_ID) —
-# see zipTag() in wxt.config.ts. Matching the pair, not the `prod` substring, is
-# what makes it impossible for this script to print a dev, local, unknown or
-# key-carrying build as the artifact and have someone upload it by hand. A
-# substring match on `prod` alone would also catch `-prod-storeid-`, which is
-# pinned to the live store id and must never be uploaded.
-ZIP="$(ls -t dist/*-prod-nokey-*.zip 2>/dev/null | head -1 || true)"
-echo
-echo "✅ release complete: ${VERSION}"
-if [ -n "${ZIP}" ]; then
-  echo "   artifact: ${ZIP}"
-else
-  echo "   ⚠ no *-prod-nokey-*.zip in dist/ — most likely not a production build (VITE_KAITO_ENV), or the key-less opt-out did not apply. Do not upload anything." >&2
-fi
-echo
-echo "   next:"
-echo "     git push origin ${TAG}"
-echo "     pnpm publish:oss"
-echo
-echo "   publish:oss exports this tree through scripts/oss-manifest.txt, re-runs the"
-echo "   public-source hygiene check over the export, and stages ${TAG} in the public"
-echo "   repository. It pushes nothing; it prints the diff."
-echo
-echo "   Pushing that tag publishes the release. The workflow there rebuilds from"
-echo "   that commit, re-runs these checks, attests both zips, and drafts a Release:"
-echo "     kaito-extension-${VERSION}.zip           download and load unpacked"
-echo "     kaito-extension-webstore-${VERSION}.zip  Chrome Web Store upload artifact"
-echo "   Review the draft, publish it, upload the -webstore one to the dev console."
+cat <<DONE
+
+✅ release complete: ${VERSION}
+
+   smoke-test THIS build — the pinned one, the only one that can sign in:
+     ${PINNED[0]}
+     (or load dist/chrome-mv3 unpacked; it holds the same build)
+
+   Web Store upload artifact, built and verified but NOT for smoke-testing
+   (no manifest key, so sign-in will not work loaded unpacked):
+     ${STORE[0]}
+
+   Neither of these is what ships. The release workflow rebuilds both from the
+   published commit and attaches its own; these exist to be tested and to prove
+   the tree is releasable before it goes public.
+
+   next, once the smoke test passes:
+     git push origin ${TAG}
+     pnpm publish:oss
+
+   publish:oss exports this tree through scripts/oss-manifest.txt, re-runs the
+   public-source hygiene check over the export, lists every path the release
+   makes public for the first time, and stages ${TAG} in the public repository.
+   It pushes nothing; it prints the diff.
+
+   Pushing that tag publishes the release. The workflow there rebuilds from
+   that commit, re-runs these checks, attests both zips, and drafts a Release:
+     kaito-extension-${VERSION}.zip           download and load unpacked
+     kaito-extension-webstore-${VERSION}.zip  Chrome Web Store upload artifact
+   Review the draft, publish it, upload the -webstore one to the dev console.
+
+DONE

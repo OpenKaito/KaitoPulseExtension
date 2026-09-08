@@ -1,22 +1,36 @@
-import type { AvatarSignalProfile, SignalPopoverData, SignalProfileSnapshot, SignalProtocol } from "./types";
-import { createLogger } from "./logger";
-import { createAvatarSignalBadgeElement, setAvatarBadgeValue, updateAvatarBadgeTier } from "./avatar-badge";
-import { getSmartFollowerTier } from "./avatar-badge-tiers";
-import { createNameTagElement, setNameTagProtocols } from "./name-tag";
-import { NameTagPopover, loadPopoverData } from "./name-tag-popover";
-import { TokenChartPopover, loadTokenChart } from "./token-chart/popover";
-import { normalizeCashtagSymbol } from "./token-chart/symbol";
-import { hasTweetAuthor, rememberTweetAuthor, resolveTicker } from "./token-chart/resolve";
-import { BadgesBatcher } from "./badges";
-import { badgeToNameTagEntries, hoverCardToFollowerStats } from "./social-card-map";
-import { isEnabled, type SignalSettings, type SignalSurfaceKey } from "./settings";
-import { ORCHESTRATOR_SURFACE_REGISTRY, scanForAnchor, type ScanKind, type SurfaceDef } from "./surfaces";
-import { HealthMonitor } from "./dom/health-monitor";
+import type {
+  AvatarSignalProfile,
+  SignalPopoverData,
+  SignalProfileSnapshot,
+  SignalProtocol,
+} from './types';
+import { createLogger } from './logger';
 import {
-  SIGNAL_DOM_SELECTORS as SELECTORS,
-  SIGNAL_DOM_ATTRS as DOM_ATTRS,
-} from "./dom/selectors";
-import { detectAvatarShape, detectAvatarSize } from "./dom/geometry";
+  createAvatarSignalBadgeElement,
+  setAvatarBadgeValue,
+  updateAvatarBadgeTier,
+} from './avatar-badge';
+import { getSmartFollowerTier } from './avatar-badge-tiers';
+import { createNameTagElement, setNameTagProtocols } from './name-tag';
+import { NameTagPopover, loadPopoverData } from './name-tag-popover';
+import { TokenChartPopover, loadTokenChart } from './token-chart/popover';
+import { invalidateTickerAnchor } from './token-chart/applied-state';
+import { TickerArticlePlanner } from './token-chart/article-plan';
+import { parseNativeEntityHint } from './token-chart/native-entity-hint';
+import { normalizeCashtagSymbol } from './token-chart/symbol';
+import { resolveTicker } from './token-chart/resolve';
+import { BadgesBatcher } from './badges';
+import { badgeToNameTagEntries, hoverCardToFollowerStats } from './social-card-map';
+import { isEnabled, type SignalSettings, type SignalSurfaceKey } from './settings';
+import {
+  ORCHESTRATOR_SURFACE_REGISTRY,
+  scanForAnchor,
+  type ScanKind,
+  type SurfaceDef,
+} from './surfaces';
+import { HealthMonitor } from './dom/health-monitor';
+import { SIGNAL_DOM_SELECTORS as SELECTORS, SIGNAL_DOM_ATTRS as DOM_ATTRS } from './dom/selectors';
+import { detectAvatarShape, detectAvatarSize } from './dom/geometry';
 import {
   DomAdapter,
   getAvatarRootHandle,
@@ -24,15 +38,20 @@ import {
   getArticleAuthorProfile,
   getArticleTweetId,
   getArticleNoticeAnchor,
-} from "./dom/adapter";
-import { resolveTwitterId } from "./identity";
-import { hostPrefersDark } from "./host-theme";
-import { getHoverCard } from "./hover-card-store";
-import { createHoverCardStatsElement, renderFollowerStats } from "./hovercard-stats";
-import { AdFlagPopover } from "./ad-flag/popover";
-import { createAdFlagButtonElement, setAdFlagButtonState } from "./ad-flag/button";
-import { createAdFlagNoticeElement, setAdFlagNoticeCount } from "./ad-flag/notice";
-import { AdFlagStore } from "./ad-flag/store";
+} from './dom/adapter';
+import { resolveTwitterId } from './identity';
+import { hostPrefersDark } from './host-theme';
+import { getHoverCard } from './hover-card-store';
+import {
+  createHoverCardStatsElement,
+  EMPTY_HOVER_CARD_STATS,
+  isHoverCardStatsEmpty,
+  renderFollowerStats,
+} from './hovercard-stats';
+import { AdFlagPopover } from './ad-flag/popover';
+import { createAdFlagButtonElement, setAdFlagButtonState } from './ad-flag/button';
+import { createAdFlagNoticeElement, setAdFlagNoticeCount } from './ad-flag/notice';
+import { AdFlagStore } from './ad-flag/store';
 import { guard } from '@/lib/guard';
 
 const BADGE_PARTIAL_POKE_MS = 5_000;
@@ -51,7 +70,27 @@ interface BadgeSub {
 }
 
 export class Orchestrator {
-  private readonly logger = createLogger("orchestrator");
+  private readonly logger = createLogger('orchestrator');
+  private readonly tickerArticlePlanner = new TickerArticlePlanner(
+    (handle) => resolveTwitterId(handle, undefined),
+    {
+      tweetTextSelector: () => SELECTORS.TWEET_TEXT,
+      cashtagLinkSelector: () => SELECTORS.CASHTAG_LINK,
+      cashtagSweptAttr: DOM_ATTRS.CASHTAG_SWEPT,
+      surfaceAttr: DOM_ATTRS.SURFACE,
+      surfaceValue: 'tokenChart.feed',
+      normalizeSymbol: normalizeCashtagSymbol,
+      parseEntityHint: parseNativeEntityHint,
+      getArticleTweetId,
+      getArticleAuthorHandle,
+      isCurrentAnchor: (article, anchor) => {
+        if (!anchor.isConnected || !anchor.matches(SELECTORS.CASHTAG_LINK)) return false;
+        const tweetText = anchor.closest(SELECTORS.TWEET_TEXT);
+        return tweetText !== null && article.contains(tweetText);
+      },
+    },
+    (handle, error) => this.logger.warn(`ticker author id lookup failed handle=${handle}`, error),
+  );
   private readonly document: Document;
   private readonly cleanups: Array<() => void> = [];
   private readonly popover: NameTagPopover;
@@ -100,7 +139,15 @@ export class Orchestrator {
     const adFlagOn = isEnabled(this.settings, 'adFlag.feed');
     const tokenChartOn = isEnabled(this.settings, 'tokenChart.feed');
 
-    if (!nametagOn && !avatarOn && !quotedAvatarOn && !adFlagOn && !tokenChartOn && !this.onArticleSwept) return 0;
+    if (
+      !nametagOn &&
+      !avatarOn &&
+      !quotedAvatarOn &&
+      !adFlagOn &&
+      !tokenChartOn &&
+      !this.onArticleSwept
+    )
+      return 0;
 
     const avatarIndex = avatarOn ? this.adapter.buildFeedAvatarIndex() : null;
 
@@ -128,8 +175,11 @@ export class Orchestrator {
         }
 
         if (avatarOn && avatarIndex) {
-          for (const { avatarRoot, surface } of this.adapter.discoverFeedAvatars(article, handle, avatarIndex)) {
-
+          for (const { avatarRoot, surface } of this.adapter.discoverFeedAvatars(
+            article,
+            handle,
+            avatarIndex,
+          )) {
             if (!isEnabled(this.settings, surface)) continue;
 
             const avatarSize = detectAvatarSize(avatarRoot);
@@ -147,12 +197,26 @@ export class Orchestrator {
         }
 
         if (quotedAvatarOn) {
-          for (const { avatarRoot, handle: quotedHandle, surface } of this.adapter.discoverQuotedAvatars(article)) {
+          for (const {
+            avatarRoot,
+            handle: quotedHandle,
+            surface,
+          } of this.adapter.discoverQuotedAvatars(article)) {
             const avatarSize = detectAvatarSize(avatarRoot);
-            const avatarMount = this.adapter.mount(avatarRoot, quotedHandle, quotedHandle, avatarSize, surface);
+            const avatarMount = this.adapter.mount(
+              avatarRoot,
+              quotedHandle,
+              quotedHandle,
+              avatarSize,
+              surface,
+            );
             if (!avatarMount) continue;
 
-            const profile = this.createAvatarProfile(quotedHandle, detectAvatarShape(avatarRoot), avatarSize);
+            const profile = this.createAvatarProfile(
+              quotedHandle,
+              detectAvatarShape(avatarRoot),
+              avatarSize,
+            );
             const badgeEl = createAvatarSignalBadgeElement({ ...profile, value: '' });
             avatarMount.container.appendChild(badgeEl);
             this.applyBadgeSmartFollowers(badgeEl, quotedHandle);
@@ -164,41 +228,47 @@ export class Orchestrator {
       }
 
       if (tokenChartOn) {
+        const tickerPlan = this.tickerArticlePlanner.plan(article, genStr);
+        if (!tickerPlan) continue;
 
-        const tickerTweetId = getArticleTweetId(article);
+        injectedCount += tickerPlan.anchors.length;
 
-        if (tickerTweetId && !hasTweetAuthor(tickerTweetId)) {
-          const tweetAuthorHandle = getArticleAuthorHandle(article);
-          if (tweetAuthorHandle) {
-            void resolveTwitterId(tweetAuthorHandle, undefined).then((authorTwitterId) => {
-              if (authorTwitterId) rememberTweetAuthor(tickerTweetId, authorTwitterId);
-            });
-          }
-        }
-
-        for (const tweetText of article.querySelectorAll(SELECTORS.TWEET_TEXT)) {
-          for (const anchor of tweetText.querySelectorAll(SELECTORS.CASHTAG_LINK)) {
-            const anchorEl = anchor as HTMLElement;
-            if (anchorEl.getAttribute(DOM_ATTRS.CASHTAG_SWEPT) === genStr) continue;
-
-            anchorEl.setAttribute(DOM_ATTRS.CASHTAG_SWEPT, genStr);
-            const symbol = normalizeCashtagSymbol(anchor.textContent);
-            if (!symbol) continue;
-
-            anchorEl.setAttribute(DOM_ATTRS.SURFACE, 'tokenChart.feed');
-            injectedCount++;
-
-            resolveTicker(symbol, tickerTweetId).then((resolved) => {
+        for (const anchorPlan of tickerPlan.anchors) {
+          const { anchor: anchorEl, symbol, entityHint } = anchorPlan;
+          invalidateTickerAnchor(anchorEl, DOM_ATTRS.CASHTAG_CHIP, (anchor) =>
+            this.tokenChartPopover.unregister(anchor),
+          );
+          void tickerPlan.authorId
+            .then((authorId) =>
+              resolveTicker({
+                cashtag: symbol,
+                ...(tickerPlan.tweetId ? { tweetId: tickerPlan.tweetId } : {}),
+                ...(authorId ? { authorId } : {}),
+                ...(entityHint ? { entityHint } : {}),
+                ...(tickerPlan.authorHandle ? { authorHandle: tickerPlan.authorHandle } : {}),
+              }),
+            )
+            .then((resolved) => {
               if (!resolved) return;
               if (!isEnabled(this.settings, 'tokenChart.feed')) return;
+              if (!tickerPlan.isCurrent(anchorPlan)) return;
 
-              anchorEl.setAttribute(DOM_ATTRS.CASHTAG_CHIP, hostPrefersDark(this.document) ? 'dark' : 'light');
-
-              this.tokenChartPopover.register(anchorEl, symbol, resolved.name, resolved.logo, (period) =>
-                loadTokenChart(symbol, period, resolved.tickerId),
+              anchorEl.setAttribute(
+                DOM_ATTRS.CASHTAG_CHIP,
+                hostPrefersDark(this.document) ? 'dark' : 'light',
               );
+
+              this.tokenChartPopover.register(
+                anchorEl,
+                symbol,
+                resolved.name,
+                resolved.logo,
+                (period) => loadTokenChart(symbol, period, resolved.tickerId),
+              );
+            })
+            .catch((error) => {
+              this.logger.error(`ticker resolve failed cashtag=${symbol}`, error);
             });
-          }
         }
       }
     }
@@ -218,7 +288,9 @@ export class Orchestrator {
   }
 
   private restoreNativeCashtagCards(): void {
-    for (const card of this.document.querySelectorAll(`[${DOM_ATTRS.NATIVE_CASHTAG_CARD_HIDDEN}]`)) {
+    for (const card of this.document.querySelectorAll(
+      `[${DOM_ATTRS.NATIVE_CASHTAG_CARD_HIDDEN}]`,
+    )) {
       (card as HTMLElement).style.display = '';
       card.removeAttribute(DOM_ATTRS.NATIVE_CASHTAG_CARD_HIDDEN);
     }
@@ -241,7 +313,6 @@ export class Orchestrator {
     } else if (time && userName.contains(time)) {
       time.parentElement?.appendChild(tag);
     } else {
-
       const nameLink = userName.querySelector('a[role="link"][href^="/"]');
       let nameLine: HTMLElement | null = nameLink as HTMLElement | null;
       while (nameLine && nameLine.parentElement !== userName) {
@@ -254,7 +325,11 @@ export class Orchestrator {
     if (handle) tag.dataset.signalHandle = handle;
 
     if (isEnabled(this.settings, 'nametag.feedPopover')) {
-      this.popover.register(tag, () => this.loadPopoverForHandle(handle), () => this.resolveTagProfile(tag));
+      this.popover.register(
+        tag,
+        () => this.loadPopoverForHandle(handle),
+        () => this.resolveTagProfile(tag),
+      );
     }
 
     this.applyBadgePlatforms(tag, handle);
@@ -295,7 +370,8 @@ export class Orchestrator {
   private injectAdFlagNotice(article: HTMLElement, tweetId: string): HTMLElement | undefined {
     const anchor = getArticleNoticeAnchor(article);
     if (!anchor?.parentElement) return undefined;
-    if (anchor.parentElement.querySelector(`[${DOM_ATTRS.AD_FLAG_NOTICE_INJECTED_FLAG}]`)) return undefined;
+    if (anchor.parentElement.querySelector(`[${DOM_ATTRS.AD_FLAG_NOTICE_INJECTED_FLAG}]`))
+      return undefined;
 
     const notice = createAdFlagNoticeElement(tweetId, 0);
     notice.setAttribute(DOM_ATTRS.AD_FLAG_NOTICE_INJECTED_FLAG, tweetId);
@@ -315,10 +391,14 @@ export class Orchestrator {
 
   private resolveTagProfile(tag: HTMLElement): SignalProfileSnapshot | undefined {
     const article = tag.closest(SELECTORS.ARTICLE) as HTMLElement | null;
-    return article ? getArticleAuthorProfile(article) ?? undefined : undefined;
+    return article ? (getArticleAuthorProfile(article) ?? undefined) : undefined;
   }
 
-  private applyBadgePlatforms(tag: HTMLElement, handle: string | null, idHint?: string | null): void {
+  private applyBadgePlatforms(
+    tag: HTMLElement,
+    handle: string | null,
+    idHint?: string | null,
+  ): void {
     void resolveTwitterId(handle, idHint).then((twitterId) => {
       if (!tag.isConnected) return;
       if (!twitterId) {
@@ -333,7 +413,8 @@ export class Orchestrator {
         const entries = badgeToNameTagEntries(badge);
         const trading = badge?.trading;
 
-        const hasTradingChip = !!trading && (trading.bucket !== null || trading.platforms.length > 0);
+        const hasTradingChip =
+          !!trading && (trading.bucket !== null || trading.platforms.length > 0);
         if (entries.length === 0 && !hasTradingChip) {
           this.markNameTagEmpty(tag);
           return;
@@ -343,7 +424,7 @@ export class Orchestrator {
 
         const skeleton = Array.from(
           new Set([...entries.map((entry) => entry.protocol), ...(trading?.platforms ?? [])]),
-        ).filter((p): p is SignalProtocol => p === "hyperliquid" || p === "polymarket");
+        ).filter((p): p is SignalProtocol => p === 'hyperliquid' || p === 'polymarket');
         this.popover.updatePlatforms(tag, skeleton);
       });
 
@@ -356,7 +437,11 @@ export class Orchestrator {
     tag.classList.add('signal-name-tag--loading');
   }
 
-  private applyBadgeSmartFollowers(badgeEl: HTMLElement, handle: string | null, idHint?: string | null): void {
+  private applyBadgeSmartFollowers(
+    badgeEl: HTMLElement,
+    handle: string | null,
+    idHint?: string | null,
+  ): void {
     void resolveTwitterId(handle, idHint).then((twitterId) => {
       if (!badgeEl.isConnected) return;
       if (!twitterId) {
@@ -393,7 +478,6 @@ export class Orchestrator {
         if (tier === 'no-data') {
           setAvatarBadgeValue(badgeEl, 'N/A');
         } else if (isCount) {
-
           setAvatarBadgeValue(badgeEl, tier === 'no-sf' ? '0' : sf.toLocaleString('en-US'));
         }
       });
@@ -436,30 +520,32 @@ export class Orchestrator {
     this.lastHealthCheckAt = now;
 
     if (!this.isScanKindEnabled('feed')) {
-
       this.healthMonitor.reset();
       return;
     }
     const count = this.document.querySelectorAll(SELECTORS.ARTICLE).length;
 
-    const tweetAvatarCount = count > 0
-      ? 0
-      : this.document.querySelectorAll(SELECTORS.TWEET_AVATAR).length;
+    const tweetAvatarCount =
+      count > 0 ? 0 : this.document.querySelectorAll(SELECTORS.TWEET_AVATAR).length;
     this.healthMonitor.recordDiscovery(count, tweetAvatarCount);
   }
 
   private isScanKindEnabled(kind: ScanKind): boolean {
     switch (kind) {
       case 'feed':
-        return isEnabled(this.settings, 'nametag.feed') ||
+        return (
+          isEnabled(this.settings, 'nametag.feed') ||
           isEnabled(this.settings, 'avatar.feed') ||
-          isEnabled(this.settings, 'avatar.quoted');
+          isEnabled(this.settings, 'avatar.quoted')
+        );
       case 'userCell':
         return isEnabled(this.settings, 'avatar.usercell');
       case 'hoverCard':
-        return isEnabled(this.settings, 'avatar.hovercard') ||
+        return (
+          isEnabled(this.settings, 'avatar.hovercard') ||
           isEnabled(this.settings, 'nametag.hovercard') ||
-          isEnabled(this.settings, 'stats.hovercard');
+          isEnabled(this.settings, 'stats.hovercard')
+        );
     }
   }
 
@@ -497,7 +583,13 @@ export class Orchestrator {
 
     for (const { avatarRoot, id: userId, handle } of this.adapter.discoverUserCellAvatars()) {
       const avatarSize = detectAvatarSize(avatarRoot);
-      const avatarMount = this.adapter.mount(avatarRoot, userId, handle ?? '', avatarSize, 'avatar.usercell');
+      const avatarMount = this.adapter.mount(
+        avatarRoot,
+        userId,
+        handle ?? '',
+        avatarSize,
+        'avatar.usercell',
+      );
       if (!avatarMount) continue;
 
       const badgeEl = createAvatarSignalBadgeElement({
@@ -521,7 +613,13 @@ export class Orchestrator {
       if (avatarOn) {
         const avatarSize = detectAvatarSize(avatarRoot);
         const identity = getAvatarRootHandle(avatarRoot) ?? '';
-        const avatarMount = this.adapter.mount(avatarRoot, id, identity, avatarSize, 'avatar.hovercard');
+        const avatarMount = this.adapter.mount(
+          avatarRoot,
+          id,
+          identity,
+          avatarSize,
+          'avatar.hovercard',
+        );
         if (avatarMount) {
           const badgeEl = createAvatarSignalBadgeElement({
             ...this.createAvatarProfile(id, detectAvatarShape(avatarRoot), avatarSize),
@@ -580,8 +678,9 @@ export class Orchestrator {
       }
       const result = await getHoverCard(twitterId);
       if (!placeholder.isConnected) return;
-      const stats = result ? hoverCardToFollowerStats(result) : [];
-      if (stats.length === 0) {
+
+      const stats = result ? hoverCardToFollowerStats(result) : EMPTY_HOVER_CARD_STATS;
+      if (isHoverCardStatsEmpty(stats)) {
         placeholder.remove();
         return;
       }
@@ -607,7 +706,7 @@ export class Orchestrator {
   private createAvatarProfile(
     tweetId: string,
     avatarShape: 'circle' | 'square',
-    avatarSize: AvatarSignalProfile['avatarSize'] = 'regular'
+    avatarSize: AvatarSignalProfile['avatarSize'] = 'regular',
   ): AvatarSignalProfile {
     const profile = {
       tweetId,
@@ -650,12 +749,15 @@ export class Orchestrator {
 
   private enableSurface(def: SurfaceDef): void {
     if (def.widget === 'popover') {
-
       for (const node of this.document.querySelectorAll(`[${DOM_ATTRS.SURFACE}="${def.parent}"]`)) {
         const tagEl = node as HTMLElement;
 
         const handle = tagEl.dataset.signalHandle ?? null;
-        this.popover.register(tagEl, () => this.loadPopoverForHandle(handle), () => this.resolveTagProfile(tagEl));
+        this.popover.register(
+          tagEl,
+          () => this.loadPopoverForHandle(handle),
+          () => this.resolveTagProfile(tagEl),
+        );
       }
       return;
     }
@@ -668,7 +770,6 @@ export class Orchestrator {
         this.removeAvatarSurface(def.key);
         break;
       case 'nametag':
-
         for (const node of this.document.querySelectorAll(`[${DOM_ATTRS.SURFACE}="${def.key}"]`)) {
           this.popover.unregister(node as HTMLElement);
           node.remove();
@@ -680,8 +781,9 @@ export class Orchestrator {
         }
         break;
       case 'popover':
-
-        for (const node of this.document.querySelectorAll(`[${DOM_ATTRS.SURFACE}="${def.parent}"]`)) {
+        for (const node of this.document.querySelectorAll(
+          `[${DOM_ATTRS.SURFACE}="${def.parent}"]`,
+        )) {
           this.popover.unregister(node as HTMLElement);
         }
         break;
@@ -692,7 +794,6 @@ export class Orchestrator {
         }
         break;
       case 'tokenPopover':
-
         for (const node of this.document.querySelectorAll(`[${DOM_ATTRS.SURFACE}="${def.key}"]`)) {
           const anchorEl = node as HTMLElement;
           this.tokenChartPopover.unregister(anchorEl);
@@ -733,14 +834,12 @@ export class Orchestrator {
     try {
       this.popover.destroy();
 
-      this.document
-        .querySelectorAll(`[${DOM_ATTRS.SURFACE}="tokenChart.feed"]`)
-        .forEach((node) => {
-          const anchorEl = node as HTMLElement;
-          this.tokenChartPopover.unregister(anchorEl);
-          anchorEl.removeAttribute(DOM_ATTRS.SURFACE);
-          anchorEl.removeAttribute(DOM_ATTRS.CASHTAG_CHIP);
-        });
+      this.document.querySelectorAll(`[${DOM_ATTRS.SURFACE}="tokenChart.feed"]`).forEach((node) => {
+        const anchorEl = node as HTMLElement;
+        this.tokenChartPopover.unregister(anchorEl);
+        anchorEl.removeAttribute(DOM_ATTRS.SURFACE);
+        anchorEl.removeAttribute(DOM_ATTRS.CASHTAG_CHIP);
+      });
       this.restoreNativeCashtagCards();
       this.tokenChartPopover.destroy();
       this.adFlagPopover.destroy();
@@ -754,13 +853,13 @@ export class Orchestrator {
         try {
           fn();
         } catch (error) {
-          this.logger.error("observer cleanup failed", error);
+          this.logger.error('observer cleanup failed', error);
         }
       }
 
       this.document
         .querySelectorAll(
-          `[${DOM_ATTRS.AVATAR_INJECTED_FLAG}], [${DOM_ATTRS.NAMETAG_INJECTED_FLAG}], [${DOM_ATTRS.STATS_INJECTED_FLAG}], [${DOM_ATTRS.AD_FLAG_INJECTED_FLAG}], [${DOM_ATTRS.AD_FLAG_NOTICE_INJECTED_FLAG}]`
+          `[${DOM_ATTRS.AVATAR_INJECTED_FLAG}], [${DOM_ATTRS.NAMETAG_INJECTED_FLAG}], [${DOM_ATTRS.STATS_INJECTED_FLAG}], [${DOM_ATTRS.AD_FLAG_INJECTED_FLAG}], [${DOM_ATTRS.AD_FLAG_NOTICE_INJECTED_FLAG}]`,
         )
         .forEach((node) => node.remove());
 
@@ -770,9 +869,9 @@ export class Orchestrator {
       this.document
         .querySelectorAll(`[${DOM_ATTRS.CASHTAG_SWEPT}]`)
         .forEach((node) => node.removeAttribute(DOM_ATTRS.CASHTAG_SWEPT));
-      this.logger.log("cleanup completed");
+      this.logger.log('cleanup completed');
     } catch (error) {
-      this.logger.error("cleanup failed", error);
+      this.logger.error('cleanup failed', error);
     }
   }
 }

@@ -1,7 +1,7 @@
-import type { Accessor, JSX } from "solid-js";
-import { Show } from "solid-js";
-import type { SignalProtocol } from "./types";
-import { StickyShadowCard } from "./shared/scroll-shadow";
+import type { Accessor, JSX } from 'solid-js';
+import { Show } from 'solid-js';
+import type { SignalProtocol } from './types';
+import { StickyShadowCard } from './shared/scroll-shadow';
 
 function SkeletonBar(props: { modifier: string }): JSX.Element {
   return <div class={`signal-popover__sk signal-popover__sk--${props.modifier}`} />;
@@ -53,7 +53,7 @@ function SkeletonChartCard(): JSX.Element {
   );
 }
 
-function SkeletonStatCard(props: { variant: "polymarket" }): JSX.Element {
+function SkeletonStatCard(props: { variant: 'polymarket' }): JSX.Element {
   return (
     <StickyShadowCard class={`signal-popover__card signal-popover__card--${props.variant}`}>
       <div class="signal-popover__card-top">
@@ -88,10 +88,10 @@ function SkeletonStatCard(props: { variant: "polymarket" }): JSX.Element {
 export function PopoverSkeleton(props: { platforms: Accessor<SignalProtocol[]> }): JSX.Element {
   return (
     <div class="signal-popover__skeleton" aria-hidden="true">
-      <Show when={props.platforms().includes("hyperliquid")}>
+      <Show when={props.platforms().includes('hyperliquid')}>
         <SkeletonChartCard />
       </Show>
-      <Show when={props.platforms().includes("polymarket")}>
+      <Show when={props.platforms().includes('polymarket')}>
         <SkeletonStatCard variant="polymarket" />
       </Show>
     </div>

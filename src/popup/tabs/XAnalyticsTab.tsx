@@ -52,12 +52,11 @@ export const XAnalyticsTab: Component = () => {
             <Show
               when={items().length > 0}
               fallback={
-
                 <div class="pv-empty-recs">
                   <img class="pv-empty-recs__art" src={linkXArtwork} alt="" />
                   <p class="pv-empty-recs__copy">
-                    Browse posts on your X timeline. Once there’s enough activity, we’ll recommend accounts based on
-                    what you engage with.
+                    Browse posts on your X timeline. Once there’s enough activity, we’ll recommend
+                    accounts based on what you engage with.
                   </p>
                 </div>
               }

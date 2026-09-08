@@ -1,12 +1,8 @@
-
 import { optionalPatternForUrl } from '@/shared/proof-targets';
 
 export type HostPermissionOutcome =
-
   | { ok: true }
-
   | { ok: false; reason: 'denied' }
-
   | { ok: false; reason: 'unavailable' };
 
 export async function ensureProofHostPermission(targetUrl: string): Promise<HostPermissionOutcome> {
@@ -19,7 +15,6 @@ export async function ensureProofHostPermission(targetUrl: string): Promise<Host
   try {
     if (await permissions.contains({ origins: [pattern] })) return { ok: true };
   } catch {
-
     return { ok: false, reason: 'unavailable' };
   }
 
@@ -27,7 +22,6 @@ export async function ensureProofHostPermission(targetUrl: string): Promise<Host
     const granted = await permissions.request({ origins: [pattern] });
     return granted ? { ok: true } : { ok: false, reason: 'denied' };
   } catch {
-
     return { ok: false, reason: 'unavailable' };
   }
 }

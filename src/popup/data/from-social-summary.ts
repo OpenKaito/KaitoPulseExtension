@@ -1,4 +1,3 @@
-
 import type { ExtensionSocialFollower } from '@/shared/extension-social';
 import type { PopupData, SmartFollower } from './types';
 

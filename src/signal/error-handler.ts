@@ -16,14 +16,16 @@ export class AppError extends Error {
     message: string,
     public category: ErrorCategory,
     public context?: Record<string, any>,
-    public originalError?: Error
+    public originalError?: Error,
   ) {
     super(message);
     this.name = 'AppError';
 
-    const captureStackTrace = (Error as unknown as {
-      captureStackTrace?: (target: object, ctor?: new (...args: any[]) => any) => void;
-    }).captureStackTrace;
+    const captureStackTrace = (
+      Error as unknown as {
+        captureStackTrace?: (target: object, ctor?: new (...args: any[]) => any) => void;
+      }
+    ).captureStackTrace;
     if (captureStackTrace) {
       captureStackTrace(this, AppError);
     }
@@ -55,33 +57,27 @@ interface ErrorHandlerConfig {
 }
 
 export class ErrorHandler {
-
-  static handle(
-    error: unknown,
-    category: ErrorCategory,
-    config: ErrorHandlerConfig
-  ): any {
-    const appError = this.normalize(error, category, config.context);
+  static handle(error: unknown, category: ErrorCategory, config: ErrorHandlerConfig): any {
+    const appError = ErrorHandler.normalize(error, category, config.context);
 
     switch (config.strategy) {
       case ErrorStrategy.LOG_AND_CONTINUE:
-        this.logError(appError);
+        ErrorHandler.logError(appError);
         return;
 
       case ErrorStrategy.LOG_AND_THROW:
-        this.logError(appError);
+        ErrorHandler.logError(appError);
         throw appError;
 
       case ErrorStrategy.LOG_AND_RETURN_DEFAULT:
-        this.logError(appError);
+        ErrorHandler.logError(appError);
         return config.defaultValue;
 
       case ErrorStrategy.SILENT:
-
         return config.defaultValue;
 
       default:
-        this.logError(appError);
+        ErrorHandler.logError(appError);
         throw appError;
     }
   }
@@ -89,7 +85,7 @@ export class ErrorHandler {
   private static normalize(
     error: unknown,
     category: ErrorCategory,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): AppError {
     if (error instanceof AppError) {
       return error;
@@ -99,9 +95,7 @@ export class ErrorHandler {
       return new AppError(error.message, category, context, error);
     }
 
-    const message = typeof error === 'string'
-      ? error
-      : JSON.stringify(error) || 'Unknown error';
+    const message = typeof error === 'string' ? error : JSON.stringify(error) || 'Unknown error';
 
     return new AppError(message, category, context);
   }
@@ -112,12 +106,10 @@ export class ErrorHandler {
     switch (error.category) {
       case ErrorCategory.NETWORK:
       case ErrorCategory.CACHE:
-
         logger.warn(error.message, logData);
         break;
 
       case ErrorCategory.VALIDATION:
-
         logger.warn(error.message, logData);
         break;
 
@@ -125,7 +117,6 @@ export class ErrorHandler {
       case ErrorCategory.RUNTIME:
       case ErrorCategory.UNKNOWN:
       default:
-
         logger.error(error.message, logData);
         break;
     }
@@ -134,24 +125,20 @@ export class ErrorHandler {
   static async wrapAsync<T>(
     fn: () => Promise<T>,
     category: ErrorCategory,
-    config: ErrorHandlerConfig
+    config: ErrorHandlerConfig,
   ): Promise<T> {
     try {
       return await fn();
     } catch (error) {
-      return this.handle(error, category, config);
+      return ErrorHandler.handle(error, category, config);
     }
   }
 
-  static wrapSync<T>(
-    fn: () => T,
-    category: ErrorCategory,
-    config: ErrorHandlerConfig
-  ): T {
+  static wrapSync<T>(fn: () => T, category: ErrorCategory, config: ErrorHandlerConfig): T {
     try {
       return fn();
     } catch (error) {
-      return this.handle(error, category, config);
+      return ErrorHandler.handle(error, category, config);
     }
   }
 }
@@ -159,7 +146,7 @@ export class ErrorHandler {
 export function handleNetworkError<T = any[]>(
   error: unknown,
   defaultValue: T = [] as any,
-  context?: Record<string, any>
+  context?: Record<string, any>,
 ): T {
   return ErrorHandler.handle(error, ErrorCategory.NETWORK, {
     strategy: ErrorStrategy.LOG_AND_RETURN_DEFAULT,
@@ -168,10 +155,7 @@ export function handleNetworkError<T = any[]>(
   });
 }
 
-export function handleCacheError(
-  error: unknown,
-  context?: Record<string, any>
-): void {
+export function handleCacheError(error: unknown, context?: Record<string, any>): void {
   ErrorHandler.handle(error, ErrorCategory.CACHE, {
     strategy: ErrorStrategy.LOG_AND_CONTINUE,
     context,
@@ -181,7 +165,7 @@ export function handleCacheError(
 export function handleValidationError<T = null>(
   error: unknown,
   defaultValue: T = null as any,
-  context?: Record<string, any>
+  context?: Record<string, any>,
 ): T {
   return ErrorHandler.handle(error, ErrorCategory.VALIDATION, {
     strategy: ErrorStrategy.LOG_AND_RETURN_DEFAULT,
@@ -190,20 +174,14 @@ export function handleValidationError<T = null>(
   });
 }
 
-export function handleDOMError(
-  error: unknown,
-  context?: Record<string, any>
-): void {
+export function handleDOMError(error: unknown, context?: Record<string, any>): void {
   ErrorHandler.handle(error, ErrorCategory.DOM, {
     strategy: ErrorStrategy.LOG_AND_CONTINUE,
     context,
   });
 }
 
-export function handleCriticalError(
-  error: unknown,
-  context?: Record<string, any>
-): never {
+export function handleCriticalError(error: unknown, context?: Record<string, any>): never {
   ErrorHandler.handle(error, ErrorCategory.RUNTIME, {
     strategy: ErrorStrategy.LOG_AND_THROW,
     context,

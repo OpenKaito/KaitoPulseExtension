@@ -1,8 +1,6 @@
-
 export const TID_MAP_MESSAGE = 'kaito-tid-map' as const;
 
 export interface TidPair {
-
   handle: string;
 
   id: string;
@@ -33,7 +31,6 @@ function pickScreenName(value: unknown): string | null {
 }
 
 function readScreenName(obj: Record<string, unknown>): string | null {
-
   return pickScreenName(obj) ?? pickScreenName(obj.legacy) ?? pickScreenName(obj.core);
 }
 

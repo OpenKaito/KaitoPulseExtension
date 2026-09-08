@@ -1,4 +1,3 @@
-
 import type { ExtensionSocialCard } from '@/shared/extension-social';
 import type { FollowRecommendationResponse } from '@/shared/recommend-follow';
 import type { PopupData } from '@/popup/data/types';

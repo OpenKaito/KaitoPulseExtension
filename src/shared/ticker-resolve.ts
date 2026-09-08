@@ -1,15 +1,16 @@
-
 export interface CashtagOccurrence {
-
   cashtag: string;
 
   tweetId?: string;
 
   authorId?: string;
+
+  entityHint?: string;
+
+  authorHandle?: string;
 }
 
 export interface ResolvedTicker {
-
   cashtag: string;
 
   tweetId: string | null;
@@ -19,16 +20,15 @@ export interface ResolvedTicker {
 
   logo?: string;
 
-  kind: "stock" | "crypto";
+  kind: 'stock' | 'crypto';
 
   ambiguous: boolean;
 
   candidates: string[];
 
-  resolvedBy: "global" | "tweet" | "author";
+  resolvedBy: 'global' | 'entity_hint' | 'author_handle' | 'tweet' | 'author';
 }
 
 export interface TickerResolveResponse {
-
   resolved: ResolvedTicker[];
 }

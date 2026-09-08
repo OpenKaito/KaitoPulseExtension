@@ -1,5 +1,4 @@
-
-export const SVG_NS = "http://www.w3.org/2000/svg";
+export const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,

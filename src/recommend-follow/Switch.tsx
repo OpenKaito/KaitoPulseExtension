@@ -1,6 +1,10 @@
 import type { JSX } from 'solid-js';
 
-export function Switch(props: { checked: boolean; onClick: () => void; labelledBy?: string }): JSX.Element {
+export function Switch(props: {
+  checked: boolean;
+  onClick: () => void;
+  labelledBy?: string;
+}): JSX.Element {
   return (
     <button
       type="button"

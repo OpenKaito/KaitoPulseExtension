@@ -1,4 +1,3 @@
-
 import { SOCIAL_CARD_SNAP_ID } from './SocialCard';
 import { ensureCardFonts } from './fonts';
 
@@ -6,7 +5,6 @@ const EXPORT_SCALE = 2;
 const EXPORT_BACKGROUND = '#0C1014';
 
 export async function renderCardBlob(): Promise<Blob> {
-
   await ensureCardFonts();
 
   const el = document.getElementById(SOCIAL_CARD_SNAP_ID);

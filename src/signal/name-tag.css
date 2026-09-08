@@ -1,4 +1,3 @@
-
 .signal-name-tag {
   display: inline-flex;
   align-items: center;
@@ -24,11 +23,16 @@
   backdrop-filter: blur(2px);
   background: var(--nt-bg);
   color: var(--nt-text);
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .signal-name-tag__pill--combined:has(.signal-name-tag__count) {
   padding-right: 4px;
+}
+
+.signal-name-tag__pill--bare {
+  background: none;
+  backdrop-filter: none;
 }
 
 .signal-name-tag__pill--value {

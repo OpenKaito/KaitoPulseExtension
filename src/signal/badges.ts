@@ -1,8 +1,8 @@
-import type { BadgeItem } from "@/shared/social-card";
-import { sendKaitoMessage } from "./messaging";
-import { createLogger } from "./logger";
-import { SwrCache } from "./swr-cache";
-import { SIGNAL_CONFIG } from "./config";
+import type { BadgeItem } from '@/shared/social-card';
+import { sendKaitoMessage } from './messaging';
+import { createLogger } from './logger';
+import { SwrCache } from './swr-cache';
+import { SIGNAL_CONFIG } from './config';
 
 const WINDOW_MS = 250;
 const MAX_BATCH = 50;
@@ -26,13 +26,12 @@ function tradingEquals(a: BadgeItem['trading'], b: BadgeItem['trading']): boolea
   return (
     a.bucket === b.bucket &&
     a.platforms.length === b.platforms.length &&
-
     a.platforms.every((p, i) => p === b.platforms[i])
   );
 }
 
 export class BadgesBatcher {
-  private readonly logger = createLogger("badges");
+  private readonly logger = createLogger('badges');
   private readonly cache: SwrCache<BadgeItem>;
 
   constructor() {
@@ -46,7 +45,7 @@ export class BadgesBatcher {
       equals: badgeEquals,
 
       isComplete: (badge) => badge.smartFollowers != null,
-      label: "badges",
+      label: 'badges',
       fetchKeys: (ids) => this.fetchBadges(ids),
     });
   }
@@ -64,13 +63,12 @@ export class BadgesBatcher {
   }
 
   private async fetchBadges(ids: string[]): Promise<Map<string, BadgeItem | null>> {
-
     const response = await sendKaitoMessage({
-      target: "kaitoExtension",
-      action: "fetchBadges",
+      target: 'kaitoExtension',
+      action: 'fetchBadges',
       twitterIds: ids,
     });
-    if (response.error) this.logger.error("fetchBadges error", response.error);
+    if (response.error) this.logger.error('fetchBadges error', response.error);
     const items = response.items ?? {};
     const map = new Map<string, BadgeItem | null>();
     for (const id of ids) {
@@ -78,7 +76,6 @@ export class BadgesBatcher {
       if (item !== undefined) {
         map.set(id, item);
       } else if (response.error) {
-
         map.set(id, {
           smartFollowers: null,
           platforms: { hl: false, pm: false, hlPositions: null, pmPositions: null },

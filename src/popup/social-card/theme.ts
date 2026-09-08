@@ -1,10 +1,8 @@
-
 import type { SocialCardScope } from '@/shared/voices-social-card';
 
 export type WordmarkKind = 'crypto-svg' | 'ai-text' | 'trading-text';
 
 export interface ScopeCopy {
-
   label: string;
 
   labelWord: string;

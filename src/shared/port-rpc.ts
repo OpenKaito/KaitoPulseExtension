@@ -1,8 +1,6 @@
-
 const PORT_NAME = 'kaitoExtension';
 
 export type KaitoPortOptions = {
-
   disconnectMessage: string;
 
   disconnectAfterResponse: boolean;

@@ -1,10 +1,11 @@
-
 import type { SocialCardScope } from '@/shared/voices-social-card';
 
 const SHARE_COPY: Record<SocialCardScope, string> = {
-  crypto: 'still here. locked in. forever growing.\nCT - my corner of the internet.\nget yours: {link}',
+  crypto:
+    'still here. locked in. forever growing.\nCT - my corner of the internet.\nget yours: {link}',
   ai: "we're living through the most exciting technological shift of our lifetime.\nhere's my part in it.\nget yours: {link}",
-  trading: "every trade and every thesis tells a story.\nhere's mine, documented in public.\nget yours: {link}",
+  trading:
+    "every trade and every thesis tells a story.\nhere's mine, documented in public.\nget yours: {link}",
 };
 
 export const buildShareText = (scope: SocialCardScope, link: string): string =>

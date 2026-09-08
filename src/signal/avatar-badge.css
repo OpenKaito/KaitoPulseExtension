@@ -8,20 +8,19 @@
 }
 
 .signal-avatar-host {
-
   position: relative !important;
 }
 
-[data-testid="HoverCard"] .signal-avatar-host {
+[data-testid='HoverCard'] .signal-avatar-host {
   margin-bottom: 14px;
 }
 
-[data-testid="Tweet-User-Avatar"]:has(.signal-avatar-host) {
+[data-testid='Tweet-User-Avatar']:has(.signal-avatar-host) {
   position: relative;
   z-index: 1;
 }
 
-[data-testid*="UserAvatar-Container"].signal-avatar-host,
+[data-testid*='UserAvatar-Container'].signal-avatar-host,
 div:has(> .signal-avatar-host),
 div:has(> div > .signal-avatar-host),
 div:has(> div > div > .signal-avatar-host) {
@@ -29,17 +28,17 @@ div:has(> div > div > .signal-avatar-host) {
   z-index: 100001;
 }
 
-div[role="link"][tabindex="0"] div:has(.signal-avatar-host) {
+div[role='link'][tabindex='0'] div:has(.signal-avatar-host) {
   overflow: visible !important;
 }
 
-div[role="link"][tabindex="0"]
-  :has(.signal-avatar-host):has([data-testid="tweetText"])
-  > div:has(.signal-avatar-host):not(:has([data-testid="tweetText"])) {
+div[role='link'][tabindex='0']
+  :has(.signal-avatar-host):has([data-testid='tweetText'])
+  > div:has(.signal-avatar-host):not(:has([data-testid='tweetText'])) {
   margin-bottom: 16px;
 }
 
-div[role="link"][tabindex="0"]:not(:has([data-testid="tweetText"]))
+div[role='link'][tabindex='0']:not(:has([data-testid='tweetText']))
   > div
   > div:has(.signal-avatar-host) {
   margin-bottom: 16px;
@@ -104,8 +103,7 @@ div[role="link"][tabindex="0"]:not(:has([data-testid="tweetText"]))
 }
 
 .signal-avatar-badge__value {
-
-  font-family: "Inter", "Geist Mono", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', 'Geist Mono', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: var(--sab-weight, 600);
   font-size: 10px;
   line-height: 1.2;
@@ -132,7 +130,6 @@ div[role="link"][tabindex="0"]:not(:has([data-testid="tweetText"]))
 }
 
 .signal-avatar-badge--large .signal-avatar-badge__ring {
-
   inset: -4.5%;
 }
 

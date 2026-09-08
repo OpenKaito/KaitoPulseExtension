@@ -1,4 +1,3 @@
-
 import { For, Show, type Component } from 'solid-js';
 import { AlertCircleIcon, FailCircleIcon, SuccessCircleIcon } from './icons';
 
@@ -16,7 +15,11 @@ export interface VerifyStep {
 export const VERIFY_STEP_IDS: VerifyStepId[] = ['connect', 'read', 'generate'];
 
 export function verifyStepTitle(id: VerifyStepId, platform: string): string {
-  return id === 'connect' ? `Connect to ${platform}` : id === 'read' ? 'Read account data' : 'Generating your proof';
+  return id === 'connect'
+    ? `Connect to ${platform}`
+    : id === 'read'
+      ? 'Read account data'
+      : 'Generating your proof';
 }
 
 export const VerifyStepList: Component<{

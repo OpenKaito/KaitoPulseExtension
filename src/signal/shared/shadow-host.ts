@@ -1,4 +1,3 @@
-
 const sheetCache = new Map<string, CSSStyleSheet>();
 
 function sheetFor(css: string): CSSStyleSheet {
@@ -17,21 +16,21 @@ export interface ShadowHost {
 }
 
 export function createShadowHost(css: string | string[], hostClass?: string): ShadowHost {
-  const host = document.createElement("div");
+  const host = document.createElement('div');
   if (hostClass) host.className = hostClass;
-  const shadow = host.attachShadow({ mode: "open" });
+  const shadow = host.attachShadow({ mode: 'open' });
   shadow.adoptedStyleSheets = (Array.isArray(css) ? css : [css]).map(sheetFor);
   return { host, shadow };
 }
 
 export function markTopLayerHost(host: HTMLElement): void {
-  if (typeof host.showPopover !== "function") return;
-  host.popover = "manual";
+  if (typeof host.showPopover !== 'function') return;
+  host.popover = 'manual';
 }
 
 export function promoteToTopLayer(host: HTMLElement): void {
-  if (typeof host.showPopover !== "function") return;
+  if (typeof host.showPopover !== 'function') return;
 
-  if (host.matches(":popover-open")) host.hidePopover();
+  if (host.matches(':popover-open')) host.hidePopover();
   host.showPopover();
 }

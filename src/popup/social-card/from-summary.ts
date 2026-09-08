@@ -1,4 +1,3 @@
-
 import {
   EXTENSION_SOCIAL_CARD_SECTOR,
   type ExtensionSocialCardData,

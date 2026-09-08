@@ -1,4 +1,3 @@
-
 import type { VoicesHeatmapCell } from '@/shared/voices-social-card';
 
 export const HEATMAP_WEEKS = 53;
@@ -9,7 +8,6 @@ const MIN_MONTH_LABEL_COLS = 3;
 const toIsoDate = (d: Date): string => d.toISOString().slice(0, 10);
 
 export interface HeatmapLayout {
-
   grid: (VoicesHeatmapCell | null)[][];
   months: { label: string; startCol: number; endCol: number }[];
 }

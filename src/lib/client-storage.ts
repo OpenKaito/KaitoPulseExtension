@@ -2,6 +2,7 @@ import type { Attestation, ExtensionMeResponse } from '@/shared/contracts';
 import type { ProofRunSummary } from '@/shared/messages';
 import {
   activeProofProgressItem,
+  bootstrapFreshAtItem,
   lastAttestationItem,
   lastResultItem,
   meCacheItem,
@@ -32,11 +33,24 @@ export async function clearStoredSession(): Promise<void> {
     activeProofProgressItem.removeValue(),
 
     verifySnapshotItem.removeValue(),
+    bootstrapFreshAtItem.removeValue(),
   ]);
 }
 
 export async function setVerifySnapshot(snapshot: VerifySnapshot): Promise<void> {
   await verifySnapshotItem.setValue(snapshot);
+}
+
+export async function getVerifySnapshot(): Promise<VerifySnapshot | undefined> {
+  return (await verifySnapshotItem.getValue()) ?? undefined;
+}
+
+export async function getBootstrapFreshAt(): Promise<number | undefined> {
+  return (await bootstrapFreshAtItem.getValue()) ?? undefined;
+}
+
+export async function setBootstrapFreshAt(at: number): Promise<void> {
+  await bootstrapFreshAtItem.setValue(at);
 }
 
 export async function getCachedMe(): Promise<ExtensionMeResponse | undefined> {

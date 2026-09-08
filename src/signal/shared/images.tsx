@@ -1,5 +1,10 @@
-import { createEffect, createSignal, Show, type JSX } from "solid-js";
-import { resolveImageSrc } from "../messaging";
+import { createEffect, createSignal, Show, type JSX } from 'solid-js';
+import { resolveImageSrc } from '../messaging';
+import { stableHash } from '../hash';
+
+export function avatarHue(seed: string): number {
+  return parseInt(stableHash(seed), 36) % 360;
+}
 
 export function RemoteImg(props: {
   url: string | undefined;
@@ -7,6 +12,10 @@ export function RemoteImg(props: {
   imgCls: string;
   defaultCls: string;
   cssPx: number;
+
+  defaultStyle?: JSX.CSSProperties;
+
+  defaultWhilePending?: boolean;
 }): JSX.Element {
   const [src, setSrc] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal(false);
@@ -25,12 +34,24 @@ export function RemoteImg(props: {
       });
   });
 
-  const showDefault = () => !props.url || failed();
+  const showDefault = () =>
+    !props.url || failed() || (props.defaultWhilePending === true && src() === null);
 
   return (
-    <div class={`${props.wrapCls}${showDefault() ? ` ${props.defaultCls}` : ""}`}>
-      <Show when={!showDefault() && src()}>
-        {(resolvedSrc) => <img class={props.imgCls} src={resolvedSrc()} alt="" draggable={false} />}
+    <div
+      class={`${props.wrapCls}${showDefault() ? ` ${props.defaultCls}` : ''}`}
+      style={showDefault() ? props.defaultStyle : undefined}
+    >
+      <Show when={src()}>
+        {(resolvedSrc) => (
+          <img
+            class={props.imgCls}
+            src={resolvedSrc()}
+            alt=""
+            draggable={false}
+            onError={() => setFailed(true)}
+          />
+        )}
       </Show>
     </div>
   );
@@ -44,6 +65,27 @@ export function AvatarImage(props: { url: string | undefined }): JSX.Element {
       imgCls="signal-popover__avatar-img"
       defaultCls="signal-popover__avatar--default"
       cssPx={24}
+    />
+  );
+}
+
+export function ChipAvatarImage(props: { url: string | undefined; seed?: string }): JSX.Element {
+  const seed = () => props.seed;
+  return (
+    <RemoteImg
+      url={props.url}
+      wrapCls="signal-popover__acct-chip-avatar"
+      imgCls="signal-popover__acct-chip-avatar-img"
+      defaultCls={
+        seed() === undefined
+          ? 'signal-popover__avatar--default'
+          : 'signal-popover__acct-chip-avatar--gen'
+      }
+      defaultStyle={
+        seed() === undefined ? undefined : { '--sg-gen-hue': String(avatarHue(seed()!)) }
+      }
+      defaultWhilePending={seed() !== undefined}
+      cssPx={14}
     />
   );
 }

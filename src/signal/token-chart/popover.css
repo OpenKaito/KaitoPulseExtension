@@ -1,4 +1,3 @@
-
 :host {
   all: initial;
   position: fixed;
@@ -13,7 +12,7 @@
   --sg-grid-dot: rgb(15 20 25 / 8%);
 
   --sg-ripple-rgb: 10 143 120;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   position: fixed;
   top: 0;
   left: 0;
@@ -25,12 +24,16 @@
   color: var(--sg-text);
   border: 1px solid rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 0 8px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 0 8px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.12s ease, visibility 0.12s;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s;
   overscroll-behavior: contain;
 
   overflow: visible;
@@ -167,7 +170,9 @@
   background: transparent;
   color: rgb(var(--sg-on-surface-rgb, 0 0 0) / 60%);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .token-chart-popover__icon-btn--close {
@@ -175,7 +180,7 @@
 }
 
 .token-chart-popover__icon-btn:hover,
-.token-chart-popover__icon-btn[aria-expanded="true"] {
+.token-chart-popover__icon-btn[aria-expanded='true'] {
   background: rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
   color: var(--sg-text-strong);
 }
@@ -207,7 +212,9 @@
   background: var(--sg-surface);
   border: 1px solid rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16), 0 0 4px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    0 0 4px rgba(0, 0, 0, 0.08);
 }
 
 .token-chart-popover__menu-item {
@@ -286,7 +293,9 @@
   height: 16px;
   border-radius: 999px;
   background: #fff;
-  transition: transform 150ms ease, background-color 150ms ease;
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
 }
 
 .token-chart-popover__switch--on .token-chart-popover__switch-thumb {
@@ -346,7 +355,7 @@
 }
 
 .token-chart-popover__chart::before {
-  content: "";
+  content: '';
   position: absolute;
 
   left: 44px;
@@ -360,8 +369,8 @@
   mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, #000 40%, transparent 100%);
 }
 
-.token-chart-popover__chart[aria-busy="true"]::after {
-  content: "";
+.token-chart-popover__chart[aria-busy='true']::after {
+  content: '';
   position: absolute;
   left: 44px;
   right: 40px;
@@ -370,7 +379,13 @@
   pointer-events: none;
   background-image: radial-gradient(rgb(var(--sg-ripple-rgb) / 100%) 0.75px, transparent 0.75px);
   background-size: 8px 8px;
-  -webkit-mask-image: radial-gradient(circle, transparent 0%, transparent 56%, #000 68%, transparent 84%);
+  -webkit-mask-image: radial-gradient(
+    circle,
+    transparent 0%,
+    transparent 56%,
+    #000 68%,
+    transparent 84%
+  );
   mask-image: radial-gradient(circle, transparent 0%, transparent 56%, #000 68%, transparent 84%);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -401,7 +416,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .token-chart-popover__chart[aria-busy="true"]::after {
+  .token-chart-popover__chart[aria-busy='true']::after {
     animation: none;
     opacity: 0;
   }

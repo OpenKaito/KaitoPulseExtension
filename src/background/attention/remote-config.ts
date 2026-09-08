@@ -1,4 +1,3 @@
-
 import { attnRemoteConfigItem, type AttentionRemoteConfig } from '@/shared/storage';
 import { DEFAULT_ATTENTION_CONFIG, normalizeAttentionConfig } from '@/shared/attention';
 import { api } from '@/lib/api';
@@ -34,7 +33,10 @@ export async function refreshRemoteConfig({ force = false } = {}): Promise<void>
   try {
     const response = await api.getAttentionConfig(stored.sessionToken);
 
-    await attnRemoteConfigItem.setValue({ ...normalizeAttentionConfig(response), fetchedAt: Date.now() });
+    await attnRemoteConfigItem.setValue({
+      ...normalizeAttentionConfig(response),
+      fetchedAt: Date.now(),
+    });
   } catch (error) {
     logDev('attention remote-config fetch failed, keeping cache', error);
   }

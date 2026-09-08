@@ -1,4 +1,3 @@
-
 export type AttentionClickKind =
   | 'detail'
   | 'outbound'
@@ -108,8 +107,14 @@ export const DEFAULT_ATTENTION_CONFIG: AttentionConfigResponse = {
   collectEnabled: true,
   serveSetEnabled: true,
   operationAllowlist: [
-    'HomeTimeline', 'HomeLatestTimeline', 'TweetDetail', 'UserTweets',
-    'UserTweetsAndReplies', 'SearchTimeline', 'ListLatestTweetsTimeline', 'Bookmarks',
+    'HomeTimeline',
+    'HomeLatestTimeline',
+    'TweetDetail',
+    'UserTweets',
+    'UserTweetsAndReplies',
+    'SearchTimeline',
+    'ListLatestTweetsTimeline',
+    'Bookmarks',
   ],
   flushPeriodSec: 30,
   maxBatchEvents: 500,
@@ -125,9 +130,13 @@ export function normalizeAttentionConfig(raw: unknown): AttentionConfigResponse 
   const allowlistOk = Array.isArray(allowlist) && allowlist.every((op) => typeof op === 'string');
   return {
     collectEnabled:
-      typeof obj.collectEnabled === 'boolean' ? obj.collectEnabled : DEFAULT_ATTENTION_CONFIG.collectEnabled,
+      typeof obj.collectEnabled === 'boolean'
+        ? obj.collectEnabled
+        : DEFAULT_ATTENTION_CONFIG.collectEnabled,
     serveSetEnabled:
-      typeof obj.serveSetEnabled === 'boolean' ? obj.serveSetEnabled : DEFAULT_ATTENTION_CONFIG.serveSetEnabled,
+      typeof obj.serveSetEnabled === 'boolean'
+        ? obj.serveSetEnabled
+        : DEFAULT_ATTENTION_CONFIG.serveSetEnabled,
     operationAllowlist: allowlistOk ? allowlist : DEFAULT_ATTENTION_CONFIG.operationAllowlist,
     flushPeriodSec: isPositiveFinite(obj.flushPeriodSec)
       ? obj.flushPeriodSec
@@ -139,13 +148,29 @@ export function normalizeAttentionConfig(raw: unknown): AttentionConfigResponse 
 }
 
 const ATTENTION_ROUTE_ROOTS: ReadonlySet<string> = new Set([
-  'home', 'explore', 'notifications', 'messages', 'search', 'settings', 'compose',
-  'bookmarks', 'lists', 'topics', 'communities', 'hashtag', 'jobs', 'i',
-  'login', 'logout', 'tos', 'privacy', 'intent', 'status',
+  'home',
+  'explore',
+  'notifications',
+  'messages',
+  'search',
+  'settings',
+  'compose',
+  'bookmarks',
+  'lists',
+  'topics',
+  'communities',
+  'hashtag',
+  'jobs',
+  'i',
+  'login',
+  'logout',
+  'tos',
+  'privacy',
+  'intent',
+  'status',
 ]);
 
 function collapseRouteSegment(segment: string): string {
-
   if (/^\d+$/.test(segment)) return ':id';
   if (/^[0-9a-z_-]{16,}$/i.test(segment)) return ':id';
   return segment.toLowerCase();

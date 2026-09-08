@@ -21,9 +21,20 @@ export function Modal(props: {
 
   return (
     <div class="rf-modal-backdrop" onMouseDown={onBackdropMouseDown}>
-      <div class="rf-modal-card" role="dialog" aria-modal="true" aria-labelledby={props.labelledBy} ref={cardRef}>
+      <div
+        class="rf-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={props.labelledBy}
+        ref={cardRef}
+      >
         {props.showCloseButton !== false && (
-          <button type="button" class="rf-modal-close" aria-label="Close" onClick={() => props.onClose()}>
+          <button
+            type="button"
+            class="rf-modal-close"
+            aria-label="Close"
+            onClick={() => props.onClose()}
+          >
             <CloseIcon size={16} />
           </button>
         )}

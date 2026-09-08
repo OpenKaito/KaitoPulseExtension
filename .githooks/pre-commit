@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Runs `biome check` over the staged files before a commit is written.
+#
+# Checks, never rewrites. A hook that reformats and re-stages behind your back
+# changes what you are committing after you have already read it, and this tree
+# is often open in more than one worktree at once — a silent write is the last
+# thing it needs. So this fails and tells you the command to run instead.
+#
+# Escape hatch: `git commit --no-verify`. CI runs the same check, so a skip here
+# is a deferral, not a bypass.
+#
+# Installed by scripts/setup-git-hooks.sh via postinstall, which points
+# core.hooksPath at this directory.
+
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+BIOME="node_modules/.bin/biome"
+
+# A fresh clone mid-install, or a worktree whose deps were never installed,
+# should not be unable to commit.
+if [ ! -x "$BIOME" ]; then
+  echo "[pre-commit] biome is not installed — run 'pnpm install'. Skipping." >&2
+  exit 0
+fi
+
+# --staged narrows the run to the files in the index. Note that Biome then reads
+# them from the working tree, so a partially staged file is judged by its
+# on-disk content, not by the hunk you staged.
+#
+# --no-errors-on-unmatched keeps a docs-only or shell-only commit from failing
+# just because nothing in it was Biome's business.
+#
+# --diagnostic-level=error because only errors stop this hook. Printing the
+# warnings too would put a page of things-you-may-not-act-on in front of every
+# commit, and the ones that scroll past unread are the ones that stop being
+# read at all. `pnpm lint`, CI and review are where the warnings belong.
+if ! "$BIOME" check --staged --no-errors-on-unmatched --diagnostic-level=error; then
+  cat >&2 <<'MSG'
+
+[pre-commit] Biome found problems in the staged files.
+
+  Fix what is safely fixable, then stage it:
+      pnpm lint:fix && git add -u
+
+  See everything Biome has to say about the whole tree:
+      pnpm lint
+
+  Commit anyway (CI will still run this):
+      git commit --no-verify
+
+MSG
+  exit 1
+fi
+
+echo "[pre-commit] ok — biome clean"

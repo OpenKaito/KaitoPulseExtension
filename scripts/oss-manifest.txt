@@ -1,9 +1,11 @@
 publish .env.example
 publish .github
+publish .githooks
 publish .gitignore
 publish .gitmodules
 publish .node-version
 publish .npmrc
+publish biome.jsonc
 publish LICENSE
 publish NOTICE
 publish README.md
@@ -16,6 +18,7 @@ publish package.json
 publish pnpm-lock.yaml
 publish scripts
 publish src
+publish test
 publish tsconfig.json
 publish vendor
 publish wxt.config.ts

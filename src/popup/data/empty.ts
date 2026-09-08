@@ -10,7 +10,14 @@ export const EMPTY_DATA: PopupData = {
     accountValueUsd: null,
     allTimePnlUsd: null,
   },
-  aura: { total: null, rank: null, earned: null, referral: null, inviteUrl: null, inviteCode: null },
+  aura: {
+    total: null,
+    rank: null,
+    earned: null,
+    referral: null,
+    inviteUrl: null,
+    inviteCode: null,
+  },
   social: { categories: [], followers: [], followersOrdering: 'recent' },
 
   tradingOverview: null,

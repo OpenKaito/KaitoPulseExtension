@@ -27,7 +27,9 @@ const BehaviorEntryRow: Component<{ entry: BehaviorEvent }> = (props) => (
   <details class="debug-entry">
     <summary>
       <span class="debug-method">{props.entry.kind}</span>
-      <span class="debug-url">{formatTime(props.entry.ts)} · {props.entry.surface}</span>
+      <span class="debug-url">
+        {formatTime(props.entry.ts)} · {props.entry.surface}
+      </span>
     </summary>
     <div class="debug-meta">
       <span>actor: {props.entry.actor.handle ?? props.entry.actor.twitterId ?? 'unknown'}</span>
@@ -95,7 +97,9 @@ export const BehaviorDebugSection: Component = () => {
   };
 
   void load();
-  const interval = window.setInterval(() => { void load(); }, REFRESH_INTERVAL_MS);
+  const interval = window.setInterval(() => {
+    void load();
+  }, REFRESH_INTERVAL_MS);
   onCleanup(() => {
     disposed = true;
     window.clearInterval(interval);

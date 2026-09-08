@@ -1,6 +1,4 @@
-
 export interface FollowRecommendationEvidence {
-
   impressionCnt: number;
   clickCnt: number;
 
@@ -13,14 +11,11 @@ export interface FollowRecommendationEvidence {
 }
 
 export interface CircleProofAccount {
-
   twitterId: string;
   handle: string;
   displayName: string;
   avatarUrl: string;
 }
-
-export const CIRCLE_PROOF_LIMIT = 3;
 
 export interface FollowRecommendationItem {
   rank: number;
@@ -48,7 +43,6 @@ export type FollowRecommendationEmptyReason =
   | 'no_browsing_history'
   | 'all_already_followed'
   | 'no_twitter_binding'
-
   | 'disabled_by_user';
 
 export interface FollowRecommendationResponse {
@@ -63,7 +57,6 @@ export interface FollowRecommendationResponse {
 }
 
 export interface FollowActionReport {
-
   eventId: string;
 
   targetTwitterId: string;

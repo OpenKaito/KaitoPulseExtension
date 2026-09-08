@@ -80,6 +80,43 @@ jobs:
           fi
           echo "${PKG}"
 
+      # ── Re-pushed tag guard ───────────────────────────────────────────────
+      #
+      # `gh release create` is not idempotent in the way it looks. GitHub lets a
+      # DRAFT reuse a tag_name a published release already holds, so on a re-pushed
+      # tag the create at the end succeeds, exits 0, and quietly produces a second
+      # release — a draft nobody asked for, while the published page keeps serving
+      # the old zips. The run goes green and nothing changed. This turns that into
+      # a stop.
+      #
+      # It refuses rather than replaces, on purpose. Swapping the bytes under a
+      # version people have already downloaded breaks the promise the rest of this
+      # file exists to keep: a version names one set of bytes. If the tree changed
+      # it is a new version, and if a tag had to move, the reason belongs in the
+      # release notes where a reader can see it. Doing it anyway stays a
+      # deliberate manual act, never a workflow default.
+      #
+      # Ahead of the build so a re-pushed tag fails in seconds — and so it never
+      # records an attestation for zips that will not be published.
+      - name: Refuse to replace a published release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # A refusal that cannot list the releases has to stop, not shrug: an
+          # errored `gh api` leaves ${published} empty, which is the same value as
+          # "nothing published" and would wave the replacement through. Assignment
+          # from a command substitution carries its exit status, so `if !` sees it.
+          if ! published="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"${GITHUB_REF_NAME}\" and .draft == false) | .id")"; then
+            echo "::error::could not list the releases of ${GITHUB_REPOSITORY}. Refusing to publish ${GITHUB_REF_NAME} without knowing whether it already has one."
+            exit 1
+          fi
+          if [ -n "${published}" ]; then
+            echo "::error::${GITHUB_REF_NAME} already has a published release (id ${published}). This workflow will not replace the assets on a release people may already have downloaded. Bump package.json and tag the new version. To re-issue this one anyway, delete or edit that release by hand first."
+            exit 1
+          fi
+          echo "no published release for ${GITHUB_REF_NAME}"
+
       # .env.example is the production configuration, unchanged — see its header.
       # Without it VITE_KAITO_API_BASE_URL falls back to http://localhost:8080
       # (src/lib/env.ts), which the asserts further down would catch.
@@ -209,6 +246,24 @@ jobs:
           subject-path: |
             ${{ steps.assets.outputs.download }}
             ${{ steps.assets.outputs.store }}
+
+      # Drafts for this tag are never public, and left alone they accumulate one
+      # per re-run — each holding a superseded build under the same version. The
+      # guard above has already established that none of them is published.
+      - name: Clear stale drafts for this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # pipefail so a failed listing stops here instead of exiting 0 through
+          # the while loop and silently skipping the cleanup.
+          set -o pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"${GITHUB_REF_NAME}\" and .draft) | .id" \
+          | while read -r id; do
+              [ -n "${id}" ] || continue
+              echo "deleting stale draft ${id}"
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
+            done
 
       # Notes come from GitHub's own merged-PR summary (--generate-notes), with the
       # install instructions pre-pended: the GitHub API pre-pends a supplied body

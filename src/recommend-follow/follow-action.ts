@@ -18,7 +18,6 @@ export async function follow(twitterId: string, handle: string): Promise<void> {
       handle,
     });
     if (response.ok) {
-
       showCompletionToast('success', `Opened @${handle} on X — confirm Follow there.`);
     } else {
       showCompletionToast('error', `Couldn't follow @${handle}. Try again.`);

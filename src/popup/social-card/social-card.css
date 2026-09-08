@@ -1,4 +1,3 @@
-
 .sc-card[data-scope='crypto'] {
   --sc-border: rgba(184, 191, 200, 0.5);
   --sc-shell-bg: #0f1113;
@@ -198,7 +197,11 @@
   pointer-events: none;
   background-image: conic-gradient(#383b3d 25%, #1a1d20 25% 50%, #44484a 50% 75%, #1a1d20 75%);
   background-size: 30.698px 30.698px;
-  -webkit-mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(31, 34, 36, 0) 100%);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(31, 34, 36, 0) 100%
+  );
   mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(31, 34, 36, 0) 100%);
 }
 
@@ -218,7 +221,6 @@
 
 .sc-wordmark__ai,
 .sc-wordmark__trading {
-
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

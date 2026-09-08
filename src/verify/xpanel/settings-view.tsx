@@ -1,4 +1,3 @@
-
 import { For, createResource, type Component } from 'solid-js';
 import {
   isEnabled,
@@ -9,7 +8,12 @@ import {
   type SignalSurfaceKey,
 } from '@/signal/settings';
 
-const AVATAR_KEYS: SignalSurfaceKey[] = ['avatar.feed', 'avatar.quoted', 'avatar.usercell', 'avatar.hovercard'];
+const AVATAR_KEYS: SignalSurfaceKey[] = [
+  'avatar.feed',
+  'avatar.quoted',
+  'avatar.usercell',
+  'avatar.hovercard',
+];
 
 type Row = {
   label: string;
@@ -39,7 +43,9 @@ const ROWS: Row[] = [
 ];
 
 export const SettingsView: Component<{ onBack: () => void }> = (props) => {
-  const [settings, { refetch }] = createResource<SignalSettings>(() => loadSettings(), { initialValue: {} });
+  const [settings, { refetch }] = createResource<SignalSettings>(() => loadSettings(), {
+    initialValue: {},
+  });
 
   return (
     <div>

@@ -21,8 +21,11 @@ const COPY_LABEL: Record<Feedback, string> = {
 };
 
 const openMySocials = (): void => {
-
-  window.open(siteUrlFromWire(socialCardLinks()?.mySocialsUrl, MY_SOCIALS_URL), '_blank', 'noopener');
+  window.open(
+    siteUrlFromWire(socialCardLinks()?.mySocialsUrl, MY_SOCIALS_URL),
+    '_blank',
+    'noopener',
+  );
 };
 
 export const SocialCardSection: Component = () => {
@@ -44,7 +47,6 @@ export const SocialCardSection: Component = () => {
       await copyCardImage();
       setCopyState('done');
     } catch {
-
       setCopyState('failed');
     }
     setTimeout(() => setCopyState('idle'), FEEDBACK_MS);
@@ -73,7 +75,6 @@ export const SocialCardSection: Component = () => {
       >
         <Show when={socialCard()}>
           {(card) => (
-
             <Show when={scale() > 0}>
               <div class="pv-sc-viewport__inner">
                 <SocialCard data={card()} />

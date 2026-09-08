@@ -1,26 +1,21 @@
-import { createSignal, Switch, Match, type Accessor, type Setter, type JSX } from "solid-js";
-import { render } from "solid-js/web";
-import { createShadowHost } from "../shared/shadow-host";
+import { createSignal, Switch, Match, type Accessor, type Setter, type JSX } from 'solid-js';
+import { render } from 'solid-js/web';
+import { createShadowHost } from '../shared/shadow-host';
 import { cancelAuthIntent, recordAuthIntent } from '@/shared/auth-gate';
 import { showCompletionToast } from '../shared/toast';
-import {
-  isSignedIn,
-  requestSignIn,
-  watchAdFlagAuthReplay,
-  type AdFlagAuthReplay,
-} from './auth';
-import { AD_FLAG_REPORT_REASON } from "./types";
-import type { AdFlagStore } from "./store";
-import { hostPrefersDark } from "../host-theme";
-import { positionFloating } from "../shared/floating-position";
-import { attachDismissWatcher } from "../shared/dismiss";
-import popoverCss from "./popover.css?inline";
+import { isSignedIn, requestSignIn, watchAdFlagAuthReplay, type AdFlagAuthReplay } from './auth';
+import { AD_FLAG_REPORT_REASON } from './types';
+import type { AdFlagStore } from './store';
+import { hostPrefersDark } from '../host-theme';
+import { positionFloating } from '../shared/floating-position';
+import { attachDismissWatcher } from '../shared/dismiss';
+import popoverCss from './popover.css?inline';
 
 type AdFlagView = 'choose' | 'pending' | 'success' | 'flagged';
 type PopoverEntry = { tweetId: string };
 
 const PAID_PARTNERSHIPS_POLICY_URL =
-  "https://help.x.com/en/rules-and-policies/paid-partnerships-policy";
+  'https://help.x.com/en/rules-and-policies/paid-partnerships-policy';
 
 const ABANDON_GRACE_MS = 1200;
 
@@ -37,7 +32,7 @@ function PopoverPanel(props: {
   return (
     <div class="signal-ad-flag-popover" role="dialog" ref={props.ref}>
       <Switch>
-        <Match when={props.view() === "choose"}>
+        <Match when={props.view() === 'choose'}>
           <div class="signal-ad-flag-popover__head">Report a Paid Partnership violation</div>
           <p class="signal-ad-flag-popover__question">
             Does this post appear to contain paid or incentivized promotion without the required
@@ -52,7 +47,8 @@ function PopoverPanel(props: {
             View X’s Paid Partnerships Policy
           </a>
           <p class="signal-ad-flag-popover__disclaimer">
-            Your report will be included in the community count. Kaito has not verified this content.
+            Your report will be included in the community count. Kaito has not verified this
+            content.
           </p>
           {props.errorMsg() && <p class="signal-ad-flag-popover__error">{props.errorMsg()}</p>}
           <div class="signal-ad-flag-popover__actions">
@@ -86,7 +82,7 @@ function PopoverPanel(props: {
             </div>
           </div>
         </Match>
-        <Match when={props.view() === "success"}>
+        <Match when={props.view() === 'success'}>
           <div class="signal-ad-flag-popover__head signal-ad-flag-popover__head--pad">
             Reported successfully. Click the Kaito button again to remove your report
           </div>
@@ -100,7 +96,7 @@ function PopoverPanel(props: {
             </button>
           </div>
         </Match>
-        <Match when={props.view() === "flagged"}>
+        <Match when={props.view() === 'flagged'}>
           <div class="signal-ad-flag-popover__head signal-ad-flag-popover__head--pad">
             You've reported this post
           </div>
@@ -153,7 +149,7 @@ export class AdFlagPopover {
     this.document = doc;
     this.window = doc.defaultView ?? window;
     this.store = store;
-    [this.view, this.setView] = createSignal<AdFlagView>("choose");
+    [this.view, this.setView] = createSignal<AdFlagView>('choose');
     [this.errorMsg, this.setErrorMsg] = createSignal<string | null>(null);
     [this.submitting, this.setSubmitting] = createSignal(false);
     this.unsubscribeAuthReplay = watchAdFlagAuthReplay(
@@ -170,17 +166,16 @@ export class AdFlagPopover {
 
   register(trigger: HTMLElement, tweetId: string): void {
     this.entries.set(trigger, { tweetId });
-    trigger.addEventListener("click", this.onTriggerClick);
+    trigger.addEventListener('click', this.onTriggerClick);
   }
 
   unregister(trigger: HTMLElement): void {
-    trigger.removeEventListener("click", this.onTriggerClick);
+    trigger.removeEventListener('click', this.onTriggerClick);
     this.entries.delete(trigger);
     if (this.currentTrigger === trigger) this.close();
   }
 
   private onTriggerClick = (event: Event): void => {
-
     event.stopPropagation();
     const trigger = event.currentTarget as HTMLElement;
     if (this.currentTrigger === trigger && this.isOpen()) {
@@ -191,7 +186,7 @@ export class AdFlagPopover {
   };
 
   private isOpen(): boolean {
-    return this.rootEl?.classList.contains("signal-ad-flag-popover--open") ?? false;
+    return this.rootEl?.classList.contains('signal-ad-flag-popover--open') ?? false;
   }
 
   private showView(view: AdFlagView): void {
@@ -208,15 +203,15 @@ export class AdFlagPopover {
     this.surfaceGeneration += 1;
     this.ensureElement();
 
-    this.rootEl!.classList.toggle("signal-ad-flag-popover--dark", hostPrefersDark(this.document));
+    this.rootEl!.classList.toggle('signal-ad-flag-popover--dark', hostPrefersDark(this.document));
     this.currentTrigger = trigger;
     this.setErrorMsg(null);
     this.setSubmitting(false);
 
-    const initialView = this.store.peek(entry.tweetId)?.myReason != null ? "flagged" : "choose";
+    const initialView = this.store.peek(entry.tweetId)?.myReason != null ? 'flagged' : 'choose';
     this.showView(initialView);
 
-    this.rootEl!.classList.add("signal-ad-flag-popover--open");
+    this.rootEl!.classList.add('signal-ad-flag-popover--open');
     this.attachDismissListeners();
   }
 
@@ -232,7 +227,7 @@ export class AdFlagPopover {
   private close = (): void => {
     this.surfaceGeneration += 1;
     if (!this.rootEl) return;
-    this.rootEl.classList.remove("signal-ad-flag-popover--open");
+    this.rootEl.classList.remove('signal-ad-flag-popover--open');
     this.currentTrigger = null;
     this.detachDismissListeners();
   };
@@ -276,11 +271,7 @@ export class AdFlagPopover {
     return { actionToken, surfaceGeneration };
   }
 
-  private ownsAction(
-    trigger: HTMLElement,
-    tweetId: string,
-    surfaceGeneration: number,
-  ): boolean {
+  private ownsAction(trigger: HTMLElement, tweetId: string, surfaceGeneration: number): boolean {
     return (
       this.surfaceGeneration === surfaceGeneration &&
       this.isOpen() &&
@@ -289,11 +280,7 @@ export class AdFlagPopover {
     );
   }
 
-  private finishAction(
-    trigger: HTMLElement,
-    tweetId: string,
-    surfaceGeneration: number,
-  ): boolean {
+  private finishAction(trigger: HTMLElement, tweetId: string, surfaceGeneration: number): boolean {
     if (!this.ownsAction(trigger, tweetId, surfaceGeneration)) return false;
     this.setSubmitting(false);
     return true;
@@ -359,7 +346,6 @@ export class AdFlagPopover {
       try {
         await requestSignIn();
       } catch {
-
         if (!this.isLatestAction(actionToken)) return;
         void cancelAuthIntent(intent.kind).catch(() => undefined);
         this.showActionError(
@@ -372,7 +358,6 @@ export class AdFlagPopover {
         );
       }
     } catch {
-
       void requestSignIn().catch(() => undefined);
       this.showActionError(
         actionToken,
@@ -438,13 +423,7 @@ export class AdFlagPopover {
           this.showView('success');
         }
       } catch {
-        this.showActionError(
-          actionToken,
-          surfaceGeneration,
-          trigger,
-          entry.tweetId,
-          'choose',
-        );
+        this.showActionError(actionToken, surfaceGeneration, trigger, entry.tweetId, 'choose');
       }
     })();
   };
@@ -487,13 +466,7 @@ export class AdFlagPopover {
         this.pendingActionKind = null;
         if (this.finishAction(trigger, entry.tweetId, surfaceGeneration)) this.close();
       } catch {
-        this.showActionError(
-          actionToken,
-          surfaceGeneration,
-          trigger,
-          entry.tweetId,
-          'flagged',
-        );
+        this.showActionError(actionToken, surfaceGeneration, trigger, entry.tweetId, 'flagged');
       }
     })();
   };
@@ -519,9 +492,7 @@ export class AdFlagPopover {
     this.pendingActionKind = null;
     const currentEntry = this.currentTrigger ? this.entries.get(this.currentTrigger) : undefined;
     const ownsPendingView =
-      this.isOpen() &&
-      this.view() === 'pending' &&
-      currentEntry?.tweetId === replay.tweetId;
+      this.isOpen() && this.view() === 'pending' && currentEntry?.tweetId === replay.tweetId;
 
     if (replay.outcome.ok) {
       if (ownsPendingView) {
@@ -551,22 +522,18 @@ export class AdFlagPopover {
   };
 
   private onAuthReplayError = (_error: Error, actionToken: number): void => {
-
     const kind = this.pendingActionKind;
     if (kind === null || this.view() !== 'pending') return;
     this.pendingActionKind = null;
     const currentEntry = this.currentTrigger ? this.entries.get(this.currentTrigger) : undefined;
     const ownsPendingView =
-      actionToken === this.latestActionToken &&
-      this.isOpen() &&
-      currentEntry !== undefined;
+      actionToken === this.latestActionToken && this.isOpen() && currentEntry !== undefined;
     const message = 'Something went wrong. Try again.';
     this.setSubmitting(false);
     if (ownsPendingView) {
       this.setErrorMsg(message);
       this.showView(kind === 'ad-flag-submit' ? 'choose' : 'flagged');
     } else {
-
       showCompletionToast('error', message);
     }
   };
@@ -624,7 +591,6 @@ export class AdFlagPopover {
   }
 
   destroy(): void {
-
     this.destroyed = true;
     this.surfaceGeneration += 1;
     this.window.clearTimeout(this.abandonTimer);

@@ -20,7 +20,8 @@ function formatJson(value: unknown): string {
   if (value === undefined) return 'undefined';
   if (isTruncatedSnapshot(value)) return formatTruncated(value);
 
-  const body = value && typeof value === 'object' ? (value as Record<string, unknown>).body : undefined;
+  const body =
+    value && typeof value === 'object' ? (value as Record<string, unknown>).body : undefined;
   if (isTruncatedSnapshot(body)) {
     const error = (value as Record<string, unknown>).error;
     const header = error !== undefined ? `// error: ${String(error)}\n` : '';
@@ -45,11 +46,9 @@ function statusClass(entry: DebugRequestEntry): string {
 }
 
 function metaParts(entry: DebugRequestEntry): string[] {
-
-  const parts = [
-    `source: ${entry.source}`,
-    `time: ${formatTime(entry.startedAt)}`,
-  ].filter((part): part is string => Boolean(part));
+  const parts = [`source: ${entry.source}`, `time: ${formatTime(entry.startedAt)}`].filter(
+    (part): part is string => Boolean(part),
+  );
   if (entry.error) parts.push(`error: ${entry.error}`);
   return parts;
 }
@@ -129,7 +128,6 @@ function sfVerdict(entry: DebugRequestEntry, id: string): Verdict | null {
   }
 
   if (isHoverCardEntry(entry)) {
-
     if (body.twitterId !== undefined && body.twitterId !== id) return null;
     if (body.smartFollowers === null) return { kind: 'warn', label: 'SF: null' };
     const total = asRecord(body.smartFollowers)?.total;
@@ -148,47 +146,45 @@ const DebugEntryRow: Component<{
   isNew: (id: string) => boolean;
   onSeen: (id: string) => void;
 }> = (props) => {
-
   const verdict = createMemo<Verdict | null>(() => {
     const id = props.verdictId();
     return id ? sfVerdict(props.entry, id) : null;
   });
   return (
-  <details
-    class="debug-entry"
-
-    classList={{ 'debug-entry--new': props.isNew(props.entry.id) }}
-    onAnimationEnd={() => props.onSeen(props.entry.id)}
-  >
-    <summary>
-      <span class="debug-method">{props.entry.method}</span>
-      <span class="debug-url" title={props.entry.url}>
-        {props.entry.path || props.entry.url}
-      </span>
-      <span class="debug-summary-tail">
-        <Show when={verdict()}>
-          {(v) => <span class={`debug-verdict debug-verdict--${v().kind}`}>{v().label}</span>}
-        </Show>
-        <Show when={props.entry.durationMs !== undefined}>
-          <span class="debug-duration">{props.entry.durationMs}ms</span>
-        </Show>
-        <span class={statusClass(props.entry)}>{statusText(props.entry)}</span>
-      </span>
-    </summary>
-    <div class="debug-meta">
-      <For each={metaParts(props.entry)}>{(part) => <span>{part}</span>}</For>
-    </div>
-    <div class="debug-payloads">
-      <div>
-        <p class="debug-payload-title">Request</p>
-        <JsonTree value={props.entry.requestBody} rebuildKey={entryVersionKey(props.entry)} />
+    <details
+      class="debug-entry"
+      classList={{ 'debug-entry--new': props.isNew(props.entry.id) }}
+      onAnimationEnd={() => props.onSeen(props.entry.id)}
+    >
+      <summary>
+        <span class="debug-method">{props.entry.method}</span>
+        <span class="debug-url" title={props.entry.url}>
+          {props.entry.path || props.entry.url}
+        </span>
+        <span class="debug-summary-tail">
+          <Show when={verdict()}>
+            {(v) => <span class={`debug-verdict debug-verdict--${v().kind}`}>{v().label}</span>}
+          </Show>
+          <Show when={props.entry.durationMs !== undefined}>
+            <span class="debug-duration">{props.entry.durationMs}ms</span>
+          </Show>
+          <span class={statusClass(props.entry)}>{statusText(props.entry)}</span>
+        </span>
+      </summary>
+      <div class="debug-meta">
+        <For each={metaParts(props.entry)}>{(part) => <span>{part}</span>}</For>
       </div>
-      <div>
-        <p class="debug-payload-title">Response</p>
-        <JsonTree value={responseValue(props.entry)} rebuildKey={entryVersionKey(props.entry)} />
+      <div class="debug-payloads">
+        <div>
+          <p class="debug-payload-title">Request</p>
+          <JsonTree value={props.entry.requestBody} rebuildKey={entryVersionKey(props.entry)} />
+        </div>
+        <div>
+          <p class="debug-payload-title">Response</p>
+          <JsonTree value={responseValue(props.entry)} rebuildKey={entryVersionKey(props.entry)} />
+        </div>
       </div>
-    </div>
-  </details>
+    </details>
   );
 };
 
@@ -246,7 +242,9 @@ export const DebugSection: Component = () => {
 
       setEntries(reconcile(snapshot.entries, { key: 'id' }));
       const n = snapshot.entries.length;
-      setStatus(`Last updated ${formatTime(Date.now())} · ${n} request${n === 1 ? '' : 's'} logged`);
+      setStatus(
+        `Last updated ${formatTime(Date.now())} · ${n} request${n === 1 ? '' : 's'} logged`,
+      );
     } catch (error) {
       if (disposed) return;
       setStatus((error as Error)?.message || 'Failed to load debug requests.');
@@ -273,7 +271,9 @@ export const DebugSection: Component = () => {
   };
 
   void load();
-  const interval = window.setInterval(() => { void load(); }, REFRESH_INTERVAL_MS);
+  const interval = window.setInterval(() => {
+    void load();
+  }, REFRESH_INTERVAL_MS);
   onCleanup(() => {
     disposed = true;
     window.clearInterval(interval);

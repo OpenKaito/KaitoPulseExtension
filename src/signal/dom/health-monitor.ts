@@ -53,24 +53,24 @@ export class HealthMonitor {
     tweetAvatarCount: number,
   ): void {
     logLocalWarning('feed selector may be broken (ARTICLE)', 'signal.health', {
-        surface: 'feed',
-        streakLength,
-        graphqlGrowth,
+      surface: 'feed',
+      streakLength,
+      graphqlGrowth,
 
-        tweetAvatarCount,
-        activeSelectors: {
-          ARTICLE: SIGNAL_DOM_SELECTORS.ARTICLE,
-          TWEET_AVATAR: SIGNAL_DOM_SELECTORS.TWEET_AVATAR,
-        },
+      tweetAvatarCount,
+      activeSelectors: {
+        ARTICLE: SIGNAL_DOM_SELECTORS.ARTICLE,
+        TWEET_AVATAR: SIGNAL_DOM_SELECTORS.TWEET_AVATAR,
+      },
     });
 
     void sendKaitoMessage({
       target: 'kaitoExtension',
       action: 'forceRefreshSelectorOverrides',
-    }).then((response) => {
-      if (response.payload) applySelectorOverrides(response.payload);
-    }).catch(() => {
-
-    });
+    })
+      .then((response) => {
+        if (response.payload) applySelectorOverrides(response.payload);
+      })
+      .catch(() => {});
   }
 }

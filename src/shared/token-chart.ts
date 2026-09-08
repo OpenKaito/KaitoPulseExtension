@@ -1,12 +1,11 @@
-
-export type TokenChartPeriod = "7D" | "30D" | "3M" | "6M" | "12M";
+export type TokenChartPeriod = '7D' | '30D' | '3M' | '6M' | '12M';
 
 export const PERIOD_TO_DURATION: Record<TokenChartPeriod, string> = {
-  "7D": "7d",
-  "30D": "30d",
-  "3M": "3m",
-  "6M": "6m",
-  "12M": "12m",
+  '7D': '7d',
+  '30D': '30d',
+  '3M': '3m',
+  '6M': '6m',
+  '12M': '12m',
 };
 
 export interface TokenChartMeta {
@@ -18,7 +17,7 @@ export interface TokenChartMeta {
 
   logo?: string;
 
-  kind: "stock" | "crypto";
+  kind: 'stock' | 'crypto';
 
   interval: string;
 
@@ -27,7 +26,7 @@ export interface TokenChartMeta {
   sentimentAvailable: boolean;
   sentimentInterval: string;
 
-  sentimentMode: "absolute" | "average";
+  sentimentMode: 'absolute' | 'average';
 }
 
 export interface TickerChartResponse {

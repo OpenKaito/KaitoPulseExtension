@@ -1,6 +1,10 @@
-
 import { SIGNAL_DOM_SELECTORS as SELECTORS } from '@/signal/dom/selectors';
-import { ARTICLE_SELECTOR, classifyClick, isPromotedArticle, toAttentionClickKind } from './dom-helpers';
+import {
+  ARTICLE_SELECTOR,
+  classifyClick,
+  isPromotedArticle,
+  toAttentionClickKind,
+} from './dom-helpers';
 import { getArticleAuthorHandle, getArticleTweetId } from '@/signal/dom/adapter';
 import { twitterIdMap } from '@/signal/twitter-id-map';
 import type { BehaviorActor, BehaviorEvent } from '@/shared/behavior';

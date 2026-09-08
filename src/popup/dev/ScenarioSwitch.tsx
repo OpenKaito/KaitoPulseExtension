@@ -4,7 +4,6 @@ import { scenario, selectScenario, type FixtureScenario } from '../data/store';
 const OPTIONS: FixtureScenario[] = ['live', 'data', 'empty', 'onboarding'];
 
 export const ScenarioSwitch: Component = () => {
-
   if (!import.meta.env.DEV) return null;
 
   return (
@@ -17,7 +16,6 @@ export const ScenarioSwitch: Component = () => {
       >
         <For each={OPTIONS}>
           {(option) => (
-
             <option value={option} selected={scenario() === option}>
               {option}
             </option>

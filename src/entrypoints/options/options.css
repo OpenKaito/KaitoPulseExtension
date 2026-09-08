@@ -3,6 +3,7 @@
   --bg: #f7f8fb;
   --card-bg: #ffffff;
   --text: #1f2937;
+  --text-strong: #0b1220;
   --muted: #6b7280;
   --border: #e5e7eb;
   --primary: #1f6feb;
@@ -14,12 +15,15 @@
     --bg: #0f172a;
     --card-bg: #111827;
     --text: #e5e7eb;
+    --text-strong: #f9fafb;
     --muted: #9ca3af;
     --border: #1f2937;
   }
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -29,12 +33,26 @@ body {
   line-height: 1.45;
 }
 
-#app { display: flex; flex-direction: column; min-height: 100vh; }
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 
-.topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); }
-.topbar h1 { font-size: 18px; margin: 0; }
+.topbar {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 {
+  font-size: 18px;
+  margin: 0;
+}
 
-.body { display: flex; align-items: flex-start; flex: 1; }
+.body {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
 
 .nav {
   width: 220px;
@@ -56,8 +74,26 @@ body {
   text-decoration: none;
   font-size: 14px;
 }
-.nav-item:hover { background: var(--card-bg); }
-.nav-item--active { background: var(--card-bg); font-weight: 600; }
+.nav-item:hover {
+  background: var(--card-bg);
+}
+.nav-item--active {
+  background: var(--card-bg);
+  font-weight: 600;
+}
+
+.nav-item--external {
+  margin-top: 8px;
+}
+.nav-item--external:hover {
+  color: var(--text-strong);
+}
+
+/* No color of its own: the arrow has to brighten with the label on hover. */
+.nav-item__external-icon {
+  margin-left: 4px;
+  font-size: 12px;
+}
 
 .panel {
   flex: 1;

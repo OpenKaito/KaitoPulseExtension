@@ -1,10 +1,10 @@
-import { createSignal, onCleanup, Show, For, type JSX } from "solid-js";
-import { Portal, render } from "solid-js/web";
-import type { UsernameChange } from "../types";
-import { PROFILE_ATTRS } from "./profile-dom";
-import { hostPrefersDark } from "../host-theme";
-import { positionFloating } from "../shared/floating-position";
-import { attachDismissWatcher } from "../shared/dismiss";
+import { createSignal, onCleanup, Show, For, type JSX } from 'solid-js';
+import { Portal, render } from 'solid-js/web';
+import type { UsernameChange } from '../types';
+import { PROFILE_ATTRS } from './profile-dom';
+import { hostPrefersDark } from '../host-theme';
+import { positionFloating } from '../shared/floating-position';
+import { attachDismissWatcher } from '../shared/dismiss';
 
 const CLOCK_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">' +
@@ -13,7 +13,6 @@ const CLOCK_ICON =
   'stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 export interface UsernameHistoryHandle {
-
   root: HTMLElement;
 
   destroy: () => void;
@@ -123,7 +122,7 @@ function UsernameHistoryWidget(props: { changes: UsernameChange[]; isDark: boole
       <Show when={open()}>
         <Portal mount={document.body}>
           <div
-            class={`signal-uname__dropdown signal-uname__dropdown--open${props.isDark ? " signal-uname__dropdown--dark" : ""}`}
+            class={`signal-uname__dropdown signal-uname__dropdown--open${props.isDark ? ' signal-uname__dropdown--dark' : ''}`}
             ref={(el) => {
               dropdownRef = el;
               position();
@@ -141,12 +140,12 @@ function UsernameHistoryWidget(props: { changes: UsernameChange[]; isDark: boole
 }
 
 export function createUsernameHistory(changes: UsernameChange[]): UsernameHistoryHandle {
-  const root = document.createElement("div");
-  root.className = "signal-uname";
-  root.setAttribute(PROFILE_ATTRS.USERNAME_HISTORY_FLAG, "");
+  const root = document.createElement('div');
+  root.className = 'signal-uname';
+  root.setAttribute(PROFILE_ATTRS.USERNAME_HISTORY_FLAG, '');
 
   const isDark = hostPrefersDark(document);
-  if (isDark) root.classList.add("signal-uname--dark");
+  if (isDark) root.classList.add('signal-uname--dark');
 
   const dispose = render(() => <UsernameHistoryWidget changes={changes} isDark={isDark} />, root);
 

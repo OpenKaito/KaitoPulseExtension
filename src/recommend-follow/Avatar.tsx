@@ -10,7 +10,8 @@ interface AvatarProps {
 
 export function Avatar(props: AvatarProps): JSX.Element {
   const [failed, setFailed] = createSignal(false);
-  const initial = () => (props.name === undefined ? '' : (props.name.trim()[0] || '?').toUpperCase());
+  const initial = () =>
+    props.name === undefined ? '' : (props.name.trim()[0] || '?').toUpperCase();
 
   return (
     <Show

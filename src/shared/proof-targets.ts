@@ -1,4 +1,3 @@
-
 export type ProofTarget = {
   domain: string;
   hostPattern: string;
@@ -6,10 +5,13 @@ export type ProofTarget = {
 };
 
 export const PROOF_TARGETS: readonly ProofTarget[] = [
-
   { domain: 'polymarket.com', hostPattern: 'https://*.polymarket.com/*', manifestRole: 'optional' },
 
-  { domain: 'axisrobotics.ai', hostPattern: 'https://hub.axisrobotics.ai/*', manifestRole: 'optional' },
+  {
+    domain: 'axisrobotics.ai',
+    hostPattern: 'https://hub.axisrobotics.ai/*',
+    manifestRole: 'optional',
+  },
 
   { domain: 'x.com', hostPattern: 'https://*.x.com/*', manifestRole: 'required' },
 ];
@@ -25,9 +27,7 @@ export function optionalPatternForUrl(url: string): string | null {
   } catch {
     return null;
   }
-  const target = PROOF_TARGETS.find(
-    ({ domain }) => host === domain || host.endsWith(`.${domain}`),
-  );
+  const target = PROOF_TARGETS.find(({ domain }) => host === domain || host.endsWith(`.${domain}`));
   if (!target || target.manifestRole !== 'optional') return null;
   return target.hostPattern;
 }

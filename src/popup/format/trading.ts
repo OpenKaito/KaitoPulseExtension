@@ -1,4 +1,3 @@
-
 import type { TradingAccount } from '@/shared/trading-summary';
 import { formatUpdated, formatVerifiedOn, shortDateOf } from './time';
 
@@ -15,7 +14,6 @@ export function pnlLabelFor(account: Pick<TradingAccount, 'pnlBasis' | 'pnlCover
     case 'open_positions_only':
       return 'P&L · Open positions';
     default:
-
       return 'P&L';
   }
 }
@@ -38,7 +36,10 @@ export function formatNativeAmount(
 ): string | null {
   const { nativeValue, nativeCurrency } = account;
   if (nativeValue == null || !Number.isFinite(nativeValue) || !nativeCurrency) return null;
-  const amount = nativeValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  const amount = nativeValue.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  });
   return `${amount} ${nativeCurrency}`;
 }
 
@@ -48,6 +49,9 @@ export function formatNativePnl(
   const { pnl, nativeCurrency } = account;
   if (pnl == null || !Number.isFinite(pnl) || !nativeCurrency) return null;
   const sign = pnl < 0 ? '-' : '+';
-  const amount = Math.abs(pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  const amount = Math.abs(pnl).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  });
   return `${sign}${amount} ${nativeCurrency}`;
 }

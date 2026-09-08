@@ -5,9 +5,7 @@ import { readJsonFromVerifierPage, type RunAttestationOptions } from './primus-a
 
 type PreflightErrorCode = Extract<
   ProofErrorCode,
-  | 'third_party_login_required'
-  | 'unsupported_account_type'
-  | 'target_page_not_ready'
+  'third_party_login_required' | 'unsupported_account_type' | 'target_page_not_ready'
 >;
 
 export class VerifierPreflightError extends Error {

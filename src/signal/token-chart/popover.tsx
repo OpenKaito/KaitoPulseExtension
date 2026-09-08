@@ -1,30 +1,40 @@
-import { createSignal, createEffect, For, Show, Switch, Match, type Accessor, type Setter, type JSX } from "solid-js";
-import { render } from "solid-js/web";
-import type { TokenChartResult, TokenChartPeriod } from "@/shared/token-chart";
-import { SentimentChart } from "./sentiment-chart";
-import { TokenChartSkeleton, TokenChartError } from "./popover-states";
-import { getTokenChart } from "./store";
-import { hostPrefersDark } from "../host-theme";
-import { positionFloating } from "../shared/floating-position";
-import { attachDismissWatcher } from "../shared/dismiss";
-import { createShadowHost, markTopLayerHost, promoteToTopLayer } from "../shared/shadow-host";
-import { kaitoLockup, closeIcon, moreIcon } from "../shared/icons";
-import { resolveImageSrc, sendKaitoMessage } from "../messaging";
-import { showCompletionToast } from "../shared/toast";
-import { setSurface } from "../settings";
-import { monogramColor, monogramLetter } from "./avatar";
-import popoverCss from "./popover.css?inline";
-import sentimentChartCss from "./sentiment-chart.css?inline";
+import {
+  createSignal,
+  createEffect,
+  For,
+  Show,
+  Switch,
+  Match,
+  type Accessor,
+  type Setter,
+  type JSX,
+} from 'solid-js';
+import { render } from 'solid-js/web';
+import type { TokenChartResult, TokenChartPeriod } from '@/shared/token-chart';
+import { SentimentChart } from './sentiment-chart';
+import { TokenChartSkeleton, TokenChartError } from './popover-states';
+import { getTokenChart } from './store';
+import { hostPrefersDark } from '../host-theme';
+import { positionFloating } from '../shared/floating-position';
+import { attachDismissWatcher } from '../shared/dismiss';
+import { createShadowHost, markTopLayerHost, promoteToTopLayer } from '../shared/shadow-host';
+import { kaitoLockup, closeIcon, moreIcon } from '../shared/icons';
+import { resolveImageSrc, sendKaitoMessage } from '../messaging';
+import { showCompletionToast } from '../shared/toast';
+import { setSurface } from '../settings';
+import { monogramColor, monogramLetter } from './avatar';
+import popoverCss from './popover.css?inline';
+import sentimentChartCss from './sentiment-chart.css?inline';
 
-type PopoverStatus = "idle" | "loading" | "loaded" | "error";
+type PopoverStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 200;
 
 const OFF_COMMIT_DELAY = 1000;
 
-const PERIODS: TokenChartPeriod[] = ["7D", "30D", "3M", "6M", "12M"];
-const DEFAULT_PERIOD: TokenChartPeriod = "12M";
+const PERIODS: TokenChartPeriod[] = ['7D', '30D', '3M', '6M', '12M'];
+const DEFAULT_PERIOD: TokenChartPeriod = '12M';
 
 function blockNativeCashtagHover(event: Event): void {
   event.stopPropagation();
@@ -37,7 +47,7 @@ export async function loadTokenChart(
   entity?: string,
 ): Promise<TokenChartResult> {
   const result = await getTokenChart(symbol, period, entity);
-  if (!result) throw new Error("token-chart returned no data");
+  if (!result) throw new Error('token-chart returned no data');
   return result;
 }
 
@@ -50,7 +60,10 @@ type PopoverEntry = {
   results: Map<TokenChartPeriod, TokenChartResult>;
 };
 
-function TokenAvatar(props: { symbol: Accessor<string | null>; logo: Accessor<string | null> }): JSX.Element {
+function TokenAvatar(props: {
+  symbol: Accessor<string | null>;
+  logo: Accessor<string | null>;
+}): JSX.Element {
   const [src, setSrc] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal(false);
 
@@ -73,10 +86,17 @@ function TokenAvatar(props: { symbol: Accessor<string | null>; logo: Accessor<st
   return (
     <div
       class="token-chart-popover__avatar"
-      style={showLogo() ? undefined : { background: monogramColor(props.symbol() ?? "") }}
+      style={showLogo() ? undefined : { background: monogramColor(props.symbol() ?? '') }}
     >
-      <Show when={showLogo()} fallback={monogramLetter(props.symbol() ?? "?")}>
-        {(resolvedSrc) => <img class="token-chart-popover__avatar-img" src={resolvedSrc()} alt="" draggable={false} />}
+      <Show when={showLogo()} fallback={monogramLetter(props.symbol() ?? '?')}>
+        {(resolvedSrc) => (
+          <img
+            class="token-chart-popover__avatar-img"
+            src={resolvedSrc()}
+            alt=""
+            draggable={false}
+          />
+        )}
       </Show>
     </div>
   );
@@ -153,18 +173,24 @@ function TokenChartPanel(props: {
                 >
                   <span class="token-chart-popover__menu-text">
                     <span class="token-chart-popover__menu-title">Show chart on hover</span>
-                    <span class="token-chart-popover__menu-desc">Turn off to hide these cards on X</span>
+                    <span class="token-chart-popover__menu-desc">
+                      Turn off to hide these cards on X
+                    </span>
                   </span>
                   <span
                     class="token-chart-popover__switch"
-                    classList={{ "token-chart-popover__switch--on": props.chartsOn() }}
+                    classList={{ 'token-chart-popover__switch--on': props.chartsOn() }}
                     aria-hidden="true"
                   >
                     <span class="token-chart-popover__switch-thumb" />
                   </span>
                 </button>
                 {}
-                <button type="button" class="token-chart-popover__menu-item" onClick={props.onOpenSettings}>
+                <button
+                  type="button"
+                  class="token-chart-popover__menu-item"
+                  onClick={props.onOpenSettings}
+                >
                   <span class="token-chart-popover__menu-title">Settings</span>
                 </button>
               </div>
@@ -181,7 +207,7 @@ function TokenChartPanel(props: {
                 <button
                   type="button"
                   class="token-chart-popover__period"
-                  classList={{ "token-chart-popover__period--active": props.period() === p }}
+                  classList={{ 'token-chart-popover__period--active': props.period() === p }}
                   onClick={() => props.onPeriodChange(p)}
                 >
                   {p}
@@ -190,17 +216,27 @@ function TokenChartPanel(props: {
             </For>
           </div>
         </div>
-        <div class="token-chart-popover__chart" aria-busy={props.status() === "loading" ? "true" : undefined}>
+        <div
+          class="token-chart-popover__chart"
+          aria-busy={props.status() === 'loading' ? 'true' : undefined}
+        >
           <Switch>
-            <Match when={props.status() === "loading"}>
+            <Match when={props.status() === 'loading'}>
               <TokenChartSkeleton />
             </Match>
-            <Match when={props.status() === "error"}>
+            <Match when={props.status() === 'error'}>
               <TokenChartError onRetry={props.onRetry} />
             </Match>
-            <Match when={props.status() === "loaded"}>
+            <Match when={props.status() === 'loaded'}>
               <Show when={props.data()}>
-                {(d) => <SentimentChart points={d().points} meta={d().meta} dark={props.dark} period={props.period()} />}
+                {(d) => (
+                  <SentimentChart
+                    points={d().points}
+                    meta={d().meta}
+                    dark={props.dark}
+                    period={props.period()}
+                  />
+                )}
               </Show>
             </Match>
           </Switch>
@@ -209,7 +245,15 @@ function TokenChartPanel(props: {
           <Show when={!props.data() || props.data()!.meta.priceAvailable}>
             <span class="token-chart-popover__legend-item">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <line x1="2.666" y1="8" x2="13.333" y2="8" stroke="var(--sg-text-strong)" stroke-opacity="0.6" stroke-width="1.333" />
+                <line
+                  x1="2.666"
+                  y1="8"
+                  x2="13.333"
+                  y2="8"
+                  stroke="var(--sg-text-strong)"
+                  stroke-opacity="0.6"
+                  stroke-width="1.333"
+                />
                 <circle cx="8" cy="8" r="2.667" fill="#D9D9D9" />
               </svg>
               Price
@@ -218,7 +262,14 @@ function TokenChartPanel(props: {
           <Show when={!props.data() || props.data()!.meta.sentimentAvailable}>
             <span class="token-chart-popover__legend-item">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <line x1="2.666" y1="8" x2="13.333" y2="8" stroke="var(--sg-text-strong)" stroke-width="1.333" />
+                <line
+                  x1="2.666"
+                  y1="8"
+                  x2="13.333"
+                  y2="8"
+                  stroke="var(--sg-text-strong)"
+                  stroke-width="1.333"
+                />
                 <path d="M10.665 8a2.667 2.667 0 0 1-5.333 0z" fill="#D8494A" />
                 <path d="M10.665 8a2.667 2.667 0 0 0-5.333 0z" fill="#28AF7F" />
               </svg>
@@ -281,7 +332,7 @@ export class TokenChartPopover {
   constructor(doc: Document = document) {
     this.document = doc;
     this.window = doc.defaultView ?? window;
-    [this.status, this.setStatus] = createSignal<PopoverStatus>("idle");
+    [this.status, this.setStatus] = createSignal<PopoverStatus>('idle');
     [this.data, this.setData] = createSignal<TokenChartResult | null>(null);
     [this.symbol, this.setSymbol] = createSignal<string | null>(null);
     [this.name, this.setName] = createSignal<string | null>(null);
@@ -317,17 +368,17 @@ export class TokenChartPopover {
       load,
       results: reusable ? existing!.results : new Map(),
     });
-    anchor.addEventListener("mouseenter", this.onTagEnter);
-    anchor.addEventListener("mouseleave", this.onTagLeave);
-    anchor.addEventListener("mouseover", blockNativeCashtagHover);
-    anchor.addEventListener("pointerover", blockNativeCashtagHover);
+    anchor.addEventListener('mouseenter', this.onTagEnter);
+    anchor.addEventListener('mouseleave', this.onTagLeave);
+    anchor.addEventListener('mouseover', blockNativeCashtagHover);
+    anchor.addEventListener('pointerover', blockNativeCashtagHover);
   }
 
   unregister(anchor: HTMLElement): void {
-    anchor.removeEventListener("mouseenter", this.onTagEnter);
-    anchor.removeEventListener("mouseleave", this.onTagLeave);
-    anchor.removeEventListener("mouseover", blockNativeCashtagHover);
-    anchor.removeEventListener("pointerover", blockNativeCashtagHover);
+    anchor.removeEventListener('mouseenter', this.onTagEnter);
+    anchor.removeEventListener('mouseleave', this.onTagLeave);
+    anchor.removeEventListener('mouseover', blockNativeCashtagHover);
+    anchor.removeEventListener('pointerover', blockNativeCashtagHover);
     this.entries.delete(anchor);
     if (this.suppressedTag === anchor) this.suppressedTag = null;
     if (this.currentTag === anchor) this.close();
@@ -339,7 +390,7 @@ export class TokenChartPopover {
     if (this.suppressedTag && this.suppressedTag !== tag) this.suppressedTag = null;
     this.cancelClose();
     if (this.suppressedTag === tag) return;
-    if (this.currentTag === tag && this.rootEl?.classList.contains("token-chart-popover--open")) {
+    if (this.currentTag === tag && this.rootEl?.classList.contains('token-chart-popover--open')) {
       return;
     }
     this.cancelOpen();
@@ -397,7 +448,7 @@ export class TokenChartPopover {
     this.currentTag = tag;
     this.pointerInsidePopover = false;
     const dark = hostPrefersDark(this.document);
-    this.rootEl!.classList.toggle("token-chart-popover--dark", dark);
+    this.rootEl!.classList.toggle('token-chart-popover--dark', dark);
     this.setDark(dark);
     this.setSymbol(entry.symbol);
     this.setPeriod(DEFAULT_PERIOD);
@@ -408,7 +459,7 @@ export class TokenChartPopover {
     this.startLoad(tag, entry, DEFAULT_PERIOD);
 
     this.position(tag.getBoundingClientRect());
-    this.rootEl!.classList.add("token-chart-popover--open");
+    this.rootEl!.classList.add('token-chart-popover--open');
     this.attachViewportListeners();
   }
 
@@ -421,10 +472,10 @@ export class TokenChartPopover {
     if (cached) {
       this.applyMetaIdentity(cached);
       this.setData(cached);
-      this.setStatus("loaded");
+      this.setStatus('loaded');
     } else {
       this.setData(null);
-      this.setStatus("loading");
+      this.setStatus('loading');
     }
   }
 
@@ -432,20 +483,19 @@ export class TokenChartPopover {
     const seq = ++this.loadSeq;
     entry.load(period).then(
       (data) => {
-
         if (data.symbol === entry.symbol) entry.results.set(period, data);
         if (seq !== this.loadSeq || this.currentTag !== tag || !this.isOpen()) return;
         this.applyMetaIdentity(data);
         this.setData(data);
-        this.setStatus("loaded");
+        this.setStatus('loaded');
         this.position(tag.getBoundingClientRect());
       },
       (error) => {
-        console.error("[token-chart] failed to load", error);
+        console.error('[token-chart] failed to load', error);
         if (seq !== this.loadSeq || this.currentTag !== tag || !this.isOpen()) return;
 
         if (this.data()) return;
-        this.setStatus("error");
+        this.setStatus('error');
         this.position(tag.getBoundingClientRect());
       },
     );
@@ -457,7 +507,7 @@ export class TokenChartPopover {
   }
 
   private isOpen(): boolean {
-    return this.rootEl?.classList.contains("token-chart-popover--open") ?? false;
+    return this.rootEl?.classList.contains('token-chart-popover--open') ?? false;
   }
 
   private retry = (): void => {
@@ -482,25 +532,30 @@ export class TokenChartPopover {
 
   private dismiss = (event: MouseEvent): void => {
     const tag = this.currentTag;
-    const overAnchor = !!this.hoverRects && this.withinRect(this.hoverRects.tag, event.clientX, event.clientY);
+    const overAnchor =
+      !!this.hoverRects && this.withinRect(this.hoverRects.tag, event.clientX, event.clientY);
     this.close();
     if (overAnchor) this.suppressedTag = tag;
   };
 
   private toggleMenu = (): void => {
     if (this.menuOpen()) {
-
       this.closeMenu();
       return;
     }
     this.setMenuOpen(true);
-    this.stopMenuDismissWatcher = attachDismissWatcher(this.window, this.document, () => this.actionsEl, {
-      onOutsideClick: (event) => {
-        this.closeMenu();
+    this.stopMenuDismissWatcher = attachDismissWatcher(
+      this.window,
+      this.document,
+      () => this.actionsEl,
+      {
+        onOutsideClick: (event) => {
+          this.closeMenu();
 
-        if (!this.pointerInside(event.clientX, event.clientY)) this.close();
+          if (!this.pointerInside(event.clientX, event.clientY)) this.close();
+        },
       },
-    });
+    );
   };
 
   private closeMenu(): void {
@@ -513,13 +568,13 @@ export class TokenChartPopover {
     this.closeMenu();
     this.close();
 
-    void sendKaitoMessage({ target: "kaitoExtension", action: "openOptions" })
+    void sendKaitoMessage({ target: 'kaitoExtension', action: 'openOptions' })
       .then((response) => {
-        if ("error" in response && response.error) throw new Error(response.error);
+        if ('error' in response && response.error) throw new Error(response.error);
       })
       .catch((error: unknown) => {
-        console.error("[token-chart] failed to open settings", error);
-        showCompletionToast("error", "Could not open settings. Try again.");
+        console.error('[token-chart] failed to open settings', error);
+        showCompletionToast('error', 'Could not open settings. Try again.');
       });
   };
 
@@ -533,14 +588,19 @@ export class TokenChartPopover {
     this.offTimer = undefined;
     this.closeMenu();
     this.close();
-    void setSurface("tokenChart.feed", false)
+    void setSurface('tokenChart.feed', false)
 
-      .then(() => showCompletionToast("success", "Turned off. Reopen it from the Kaito popup → ⚙ → Settings."))
+      .then(() =>
+        showCompletionToast(
+          'success',
+          'Turned off. Reopen it from the Kaito popup → ⚙ → Settings.',
+        ),
+      )
       .catch((error: unknown) => {
-        console.error("[token-chart] failed to turn off cashtag charts", error);
+        console.error('[token-chart] failed to turn off cashtag charts', error);
 
         this.setChartsOn(true);
-        showCompletionToast("error", "Could not turn this off. Try again.");
+        showCompletionToast('error', 'Could not turn this off. Try again.');
       });
   };
 
@@ -552,13 +612,12 @@ export class TokenChartPopover {
   }
 
   close = (): void => {
-
     this.closeMenu();
 
     if (this.clearOffTimer()) this.setChartsOn(true);
     if (!this.rootEl) return;
     this.invalidateLoads();
-    this.rootEl.classList.remove("token-chart-popover--open");
+    this.rootEl.classList.remove('token-chart-popover--open');
 
     this.currentTag = null;
     this.hoverRects = null;
@@ -602,14 +661,18 @@ export class TokenChartPopover {
   private position(tagRect: DOMRect): void {
     const root = this.rootEl;
     if (!root) return;
-    const { left, top } = positionFloating(tagRect, { width: root.offsetWidth, height: root.offsetHeight }, this.window);
+    const { left, top } = positionFloating(
+      tagRect,
+      { width: root.offsetWidth, height: root.offsetHeight },
+      this.window,
+    );
     root.style.left = `${Math.round(left)}px`;
     root.style.top = `${Math.round(top)}px`;
     this.hoverRects = { tag: tagRect, pop: root.getBoundingClientRect() };
   }
 
   private attachViewportListeners(): void {
-    this.document.addEventListener("mousemove", this.onPointerMove);
+    this.document.addEventListener('mousemove', this.onPointerMove);
     this.stopDismissWatcher = attachDismissWatcher(this.window, this.document, () => this.rootEl, {
       onScroll: () => {
         if (this.pointerInsidePopover) return;
@@ -620,7 +683,7 @@ export class TokenChartPopover {
   }
 
   private detachViewportListeners(): void {
-    this.document.removeEventListener("mousemove", this.onPointerMove);
+    this.document.removeEventListener('mousemove', this.onPointerMove);
     this.stopDismissWatcher?.();
     this.stopDismissWatcher = null;
   }

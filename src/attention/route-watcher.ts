@@ -1,4 +1,3 @@
-
 const INSTALL_FLAG = '__kaitoAttnRouteWatcherInstalled';
 const CHANGE_EVENT = 'kaito-attn:locationchange';
 const POLL_INTERVAL_MS = 500;

@@ -1,8 +1,12 @@
-
 const IDLE_THRESHOLD_MS = 60_000;
 const THROTTLE_MS = 1_000;
 const CHECK_INTERVAL_MS = 5_000;
-const INTERACTION_EVENTS: (keyof DocumentEventMap)[] = ['mousemove', 'scroll', 'keydown', 'touchstart'];
+const INTERACTION_EVENTS: (keyof DocumentEventMap)[] = [
+  'mousemove',
+  'scroll',
+  'keydown',
+  'touchstart',
+];
 
 export class IdleDetector {
   private lastInteractionAt = Date.now();

@@ -1,6 +1,10 @@
-
 import { storage } from 'wxt/utils/storage';
-import type { Attestation, ExtensionMeResponse, ExtensionProof, ExtensionVerifier } from '@/shared/contracts';
+import type {
+  Attestation,
+  ExtensionMeResponse,
+  ExtensionProof,
+  ExtensionVerifier,
+} from '@/shared/contracts';
 import type { ProofProgress, ProofRunSummary } from '@/shared/messages';
 import type { StoredSession } from '@/lib/client-storage';
 import type { ViewerIdentity } from '@/shared/viewer';
@@ -21,15 +25,30 @@ export const meCacheItem = storage.defineItem<ExtensionMeResponse | null>('local
 
 export const lastResultItem = storage.defineItem<ProofRunSummary | null>('local:kaito.lastResult');
 
-export const lastAttestationItem = storage.defineItem<Attestation | null>('local:kaito.lastAttestation');
+export const lastAttestationItem = storage.defineItem<Attestation | null>(
+  'local:kaito.lastAttestation',
+);
 
-export const activeProofProgressItem = storage.defineItem<ProofProgress | null>('local:kaito.activeProofProgress');
+export const activeProofProgressItem = storage.defineItem<ProofProgress | null>(
+  'local:kaito.activeProofProgress',
+);
 
 export interface VerifySnapshot {
   verifiers: ExtensionVerifier[];
   verifications: Record<string, ExtensionProof>;
 }
-export const verifySnapshotItem = storage.defineItem<VerifySnapshot | null>('local:kaito.verifySnapshot');
+export const verifySnapshotItem = storage.defineItem<VerifySnapshot | null>(
+  'local:kaito.verifySnapshot',
+);
+
+/**
+ * Epoch ms of the last bootstrap whose me/verifiers/proofs trio ALL succeeded.
+ * While fresh, bootstrap hydrates from meCacheItem + verifySnapshotItem
+ * instead of re-fetching on every service-worker restart.
+ */
+export const bootstrapFreshAtItem = storage.defineItem<number | null>(
+  'local:kaito.bootstrapFreshAt',
+);
 
 export type PendingAuthIntentKind = 'ad-flag-submit' | 'ad-flag-remove' | 'verify-start';
 export interface PendingAuthIntent {
@@ -44,26 +63,30 @@ export interface StoredPendingAuthIntent extends PendingAuthIntent {
 }
 
 export type PendingAuthIntentMap = Partial<Record<PendingAuthIntentKind, StoredPendingAuthIntent>>;
-export const pendingAuthIntentsItem = storage.defineItem<PendingAuthIntentMap>(
-  'session:kaito.pendingAuthIntents',
-  { fallback: {} },
-);
 
-export const deviceFingerprintItem = storage.defineItem<string | null>('local:kaito.deviceFingerprint');
+export const deviceFingerprintItem = storage.defineItem<string | null>(
+  'local:kaito.deviceFingerprint',
+);
 
 export const viewerItem = storage.defineItem<ViewerIdentity | null>('local:kaito.viewer');
 
-export const signalSettingsItem = storage.defineItem<SignalSettings>('local:kaito.signal.settings', {
-  fallback: {},
-});
+export const signalSettingsItem = storage.defineItem<SignalSettings>(
+  'local:kaito.signal.settings',
+  {
+    fallback: {},
+  },
+);
 
 export const selectorOverridesItem = storage.defineItem<SelectorOverridePayload | null>(
   'local:kaito.signal.selectorOverrides',
 );
 
-export const behaviorEventsItem = storage.defineItem<BehaviorEvent[]>('local:kaito.behavior.events', {
-  fallback: [],
-});
+export const behaviorEventsItem = storage.defineItem<BehaviorEvent[]>(
+  'local:kaito.behavior.events',
+  {
+    fallback: [],
+  },
+);
 
 export const activityInsightsConsentItem = storage.defineItem<'unset' | 'granted' | 'declined'>(
   'local:kaito.behavior.consent',
@@ -84,7 +107,6 @@ export const attnPendingServeEventsItem = storage.defineItem<AttentionServeEvent
 );
 
 export interface AttentionUploadCursor {
-
   nextRetryAt: number;
 
   backoffLevel: number;
@@ -119,10 +141,10 @@ export const attnOpenSpanSnapshotItem = storage.defineItem<AttentionOpenSpanSnap
   { fallback: null },
 );
 
-export const followRecommendationCacheItem = storage.defineItem<FollowRecommendationResponse | null>(
-  'local:kaito.recommendFollow.cache',
-  { fallback: null },
-);
+export const followRecommendationCacheItem =
+  storage.defineItem<FollowRecommendationResponse | null>('local:kaito.recommendFollow.cache', {
+    fallback: null,
+  });
 
 export const recommendFollowLocallyFollowedItem = storage.defineItem<LocallyFollowedMap>(
   'local:kaito.recommendFollow.locallyFollowed',

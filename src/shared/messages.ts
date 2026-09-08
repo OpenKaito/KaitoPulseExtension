@@ -14,11 +14,19 @@ import type {
 import type { SignalSelectorKey, ProfileSelectorKey } from '@/signal/dom/selectors';
 import type { AdFlagQueryItem, AdFlagWriteResult } from './ad-flag';
 import type { BadgeItem, HoverCardResult } from './social-card';
-import type { ExtensionSocialCardActivityResponse, ExtensionSocialSummary } from './extension-social';
+import type { WalletDetailOutcome, WalletDetailRequest } from './wallet-detail';
+import type {
+  ExtensionSocialCardActivityResponse,
+  ExtensionSocialSummary,
+} from './extension-social';
 import type { SocialCardBundle, SocialCardScope } from './voices-social-card';
 import type { DebugRequestSnapshot } from './debug';
 import type { BehaviorEvent, BehaviorEventSnapshot } from './behavior';
-import type { AttentionBehaviorEvent, AttentionFingerprint, AttentionServeEvent } from './attention';
+import type {
+  AttentionBehaviorEvent,
+  AttentionFingerprint,
+  AttentionServeEvent,
+} from './attention';
 import type { PendingAuthIntent } from './storage';
 import type { FollowRecommendationResponse } from './recommend-follow';
 import type { TokenChartPeriod, TokenChartResult } from './token-chart';
@@ -85,13 +93,10 @@ export type KaitoMessageContract = {
     response: FetchImageResponse;
   };
 
-  fetchRawImage: {
-    payload: { url: string };
-    response: FetchImageResponse;
-  };
-
   fetchBadges: { payload: { twitterIds: string[] }; response: FetchBadgesResponse };
   fetchHoverCard: { payload: { twitterId: string }; response: FetchHoverCardResponse };
+
+  fetchWalletDetail: { payload: { request: WalletDetailRequest }; response: WalletDetailOutcome };
 
   getSocialSummary: { payload: NoPayload; response: GetSocialSummaryResponse };
 
@@ -106,7 +111,10 @@ export type KaitoMessageContract = {
     response: FetchTokenChartResponse;
   };
 
-  resolveTickers: { payload: { occurrences: CashtagOccurrence[] }; response: FetchResolveTickersResponse };
+  resolveTickers: {
+    payload: { occurrences: CashtagOccurrence[] };
+    response: FetchResolveTickersResponse;
+  };
 
   putAdFlag: {
     payload: { tweetId: string; reason: string };
@@ -129,6 +137,9 @@ export type KaitoMessageContract = {
   openSignIn: { payload: { url: string }; response: OpenSignInResponse };
 
   openOptions: { payload: NoPayload; response: OpenOptionsResponse };
+
+  checkForUpdate: { payload: NoPayload; response: ExtensionUpdateCheckResponse };
+  applyUpdate: { payload: NoPayload; response: ApplyExtensionUpdateResponse };
 
   getFollowRecommendations: {
     payload: NoPayload;
@@ -184,8 +195,10 @@ export type KaitoMessageContract = {
 
 export type KaitoAction = keyof KaitoMessageContract;
 
-export type MessageFor<A extends KaitoAction> = { target: 'kaitoExtension'; action: A } &
-  KaitoMessageContract[A]['payload'];
+export type MessageFor<A extends KaitoAction> = {
+  target: 'kaitoExtension';
+  action: A;
+} & KaitoMessageContract[A]['payload'];
 
 export type RuntimeRequest = { [A in KaitoAction]: MessageFor<A> }[KaitoAction];
 
@@ -218,21 +231,20 @@ export type ExternalSurface = 'popup' | 'options' | 'verify';
 export type ExternalInvalidateKey = 'me' | 'verifiers' | 'verifications' | 'recommendations';
 
 type ExternalRequestMessage =
-
-  | { type: 'signIn'; accessToken: string; idToken: string; kaitoName?: string; kaitoUserId?: string }
-
+  | {
+      type: 'signIn';
+      accessToken: string;
+      idToken: string;
+      kaitoName?: string;
+      kaitoUserId?: string;
+    }
   | { type: 'signOut' }
   | { type: 'ping' }
-
   | { type: 'getCapabilities' }
-
   | { type: 'getVerifyStatus' }
   | { type: 'openVerification'; verifierId: string }
-
   | { type: 'openSurface'; surface: ExternalSurface; params?: { verifierId?: string } }
-
   | { type: 'invalidate'; keys: ExternalInvalidateKey[] }
-
   | { type: 'accountLinked'; method: string };
 
 export type ExternalRequest = ExternalRequestMessage & { requestId?: string };
@@ -247,7 +259,13 @@ export type ProofRunSummary = {
 
   finishedAt?: number;
   attestation?: Attestation;
-  error?: { message: string; status?: number; reason?: string; code?: ProofErrorCode; retryable?: boolean };
+  error?: {
+    message: string;
+    status?: number;
+    reason?: string;
+    code?: ProofErrorCode;
+    retryable?: boolean;
+  };
 };
 
 export type ProofStage =
@@ -275,9 +293,7 @@ export type ProofErrorCode =
   | 'proof_engine_stalled'
   | 'verification_already_running'
   | 'duplicate_proof'
-
   | 'platform_account_already_claimed'
-
   | 'platform_account_id_missing'
   | 'security_check_failed'
   | 'network_error'
@@ -353,8 +369,9 @@ export type ExternalLastResult = {
   error?: { message: string; reason?: string; code?: ProofErrorCode };
 };
 
-export function toExternalLastResult(summary: ProofRunSummary | undefined): ExternalLastResult | undefined {
-
+export function toExternalLastResult(
+  summary: ProofRunSummary | undefined,
+): ExternalLastResult | undefined {
   if (!summary || typeof summary.finishedAt !== 'number') return undefined;
   return {
     verifierId: summary.verifierId,
@@ -408,13 +425,20 @@ export type RecordAuthIntentResponse = { ok: true } | RuntimeErrorResponse;
 export type TakeAuthIntentResponse =
   | { ok: true; intent: PendingAuthIntent | null }
   | RuntimeErrorResponse;
-export type CancelAuthIntentResponse =
-  | { ok: true; canceled: boolean }
-  | RuntimeErrorResponse;
+export type CancelAuthIntentResponse = { ok: true; canceled: boolean } | RuntimeErrorResponse;
 export type OpenVerifyWindowResponse = { ok: true } | RuntimeErrorResponse;
 export type ReturnFromVerifyWindowResponse = { ok: true } | RuntimeErrorResponse;
 export type OpenSignInResponse = { ok: true } | RuntimeErrorResponse;
 export type OpenOptionsResponse = { ok: true } | RuntimeErrorResponse;
+
+export type ExtensionUpdateCheckResponse = {
+  currentVersion: string;
+  status: 'throttled' | 'no_update' | 'update_available';
+  availableVersion?: string;
+};
+export type ApplyExtensionUpdateResponse =
+  | { ok: true }
+  | { ok: false; error: 'verification_in_progress' | 'update_not_available' };
 
 export type FetchImageResponse = { dataUri?: string; error?: string };
 
@@ -438,7 +462,10 @@ export type FetchTokenChartResponse = { result?: TokenChartResult; error?: strin
 export type FetchResolveTickersResponse = { resolved: ResolvedTicker[]; error?: string };
 
 export type AdFlagWriteResponse = { result?: AdFlagWriteResult; error?: string; status?: number };
-export type AdFlagQueryMessageResponse = { items?: Record<string, AdFlagQueryItem>; error?: string };
+export type AdFlagQueryMessageResponse = {
+  items?: Record<string, AdFlagQueryItem>;
+  error?: string;
+};
 
 export type GetSelectorOverridesResponse = { payload: SelectorOverridePayload | null };
 export type ForceRefreshSelectorOverridesResponse = { payload: SelectorOverridePayload | null };
@@ -473,6 +500,9 @@ export type SetActivityInsightsPreferenceResponse = {
 
 export type GetTradingTotalsPublicResponse = {
   enabled?: boolean | null;
+
+  accountValuePublic?: boolean | null;
+  allTimePnlPublic?: boolean | null;
   error?: string;
   status?: number;
 };

@@ -1,4 +1,3 @@
-
 export const FLUSH_INTERVAL_MS = 5_000;
 export const FLUSH_SIZE_THRESHOLD = 20;
 

@@ -1,7 +1,10 @@
 import type { TabMessage } from '@/shared/tab-messages';
 import { api } from '@/lib/api';
 import { getStoredSession } from '@/lib/client-storage';
-import type { FollowFromRecommendationResponse, GetFollowRecommendationsResponse } from '@/shared/messages';
+import type {
+  FollowFromRecommendationResponse,
+  GetFollowRecommendationsResponse,
+} from '@/shared/messages';
 import { pruneLocallyFollowed, type FollowActionReport } from '@/shared/recommend-follow';
 import { recommendFollowLocallyFollowedItem } from '@/shared/storage';
 import { createLogger } from '@/signal/logger';
@@ -45,7 +48,6 @@ async function performFollow(
   handle: string,
 ): Promise<FollowFromRecommendationResponse> {
   try {
-
     const tabId = await findOrOpenXTab(handle);
     return await sendFollowRequest(tabId, twitterId);
   } catch (error) {
@@ -84,7 +86,10 @@ async function findOrOpenXTab(handle: string): Promise<number> {
   return created.id;
 }
 
-function waitForTabComplete(tabId: number, options: { skipCompleteCheck?: boolean } = {}): Promise<void> {
+function waitForTabComplete(
+  tabId: number,
+  options: { skipCompleteCheck?: boolean } = {},
+): Promise<void> {
   let onUpdated: (updatedTabId: number, info: { status?: string }) => void = () => undefined;
   let onRemoved: (removedTabId: number) => void = () => undefined;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -138,7 +143,6 @@ async function sendFollowRequest(
   twitterId: string,
 ): Promise<FollowFromRecommendationResponse> {
   try {
-
     const response = await new Promise<unknown>((resolve, reject) => {
       chrome.tabs.sendMessage(
         tabId,
@@ -153,12 +157,15 @@ async function sendFollowRequest(
         },
       );
     });
-    if (response && typeof response === 'object' && typeof (response as { ok?: unknown }).ok === 'boolean') {
+    if (
+      response &&
+      typeof response === 'object' &&
+      typeof (response as { ok?: unknown }).ok === 'boolean'
+    ) {
       return response as FollowFromRecommendationResponse;
     }
     return { ok: false, error: 'malformed_relay_response' };
   } catch (error) {
-
     return { ok: false, error: (error as Error)?.message || 'relay_unreachable' };
   }
 }
@@ -175,7 +182,8 @@ export function registerRecommendationFollowConfirmedHandler(): void {
   chrome.runtime.onMessage.addListener((message: unknown) => {
     if (!message || typeof message !== 'object') return false;
     const { type, twitterId } = message as { type?: unknown; twitterId?: unknown };
-    if (type !== 'kaito:followFromRecommendationConfirmed' || typeof twitterId !== 'string') return false;
+    if (type !== 'kaito:followFromRecommendationConfirmed' || typeof twitterId !== 'string')
+      return false;
     markLocallyFollowed(twitterId).catch((error) => {
       logger.error(`markLocallyFollowed(${twitterId}) failed`, error);
     });
@@ -200,8 +208,10 @@ async function reportFollowAction(report: FollowActionReport): Promise<void> {
     await api.postFollowAction(session.sessionToken, report);
     logger.log(`reported ${report.action} of ${report.targetTwitterId}`);
   } catch (error) {
-
-    logger.warn(`postFollowAction(${report.targetTwitterId}) failed, exclusion falls back to the follow graph`, error);
+    logger.warn(
+      `postFollowAction(${report.targetTwitterId}) failed, exclusion falls back to the follow graph`,
+      error,
+    );
   }
 }
 

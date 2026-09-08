@@ -1,4 +1,4 @@
-import { PROFILE_SELECTORS, PROFILE_ATTRS } from "../dom/selectors";
+import { PROFILE_SELECTORS, PROFILE_ATTRS } from '../dom/selectors';
 
 export { PROFILE_SELECTORS, PROFILE_ATTRS };
 
@@ -10,18 +10,18 @@ export function findProfileHeader(doc: Document): HTMLElement | null {
 }
 
 export function getViewedHandle(header: HTMLElement, doc: Document): string | null {
-  for (const span of header.querySelectorAll("span")) {
+  for (const span of header.querySelectorAll('span')) {
     const match = span.textContent?.trim().match(HANDLE_RE);
     if (match) return match[1];
   }
 
-  const segment = doc.location.pathname.split("/")[1];
+  const segment = doc.location.pathname.split('/')[1];
   return segment && HANDLE_RE.test(`@${segment}`) ? segment : null;
 }
 
 export function findHandleAnchor(header: HTMLElement): HTMLElement | null {
   let handle: HTMLElement | null = null;
-  for (const span of header.querySelectorAll("span")) {
+  for (const span of header.querySelectorAll('span')) {
     if (span.textContent?.trim().match(HANDLE_RE)) {
       handle = span as HTMLElement;
       break;
@@ -30,7 +30,7 @@ export function findHandleAnchor(header: HTMLElement): HTMLElement | null {
   if (!handle) return null;
 
   let nameNode: Element | null = null;
-  for (const dir of header.querySelectorAll("[dir]")) {
+  for (const dir of header.querySelectorAll('[dir]')) {
     if (!dir.contains(handle)) {
       nameNode = dir;
       break;
@@ -45,8 +45,8 @@ export function findHandleAnchor(header: HTMLElement): HTMLElement | null {
   ) {
     const style = view.getComputedStyle(node);
     const isRow =
-      (style.display === "flex" || style.display === "inline-flex") &&
-      style.flexDirection === "row";
+      (style.display === 'flex' || style.display === 'inline-flex') &&
+      style.flexDirection === 'row';
     if (isRow && !(nameNode && node.contains(nameNode))) return node as HTMLElement;
   }
   return null;

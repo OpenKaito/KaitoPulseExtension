@@ -63,7 +63,6 @@ class TwitterIdMap {
   }
 
   private handleMessage(event: MessageEvent): void {
-
     if (event.source !== window) return;
     if (event.origin !== window.location.origin) return;
 

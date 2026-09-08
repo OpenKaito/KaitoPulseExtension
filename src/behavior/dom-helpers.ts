@@ -1,12 +1,21 @@
-
 import { SIGNAL_DOM_SELECTORS as SELECTORS } from '@/signal/dom/selectors';
 import type { ClickTargetType, EngagementKind } from '@/shared/behavior';
 import type { AttentionClickKind } from '@/shared/attention';
 
-const ENGAGEMENT_TESTIDS = new Set(['reply', 'retweet', 'unretweet', 'like', 'unlike', 'bookmark', 'removeBookmark']);
+const ENGAGEMENT_TESTIDS = new Set([
+  'reply',
+  'retweet',
+  'unretweet',
+  'like',
+  'unlike',
+  'bookmark',
+  'removeBookmark',
+]);
 
 function engagementTestIdToClickKind(testId: string | undefined): AttentionClickKind | null {
-  return testId !== undefined && ENGAGEMENT_TESTIDS.has(testId) ? (testId as AttentionClickKind) : null;
+  return testId !== undefined && ENGAGEMENT_TESTIDS.has(testId)
+    ? (testId as AttentionClickKind)
+    : null;
 }
 
 function engagementKindFromTestId(testId: string): EngagementKind | undefined {
@@ -17,9 +26,7 @@ function engagementKindFromTestId(testId: string): EngagementKind | undefined {
   return undefined;
 }
 
-export function classifyClick(
-  target: Element,
-): {
+export function classifyClick(target: Element): {
   targetType: ClickTargetType;
   engagementKind?: EngagementKind;
   engagementTestId?: string;
@@ -28,7 +35,6 @@ export function classifyClick(
   const engagementEl = target.closest('[data-testid]');
   const testId = engagementEl?.getAttribute('data-testid') ?? '';
   if (ENGAGEMENT_TESTIDS.has(testId)) {
-
     return {
       targetType: 'engagement_button',
       engagementKind: engagementKindFromTestId(testId),
@@ -111,7 +117,6 @@ export function toAttentionClickKind(
   classified: { targetType: ClickTargetType; engagementTestId?: string; href?: string },
   isQuoted: boolean,
 ): AttentionClickKind | null {
-
   if (classified.targetType === 'engagement_button') {
     return engagementTestIdToClickKind(classified.engagementTestId);
   }

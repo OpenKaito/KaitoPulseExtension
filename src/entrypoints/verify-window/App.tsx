@@ -1,6 +1,9 @@
-
 import { Show, createEffect, createSignal, onMount, onCleanup, type Component } from 'solid-js';
-import { createVerifyController, resolvePlaceholderTaskId, resultKindForError } from '@/verify/controller';
+import {
+  createVerifyController,
+  resolvePlaceholderTaskId,
+  resultKindForError,
+} from '@/verify/controller';
 import { sendVerifyMessage } from '@/verify/messaging';
 import { ConsentView, PoweredByPrimus, ProgressView, ResultView } from '@/verify/ui/views';
 import { ensureProofHostPermission, permissionHostLabel } from '@/verify/host-permission';
@@ -41,7 +44,9 @@ export const App: Component = () => {
   const closeWindow = (): void => {
     clearAutoClose();
     void Promise.race([
-      sendVerifyMessage({ action: 'returnFromVerifyWindow', windowId: ownWindowId }).catch(() => undefined),
+      sendVerifyMessage({ action: 'returnFromVerifyWindow', windowId: ownWindowId }).catch(
+        () => undefined,
+      ),
       new Promise((resolve) => setTimeout(resolve, RETURN_ACK_DEADLINE_MS)),
     ]).finally(() => window.close());
   };
@@ -121,7 +126,9 @@ export const App: Component = () => {
 
   const ownResult = () => {
     const result = c.state()?.lastResult;
-    return result && typeof result.finishedAt === 'number' && result.verifierId === verifierIdFromUrl()
+    return result &&
+      typeof result.finishedAt === 'number' &&
+      result.verifierId === verifierIdFromUrl()
       ? result
       : undefined;
   };

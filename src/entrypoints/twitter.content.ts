@@ -52,9 +52,11 @@ export default defineContentScript({
       void sendKaitoMessage({
         target: 'kaitoExtension',
         action: 'getSelectorOverrides',
-      }).then((response) => {
-        if (response.payload) applySelectorOverrides(response.payload);
-      }).catch((error) => logLocalError(error, 'selectorOverrides.pull'));
+      })
+        .then((response) => {
+          if (response.payload) applySelectorOverrides(response.payload);
+        })
+        .catch((error) => logLocalError(error, 'selectorOverrides.pull'));
     };
 
     const start = () => {
@@ -103,27 +105,35 @@ export default defineContentScript({
         profileModules.applySettings(settings);
       }, 'settings.apply');
 
-      const unsubscribe = subscribe(guard((next) => {
-        storedSettings = next;
-        applyEffective();
-      }, 'settings.subscribe'));
+      const unsubscribe = subscribe(
+        guard((next) => {
+          storedSettings = next;
+          applyEffective();
+        }, 'settings.subscribe'),
+      );
 
-      const unsubscribeSession = sessionItem.watch(guard((session) => {
-        signedIn = session !== null;
-        applyEffective();
+      const unsubscribeSession = sessionItem.watch(
+        guard((session) => {
+          signedIn = session !== null;
+          applyEffective();
 
-        syncCapture();
-      }, 'session.watch'));
+          syncCapture();
+        }, 'session.watch'),
+      );
 
-      const unsubscribeConsent = activityInsightsConsentItem.watch(guard((value) => {
-        consentGranted = value === 'granted';
-        syncCapture();
-      }, 'consent.watch'));
+      const unsubscribeConsent = activityInsightsConsentItem.watch(
+        guard((value) => {
+          consentGranted = value === 'granted';
+          syncCapture();
+        }, 'consent.watch'),
+      );
 
-      const unsubscribeTerms = meCacheItem.watch(guard((me) => {
-        termsOk = termsOkFromMe(me);
-        applyEffective();
-      }, 'terms.watch'));
+      const unsubscribeTerms = meCacheItem.watch(
+        guard((me) => {
+          termsOk = termsOkFromMe(me);
+          applyEffective();
+        }, 'terms.watch'),
+      );
 
       void Promise.all([readSignedIn(), readTermsOk()]).then(([nextSignedIn, nextTermsOk]) => {
         if (nextSignedIn === signedIn && nextTermsOk === termsOk) return;
@@ -159,7 +169,12 @@ export default defineContentScript({
       flushOnUnload = null;
     };
 
-    void Promise.all([loadSettings(), readSignedIn(), readTermsOk(), activityInsightsConsentItem.getValue()])
+    void Promise.all([
+      loadSettings(),
+      readSignedIn(),
+      readTermsOk(),
+      activityInsightsConsentItem.getValue(),
+    ])
       .then(([loadedSignal, loadedSignedIn, loadedTermsOk, loadedConsent]) => {
         storedSettings = loadedSignal;
         signedIn = loadedSignedIn;
@@ -170,16 +185,22 @@ export default defineContentScript({
       })
       .catch((error) => logLocalError(error, 'loadSettings'));
 
-    window.addEventListener('pagehide', guard((event: PageTransitionEvent) => {
-      if (event.persisted) {
-        stop();
-        return;
-      }
+    window.addEventListener(
+      'pagehide',
+      guard((event: PageTransitionEvent) => {
+        if (event.persisted) {
+          stop();
+          return;
+        }
 
-      flushOnUnload?.();
-    }, 'pagehide'));
-    window.addEventListener('pageshow', guard((event: PageTransitionEvent) => {
-      if (event.persisted) start();
-    }, 'pageshow'));
+        flushOnUnload?.();
+      }, 'pagehide'),
+    );
+    window.addEventListener(
+      'pageshow',
+      guard((event: PageTransitionEvent) => {
+        if (event.persisted) start();
+      }, 'pageshow'),
+    );
   },
 });

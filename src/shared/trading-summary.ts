@@ -1,4 +1,3 @@
-
 export type TradingSource = 'crawler' | 'attestation' | 'broker';
 
 export type TradingTotalCoverage = {
@@ -12,7 +11,6 @@ export type TradingTotalCoverage = {
 };
 
 export type TradingAccountValue = TradingTotalCoverage & {
-
   bucket: string | null;
 
   totalUsd: number | null;
@@ -24,10 +22,12 @@ export type TradingPnlBasis =
   | 'accrued_since_verify'
   | 'open_positions_only';
 
-export type TradingExclusionReason = 'value_unavailable' | 'fx_rate_unavailable' | 'currency_unknown';
+export type TradingExclusionReason =
+  | 'value_unavailable'
+  | 'fx_rate_unavailable'
+  | 'currency_unknown';
 
 export type TradingPnlTotal = TradingTotalCoverage & {
-
   value: number | null;
 
   basis: TradingPnlBasis | null;
@@ -40,7 +40,6 @@ export type TradingPnlTotal = TradingTotalCoverage & {
 };
 
 export type TradingAccount = {
-
   platform: string;
 
   accountId: string;
@@ -74,6 +73,10 @@ export type TradingAccount = {
   verifiedAt: string | null;
 
   publicOnX?: boolean;
+
+  addressRevealed?: boolean;
+
+  walletOrdinal?: number | null;
 };
 
 export type TradingPnlUnavailableReason = 'no_pnl_data' | 'mixed_windows';

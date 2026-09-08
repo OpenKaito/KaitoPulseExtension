@@ -1,4 +1,3 @@
-
 import { behaviorEventsItem } from '@/shared/storage';
 import type { BehaviorEvent, BehaviorEventSnapshot } from '@/shared/behavior';
 

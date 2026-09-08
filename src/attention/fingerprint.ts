@@ -1,4 +1,3 @@
-
 import type { AttentionFingerprint } from '@/shared/attention';
 import { stableHash } from '@/signal/hash';
 
@@ -23,7 +22,11 @@ function collectCanvasFingerprint(): string | null {
   }
 }
 
-function collectWebglFingerprint(): { vendor: string | null; renderer: string | null; hash: string | null } {
+function collectWebglFingerprint(): {
+  vendor: string | null;
+  renderer: string | null;
+  hash: string | null;
+} {
   try {
     const canvas = document.createElement('canvas');
     const gl = (canvas.getContext('webgl') ||
@@ -76,7 +79,11 @@ async function collectAudioFingerprint(): Promise<string | null> {
 export async function collectFingerprint(): Promise<AttentionFingerprint> {
   const nav = navigator as Navigator & { deviceMemory?: number };
   const canvasHash = collectCanvasFingerprint();
-  const { vendor: webglVendor, renderer: webglRenderer, hash: webglHash } = collectWebglFingerprint();
+  const {
+    vendor: webglVendor,
+    renderer: webglRenderer,
+    hash: webglHash,
+  } = collectWebglFingerprint();
   const audioHash = await collectAudioFingerprint();
   return {
     ua: nav.userAgent,

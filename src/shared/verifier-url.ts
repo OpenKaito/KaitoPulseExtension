@@ -1,4 +1,3 @@
-
 function normalizePath(value: string): string {
   const trimmed = value.replace(/\/+$/, '');
   return trimmed.length > 0 ? trimmed : '/';

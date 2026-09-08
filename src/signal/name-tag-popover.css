@@ -1,12 +1,9 @@
-
 :host {
   all: initial;
 }
 
 .signal-popover {
-  --sg-font:
-    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  --sg-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   position: fixed;
   top: 0;
   left: 0;
@@ -83,7 +80,7 @@
 
 .signal-popover__num {
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+  font-feature-settings: 'tnum';
 }
 
 .signal-uinfo .signal-popover__num {
@@ -91,7 +88,6 @@
 }
 
 .signal-popover__user {
-
   background: var(--sg-surface, #fff);
   display: flex;
   align-items: flex-start;
@@ -206,24 +202,12 @@
   );
 }
 
-.signal-popover--dark
-  .signal-popover__card--hyperliquid
-  .signal-popover__card-top {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(150 252 228 / 15%) 4px,
-    rgb(17 17 17 / 0%) 56px
-  );
+.signal-popover--dark .signal-popover__card--hyperliquid .signal-popover__card-top {
+  background-image: linear-gradient(to bottom, rgb(150 252 228 / 15%) 4px, rgb(17 17 17 / 0%) 56px);
 }
 
-.signal-popover--dark
-  .signal-popover__card--polymarket
-  .signal-popover__card-top {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(47 92 255 / 15%) 19px,
-    rgb(17 17 17 / 0%) 65px
-  );
+.signal-popover--dark .signal-popover__card--polymarket .signal-popover__card-top {
+  background-image: linear-gradient(to bottom, rgb(47 92 255 / 15%) 19px, rgb(17 17 17 / 0%) 65px);
 }
 
 .signal-popover__card-head {
@@ -385,9 +369,13 @@
 }
 
 .signal-uinfo .signal-popover__pnl-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--sg-label, #546571);
+}
+
+.signal-uinfo .signal-popover__pnlrow {
+  height: 10px;
 }
 
 .signal-popover__pnl-value {
@@ -396,10 +384,6 @@
   font-weight: 700;
   line-height: 1.5;
   color: var(--sg-text, #102622);
-}
-
-.signal-uinfo .signal-popover__pnl-value {
-  font-weight: 600;
 }
 
 .signal-popover__pnl-valuerow {
@@ -453,13 +437,16 @@
 }
 
 .signal-uinfo .signal-popover__toggle {
-  padding: 4px 8px;
+  padding: 4px 6px;
   font-size: 10px;
   font-weight: 500;
 }
 
-.signal-popover__toggle--active {
+.signal-uinfo .signal-popover__toggles {
+  gap: 6px;
+}
 
+.signal-popover__toggle--active {
   background: rgb(16 194 163 / 10%);
   border: 0.6px solid rgb(16 194 163 / 10%);
   color: #10c2a3;
@@ -511,12 +498,6 @@
   opacity: 1;
 }
 
-.signal-popover__divider-h {
-  height: 1px;
-  background: rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
-  margin: 0 12px;
-}
-
 .signal-popover__footer {
   display: flex;
   align-items: center;
@@ -554,7 +535,6 @@
 }
 
 .signal-popover__footer--expanded {
-
   position: relative;
   justify-content: center;
   padding: 8px 12px;
@@ -611,6 +591,126 @@
   color: var(--sg-text-secondary, #8f959e);
 }
 
+.signal-popover__chiprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.signal-popover__chiprow:last-child {
+  padding-bottom: 12px;
+}
+
+.signal-popover__chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.signal-popover__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.signal-popover__acct-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
+  border-radius: 6px;
+  background: rgb(var(--sg-on-surface-rgb, 0 0 0) / 5%);
+  cursor: pointer;
+  user-select: none;
+}
+
+.signal-popover__acct-chip-label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--sg-text, #bdc2c4);
+  white-space: nowrap;
+}
+
+.signal-popover__acct-chip--on {
+  border-color: rgb(15 194 163 / 24%);
+  background: rgb(16 194 163 / 10%);
+}
+
+.signal-popover__acct-chip--on .signal-popover__acct-chip-label {
+  color: #96fce4;
+}
+
+.signal-popover__acct-chip-tail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--sg-text-secondary, #8f959e);
+  white-space: nowrap;
+}
+
+.signal-popover__acct-chip-dot {
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #10c2a3;
+}
+
+.signal-popover__acct-chip-avatar {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.signal-popover__acct-chip-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signal-popover__chiptoggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sg-text-secondary, #8f959e);
+  cursor: pointer;
+  user-select: none;
+}
+
+.signal-popover__viewrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.signal-popover__viewrow::before {
+  content: '';
+  flex: 1 1 0;
+  min-width: 0;
+  height: 1px;
+  background: rgb(var(--sg-on-surface-rgb, 0 0 0) / 10%);
+}
+
+.signal-popover__viewrow .signal-popover__footer-viewall {
+  position: static;
+  right: auto;
+  line-height: 1;
+}
+
 .signal-popover__profile {
   display: flex;
   align-items: center;
@@ -635,6 +735,14 @@
 
 .signal-popover__avatar--default {
   background: linear-gradient(150deg, #34fcdd 0%, #4ef0e2 45%, #71c9ee 100%);
+}
+
+.signal-popover__acct-chip-avatar--gen {
+  background: linear-gradient(
+    150deg,
+    hsl(var(--sg-gen-hue, 168) 85% 62%) 0%,
+    hsl(calc(var(--sg-gen-hue, 168) + 48) 72% 42%) 100%
+  );
 }
 
 .signal-popover__profile-text {
@@ -708,29 +816,25 @@
 
 .signal-popover__market {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   width: 100%;
 }
 
-.signal-popover__market
-  > .signal-popover__market-col
-  > .signal-popover__market-head {
+.signal-popover__market-headrow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+
   padding-top: 12px;
 }
 
-.signal-popover__market-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.signal-popover__market-col--name {
+.signal-popover__market-headrow > .signal-popover__market-head--left {
   flex: 1 1 0;
   min-width: 0;
 }
 
-.signal-popover__market-col--value {
-
-  flex: 0 0 auto;
+.signal-popover__market-headrow > .signal-popover__market-head--right {
+  flex: none;
   min-width: 120px;
 }
 
@@ -821,6 +925,13 @@
   width: 24px;
   height: 24px;
 }
+.signal-popover__market .signal-popover__market-valcell {
+  flex: none;
+  align-self: stretch;
+  min-width: 112px;
+  height: auto;
+  padding: 0;
+}
 .signal-popover__market .signal-popover__market-value {
   font-weight: 600;
 }
@@ -831,8 +942,8 @@
 .signal-popover__triangle {
   display: block;
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 7px;
 }
 
 .signal-popover__market-icon {
@@ -859,14 +970,13 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  padding-bottom: 8px;
 }
 
 .signal-popover__pmlist-head {
   display: flex;
   align-items: center;
   width: 100%;
-
-  padding-top: 12px;
 }
 
 .signal-popover__pmlist-head > .signal-popover__market-head--left {
@@ -1003,6 +1113,43 @@
   margin: 0 auto;
 }
 
+.signal-popover__market-icon.signal-popover__sk {
+  border: 0;
+}
+.signal-popover__sk--mkt-title {
+  width: 86%;
+  height: 14px;
+}
+.signal-popover__market-cell--alt .signal-popover__sk--mkt-title {
+  width: 64%;
+}
+.signal-popover__sk--mkt-pill {
+  width: 58px;
+  height: 18px;
+  border-radius: 6px;
+}
+.signal-popover__sk--mkt-shares {
+  width: 62px;
+  height: 12px;
+}
+.signal-popover__sk--mkt-value {
+  width: 68px;
+  height: 14px;
+}
+.signal-popover__sk--mkt-change {
+  width: 88px;
+  height: 11px;
+}
+.signal-popover__sk--perp {
+  width: 72%;
+  height: 12px;
+}
+.signal-popover__sk--perp-token {
+  flex: none;
+  width: 28px;
+  height: 12px;
+}
+
 .signal-popover__footer {
   position: sticky;
   bottom: 0;
@@ -1056,4 +1203,12 @@
 .signal-popover__retry:hover {
   background: rgb(16 194 163 / 12%);
   border-color: rgb(16 194 163 / 40%);
+}
+
+.signal-popover__nodetail {
+  margin: 0;
+  padding: 2px 12px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  color: rgb(255 255 255 / 45%);
 }

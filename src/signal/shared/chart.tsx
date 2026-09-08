@@ -1,5 +1,5 @@
-import { createMemo, onCleanup, onMount, Show, For, type JSX } from "solid-js";
-import type { ChartPoint } from "../types";
+import { createMemo, onCleanup, onMount, Show, For, type JSX } from 'solid-js';
+import type { ChartPoint } from '../types';
 
 let chartSeq = 0;
 const W = 240;
@@ -8,9 +8,12 @@ const PAD = 2;
 
 export function Sparkline(props: {
   points: ChartPoint[];
+
+  tone?: 'gain' | 'loss';
   onScrub?: (point: ChartPoint | null) => void;
 }): JSX.Element {
   const gradientId = `signal-popover-spark-${chartSeq++}`;
+  const stroke = (): string => (props.tone === 'loss' ? '#cb3131' : '#10c2a3');
 
   const isDegenerate = createMemo(() => props.points.length < 2);
   const values = createMemo(() => props.points.map((p) => p.v));
@@ -26,8 +29,8 @@ export function Sparkline(props: {
   );
   const lineD = createMemo(() =>
     coords()
-      .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`)
-      .join(" "),
+      .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`)
+      .join(' '),
   );
 
   let wrapRef!: HTMLDivElement;
@@ -49,8 +52,8 @@ export function Sparkline(props: {
     const i = Math.round(frac * lastIndex);
     const [ux, uy] = cs[i];
 
-    crosshairRef.setAttribute("x1", String(ux));
-    crosshairRef.setAttribute("x2", String(ux));
+    crosshairRef.setAttribute('x1', String(ux));
+    crosshairRef.setAttribute('x2', String(ux));
     dotRef.style.left = `${(ux / W) * 100}%`;
     dotRef.style.top = `${(uy / H) * 100}%`;
     props.onScrub?.(props.points[i]);
@@ -58,7 +61,7 @@ export function Sparkline(props: {
   const onMove = (event: MouseEvent): void => {
     if (isDegenerate()) return;
     clientX = event.clientX;
-    wrapRef.classList.add("is-hovering");
+    wrapRef.classList.add('is-hovering');
     if (frame === 0) frame = requestAnimationFrame(paint);
   };
   const onLeave = (): void => {
@@ -66,20 +69,20 @@ export function Sparkline(props: {
       cancelAnimationFrame(frame);
       frame = 0;
     }
-    wrapRef.classList.remove("is-hovering");
+    wrapRef.classList.remove('is-hovering');
     props.onScrub?.(null);
   };
 
   onMount(() => {
-    wrapRef.addEventListener("mouseenter", onMove);
-    wrapRef.addEventListener("mousemove", onMove);
-    wrapRef.addEventListener("mouseleave", onLeave);
+    wrapRef.addEventListener('mouseenter', onMove);
+    wrapRef.addEventListener('mousemove', onMove);
+    wrapRef.addEventListener('mouseleave', onLeave);
   });
   onCleanup(() => {
     if (frame !== 0) cancelAnimationFrame(frame);
-    wrapRef.removeEventListener("mouseenter", onMove);
-    wrapRef.removeEventListener("mousemove", onMove);
-    wrapRef.removeEventListener("mouseleave", onLeave);
+    wrapRef.removeEventListener('mouseenter', onMove);
+    wrapRef.removeEventListener('mousemove', onMove);
+    wrapRef.removeEventListener('mouseleave', onLeave);
   });
 
   return (
@@ -87,10 +90,16 @@ export function Sparkline(props: {
       <Show
         when={!isDegenerate()}
         fallback={
-          <svg class="signal-popover__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" fill="none" aria-hidden="true">
+          <svg
+            class="signal-popover__chart"
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d={`M0 ${(H / 2).toFixed(1)} L${W} ${(H / 2).toFixed(1)}`}
-              stroke="#10c2a3"
+              stroke={stroke()}
               stroke-width="1.5"
               stroke-linecap="round"
               vector-effect="non-scaling-stroke"
@@ -98,23 +107,38 @@ export function Sparkline(props: {
           </svg>
         }
       >
-        <svg ref={svgRef} class="signal-popover__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" fill="none" aria-hidden="true">
+        <svg
+          ref={svgRef}
+          class="signal-popover__chart"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          fill="none"
+          aria-hidden="true"
+        >
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#10c2a3" stop-opacity="0.18" />
-              <stop offset="1" stop-color="#10c2a3" stop-opacity="0" />
+              <stop offset="0" stop-color={stroke()} stop-opacity="0.18" />
+              <stop offset="1" stop-color={stroke()} stop-opacity="0" />
             </linearGradient>
           </defs>
           <path d={`${lineD()} L${W} ${H} L0 ${H} Z`} fill={`url(#${gradientId})`} />
           <path
             d={lineD()}
-            stroke="#10c2a3"
+            stroke={stroke()}
             stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
             vector-effect="non-scaling-stroke"
           />
-          <line ref={crosshairRef} class="signal-popover__crosshair" x1="0" x2="0" y1="0" y2={H} vector-effect="non-scaling-stroke" />
+          <line
+            ref={crosshairRef}
+            class="signal-popover__crosshair"
+            x1="0"
+            x2="0"
+            y1="0"
+            y2={H}
+            vector-effect="non-scaling-stroke"
+          />
         </svg>
         <div class="signal-popover__chartdot" ref={dotRef} />
       </Show>
@@ -125,50 +149,56 @@ export function Sparkline(props: {
 export function ChartGroup(props: {
   charts: Record<string, ChartPoint[]>;
   selected?: string;
-  card?: "hyperliquid" | "polymarket";
+  card?: 'hyperliquid' | 'polymarket';
   wide?: boolean;
   pnlLabel?: string;
   pnlValue?: string;
-  pnlValueModifier?: "loss" | "gain";
+  pnlValueModifier?: 'loss' | 'gain';
+
+  chartTone?: 'gain' | 'loss';
   onSelectPeriod?: (period: string) => void;
 }): JSX.Element {
   const periodKeys = createMemo(() => Object.keys(props.charts));
   const selected = createMemo(() => props.selected ?? periodKeys()[periodKeys().length - 1]);
 
+  const hasSeries = createMemo(() => periodKeys().length > 0);
+
   let valueRef!: HTMLDivElement;
   let dateRef!: HTMLSpanElement;
 
-  const valueClassFor = (modifier: "loss" | "gain" | undefined): string =>
-    `signal-popover__pnl-value signal-popover__num${modifier ? ` signal-popover__value--${modifier}` : ""}`;
+  const valueClassFor = (modifier: 'loss' | 'gain' | undefined): string =>
+    `signal-popover__pnl-value signal-popover__num${modifier ? ` signal-popover__value--${modifier}` : ''}`;
 
   const handleScrub = (point: ChartPoint | null): void => {
     if (point) {
-      valueRef.className = valueClassFor(point.v < 0 ? "loss" : "gain");
+      valueRef.className = valueClassFor(point.v < 0 ? 'loss' : 'gain');
       valueRef.textContent = point.label;
       dateRef.textContent = point.time;
     } else {
       valueRef.className = valueClassFor(props.pnlValueModifier);
-      valueRef.textContent = props.pnlValue ?? "";
-      dateRef.textContent = "";
+      valueRef.textContent = props.pnlValue ?? '';
+      dateRef.textContent = '';
     }
   };
 
   return (
-    <div class={`signal-popover__chartgroup${props.wide ? " signal-popover__chartgroup--wide" : ""}`}>
+    <div
+      class={`signal-popover__chartgroup${props.wide ? ' signal-popover__chartgroup--wide' : ''}`}
+    >
       <div class="signal-popover__pnlrow">
-        <div class="signal-popover__pnl-label">{props.pnlLabel ?? "PnL"}</div>
+        <div class="signal-popover__pnl-label">{props.pnlLabel ?? 'PnL'}</div>
         <div class="signal-popover__toggles">
-          <For each={periodKeys()}>
+          <For each={hasSeries() ? periodKeys() : []}>
             {(period) => {
               const active = () => period === selected();
               return (
                 <div
-                  class={`signal-popover__toggle${active() ? " signal-popover__toggle--active" : ""}`}
-                  role={props.card ? "button" : undefined}
-                  aria-pressed={props.card ? (active() ? "true" : "false") : undefined}
+                  class={`signal-popover__toggle${active() ? ' signal-popover__toggle--active' : ''}`}
+                  role={props.card ? 'button' : undefined}
+                  aria-pressed={props.card ? (active() ? 'true' : 'false') : undefined}
                   onClick={props.card ? () => props.onSelectPeriod?.(period) : undefined}
                 >
-                  {period === "ALL" ? "All" : period}
+                  {period === 'ALL' ? 'All' : period}
                 </div>
               );
             }}
@@ -183,10 +213,13 @@ export function ChartGroup(props: {
           <span ref={dateRef} class="signal-popover__pnl-date" />
         </div>
       </Show>
-      <Sparkline
-        points={props.charts[selected()] ?? []}
-        onScrub={props.pnlValue != null ? handleScrub : undefined}
-      />
+      <Show when={hasSeries()}>
+        <Sparkline
+          points={props.charts[selected()] ?? []}
+          tone={props.chartTone}
+          onScrub={props.pnlValue != null ? handleScrub : undefined}
+        />
+      </Show>
     </div>
   );
 }

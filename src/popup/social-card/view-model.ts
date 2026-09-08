@@ -1,4 +1,3 @@
-
 import type {
   SocialCardBundle,
   SocialCardScope,
@@ -19,7 +18,6 @@ export interface FollowerAvatar {
 }
 
 export interface SmartFollowersStats {
-
   topPct: number;
 
   highestRank: number;
@@ -29,7 +27,6 @@ export interface SmartFollowersStats {
 }
 
 export interface MindshareStats {
-
   current: number;
 
   topPct: number;
@@ -85,7 +82,6 @@ function highResAvatar(url: string | undefined): string {
 function toSmartFollowersStats(details: VoicesSocialCardDetails | undefined): SmartFollowersStats {
   const rank = details?.smart_follower_rank;
   return {
-
     topPct: (rank?.top ?? 0) * 100,
     highestRank: Number(rank?.peak?.smart_follower_rank ?? 0),
     highestRankDate: rank?.peak?.date ?? '',

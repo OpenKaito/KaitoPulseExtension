@@ -1,11 +1,11 @@
-
 import { logLocalWarning } from '@/lib/guard';
 import DEFAULTS from './selectors.default.json';
 
 export const SIGNAL_DOM_SELECTORS = { ...DEFAULTS.signal };
 
-export const DEFAULT_SIGNAL_DOM_SELECTORS: Readonly<typeof SIGNAL_DOM_SELECTORS> =
-  Object.freeze({ ...DEFAULTS.signal });
+export const DEFAULT_SIGNAL_DOM_SELECTORS: Readonly<typeof SIGNAL_DOM_SELECTORS> = Object.freeze({
+  ...DEFAULTS.signal,
+});
 
 export const SIGNAL_DOM_ATTRS = {
   AVATAR_INJECTED_FLAG: 'data-signal-avatar-injected',
@@ -29,8 +29,9 @@ export const SIGNAL_DOM_ATTRS = {
 
 export const PROFILE_SELECTORS = { ...DEFAULTS.profile };
 
-export const DEFAULT_PROFILE_SELECTORS: Readonly<typeof PROFILE_SELECTORS> =
-  Object.freeze({ ...DEFAULTS.profile });
+export const DEFAULT_PROFILE_SELECTORS: Readonly<typeof PROFILE_SELECTORS> = Object.freeze({
+  ...DEFAULTS.profile,
+});
 
 export const PROFILE_ATTRS = {
   USERNAME_HISTORY_FLAG: 'data-signal-username-history',
@@ -42,10 +43,12 @@ export type ProfileSelectorKey = keyof typeof DEFAULTS.profile;
 
 export type SelectorOverrideKey = SignalSelectorKey | ProfileSelectorKey;
 
-export const SIGNAL_SELECTOR_KEYS: ReadonlySet<SignalSelectorKey> =
-  new Set(Object.keys(DEFAULTS.signal) as SignalSelectorKey[]);
-export const PROFILE_SELECTOR_KEYS: ReadonlySet<ProfileSelectorKey> =
-  new Set(Object.keys(DEFAULTS.profile) as ProfileSelectorKey[]);
+export const SIGNAL_SELECTOR_KEYS: ReadonlySet<SignalSelectorKey> = new Set(
+  Object.keys(DEFAULTS.signal) as SignalSelectorKey[],
+);
+export const PROFILE_SELECTOR_KEYS: ReadonlySet<ProfileSelectorKey> = new Set(
+  Object.keys(DEFAULTS.profile) as ProfileSelectorKey[],
+);
 
 export const SELECTOR_NOTES: Partial<Record<SelectorOverrideKey, string>> = {
   USER_NAME:
@@ -96,11 +99,16 @@ function reportInvalidOverride(key: SelectorOverrideKey, value: string): void {
   if (reportedInvalidOverrides.has(dedupeKey)) return;
   reportedInvalidOverrides.add(dedupeKey);
 
-  logLocalWarning(`invalid selector override for ${key}`, 'signal.selectorOverrides', { key, value });
+  logLocalWarning(`invalid selector override for ${key}`, 'signal.selectorOverrides', {
+    key,
+    value,
+  });
 }
 
 function applySignalSelectorOverrides(overrides: Partial<Record<SignalSelectorKey, string>>): void {
-  for (const key of Object.keys(DEFAULT_SIGNAL_DOM_SELECTORS) as (keyof typeof DEFAULT_SIGNAL_DOM_SELECTORS)[]) {
+  for (const key of Object.keys(
+    DEFAULT_SIGNAL_DOM_SELECTORS,
+  ) as (keyof typeof DEFAULT_SIGNAL_DOM_SELECTORS)[]) {
     const candidate = overrides[key];
     if (candidate !== undefined && isValidSelector(candidate)) {
       SIGNAL_DOM_SELECTORS[key] = candidate;
@@ -111,8 +119,12 @@ function applySignalSelectorOverrides(overrides: Partial<Record<SignalSelectorKe
   }
 }
 
-function applyProfileSelectorOverrides(overrides: Partial<Record<ProfileSelectorKey, string>>): void {
-  for (const key of Object.keys(DEFAULT_PROFILE_SELECTORS) as (keyof typeof DEFAULT_PROFILE_SELECTORS)[]) {
+function applyProfileSelectorOverrides(
+  overrides: Partial<Record<ProfileSelectorKey, string>>,
+): void {
+  for (const key of Object.keys(
+    DEFAULT_PROFILE_SELECTORS,
+  ) as (keyof typeof DEFAULT_PROFILE_SELECTORS)[]) {
     const candidate = overrides[key];
     if (candidate !== undefined && isValidSelector(candidate)) {
       PROFILE_SELECTORS[key] = candidate;

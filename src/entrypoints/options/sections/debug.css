@@ -33,7 +33,9 @@
   padding: 6px 10px;
 }
 
-.debug-button:hover { border-color: var(--primary); }
+.debug-button:hover {
+  border-color: var(--primary);
+}
 
 .debug-muted {
   color: var(--muted);
@@ -127,7 +129,9 @@
   padding: 10px 12px;
 }
 
-.debug-entry summary::-webkit-details-marker { display: none; }
+.debug-entry summary::-webkit-details-marker {
+  display: none;
+}
 
 .debug-method {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

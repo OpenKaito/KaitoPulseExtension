@@ -1,5 +1,12 @@
-
-import { For, Show, createEffect, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import {
+  For,
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Component,
+} from 'solid-js';
 import type { ProofErrorCode, ProofProgress, ProofRunSummary } from '@/shared/messages';
 import { CATEGORY_TABS, dataTypeLabels, tasksInCategory } from '../catalog';
 import type { ResultKind, VerifyCategory, VerifyTask } from '../types';
@@ -20,7 +27,13 @@ import {
   SuccessCircleIcon,
   XLogoIcon,
 } from './icons';
-import { VERIFY_STEP_IDS, VerifyStepList, type VerifyStep, type VerifyStepId, type VerifyStepState } from './steps';
+import {
+  VERIFY_STEP_IDS,
+  VerifyStepList,
+  type VerifyStep,
+  type VerifyStepId,
+  type VerifyStepState,
+} from './steps';
 
 import signinStar1 from '../assets/signin-star-1.svg?inline';
 import signinStar2 from '../assets/signin-star-2.svg?inline';
@@ -67,7 +80,11 @@ export const SigningInView: Component<{ taskName?: string; onCancel?: () => void
         : 'Return here after sign-in to continue.'}
     </p>
     <Show when={props.onCancel}>
-      <button type="button" class="kv-cta-outline kv-signing-in-cancel" onClick={() => props.onCancel?.()}>
+      <button
+        type="button"
+        class="kv-cta-outline kv-signing-in-cancel"
+        onClick={() => props.onCancel?.()}
+      >
         Cancel
       </button>
     </Show>
@@ -81,7 +98,12 @@ function verifiedAgo(daysSince: number): string {
   return daysSince >= STALE_AFTER_DAYS ? `Verified ${when} · refresh` : `Verified ${when}`;
 }
 
-const CardAction: Component<{ task: VerifyTask; verifying: boolean; locked: boolean; onOpen: () => void }> = (props) => {
+const CardAction: Component<{
+  task: VerifyTask;
+  verifying: boolean;
+  locked: boolean;
+  onOpen: () => void;
+}> = (props) => {
   const state = () => props.task.status.state;
   return (
     <div class="kv-vcard-cta-wrap">
@@ -94,12 +116,22 @@ const CardAction: Component<{ task: VerifyTask; verifying: boolean; locked: bool
         }
       >
         <Show when={state() === 'available'}>
-          <button type="button" class="kv-vcard-cta" disabled={props.locked} onClick={() => props.onOpen()}>
+          <button
+            type="button"
+            class="kv-vcard-cta"
+            disabled={props.locked}
+            onClick={() => props.onOpen()}
+          >
             Participate
           </button>
         </Show>
         <Show when={state() === 'verified'}>
-          <button type="button" class="kv-vcard-cta verified" disabled={props.locked} onClick={() => props.onOpen()}>
+          <button
+            type="button"
+            class="kv-vcard-cta verified"
+            disabled={props.locked}
+            onClick={() => props.onOpen()}
+          >
             {VERIFIED_LABEL}
           </button>
         </Show>
@@ -119,7 +151,6 @@ export const HubList: Component<{
   const countFor = (id: VerifyCategory | 'all') => tasksInCategory(props.tasks, id).length;
 
   return (
-
     <div class="kv-hublist">
       <div class="kv-tabs" role="tablist">
         <For each={CATEGORY_TABS}>
@@ -140,7 +171,6 @@ export const HubList: Component<{
       <div class="kv-vcard-list">
         <For each={visible()}>
           {(task) => (
-
             <div class="kv-vcard" style={{ '--kv-glow': task.meta.tile.bg }}>
               <div class="kv-vcard-head">
                 <div class="kv-vcard-id">
@@ -160,7 +190,9 @@ export const HubList: Component<{
                 onOpen={() => props.onOpenTask(task.id)}
               />
               <Show when={task.status.state === 'verified'}>
-                <span class="kv-vcard-note">{verifiedAgo((task.status as { daysSince: number }).daysSince)}</span>
+                <span class="kv-vcard-note">
+                  {verifiedAgo((task.status as { daysSince: number }).daysSince)}
+                </span>
               </Show>
             </div>
           )}
@@ -210,7 +242,12 @@ const ManageCard: Component<{
       {}
       <Show when={!props.armed}>
         <div class="kv-manage-actions">
-          <button type="button" class="kv-manage-remove" disabled={props.locked} onClick={() => props.onArm()}>
+          <button
+            type="button"
+            class="kv-manage-remove"
+            disabled={props.locked}
+            onClick={() => props.onArm()}
+          >
             Remove Verification
           </button>
         </div>
@@ -220,11 +257,17 @@ const ManageCard: Component<{
       <Show when={props.armed}>
         <div class="kv-manage-confirm">
           <p class="kv-manage-unbind-warn">
-            Unlinking removes every {props.task.meta.displayName} verification on your Kaito account and frees the
-            account for someone else to verify. You can only get it back by verifying again.
+            Unlinking removes every {props.task.meta.displayName} verification on your Kaito account
+            and frees the account for someone else to verify. You can only get it back by verifying
+            again.
           </p>
           <div class="kv-manage-actions">
-            <button type="button" class="kv-manage-keep" disabled={props.busy} onClick={() => props.onDisarm()}>
+            <button
+              type="button"
+              class="kv-manage-keep"
+              disabled={props.busy}
+              onClick={() => props.onDisarm()}
+            >
               Keep it
             </button>
             <button
@@ -296,12 +339,13 @@ export const DockList: Component<{
   const verifiedOn = (task: VerifyTask): string => {
     if (task.status.state !== 'verified') return '';
     return `Verified ${new Intl.DateTimeFormat('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     }).format(new Date(task.status.proof.verifiedAt))}`;
   };
 
   return (
-
     <div class="kv-dock">
       <div class="kv-seg" role="tablist">
         <button
@@ -356,7 +400,6 @@ export const DockList: Component<{
           </For>
         </div>
       </Show>
-
     </div>
   );
 };
@@ -374,10 +417,22 @@ export const HubFooter: Component<{
 }> = (props) => (
   <footer class="kv-footer">
     <div class="kv-footer-links">
-      <a href={X_PROFILE_URL} target="_blank" rel="noreferrer noopener" title="Kaito on X" style={{ color: 'inherit' }}>
+      <a
+        href={X_PROFILE_URL}
+        target="_blank"
+        rel="noreferrer noopener"
+        title="Kaito on X"
+        style={{ color: 'inherit' }}
+      >
         <XLogoIcon />
       </a>
-      <a href={DISCORD_URL} target="_blank" rel="noreferrer noopener" title="Kaito Discord" style={{ color: 'inherit' }}>
+      <a
+        href={DISCORD_URL}
+        target="_blank"
+        rel="noreferrer noopener"
+        title="Kaito Discord"
+        style={{ color: 'inherit' }}
+      >
         <DiscordIcon />
       </a>
     </div>
@@ -385,7 +440,12 @@ export const HubFooter: Component<{
       <Show
         when={!props.signedIn}
         fallback={
-          <button type="button" class="kv-login-btn" disabled={props.busy} onClick={() => props.onSignOut()}>
+          <button
+            type="button"
+            class="kv-login-btn"
+            disabled={props.busy}
+            onClick={() => props.onSignOut()}
+          >
             Sign out
           </button>
         }
@@ -425,7 +485,9 @@ export const ConsentView: Component<{
         <PlatformTile meta={meta()} />
         <div class="kv-consent-head">
           <h3 class="kv-consent-title">Verify your {meta().displayName} account</h3>
-          <p class="kv-consent-sub">Verify your {meta().displayName} account to complete this campaign.</p>
+          <p class="kv-consent-sub">
+            Verify your {meta().displayName} account to complete this campaign.
+          </p>
         </div>
 
         {}
@@ -445,18 +507,32 @@ export const ConsentView: Component<{
 
         <div class="kv-consent-group">
           <div class="kv-consent-group-title">Privacy</div>
-          <div class="kv-consent-item"><LockIcon size={16} /><span>Your password is never accessed</span></div>
-          <div class="kv-consent-item"><AssetIcon size={16} /><span>Your assets are never moved</span></div>
+          <div class="kv-consent-item">
+            <LockIcon size={16} />
+            <span>Your password is never accessed</span>
+          </div>
+          <div class="kv-consent-item">
+            <AssetIcon size={16} />
+            <span>Your assets are never moved</span>
+          </div>
           {}
           <div class="kv-consent-item">
             <ProofIcon size={16} />
-            <span>Only the proof and the fields listed above are shared — not your account contents</span>
+            <span>
+              Only the proof and the fields listed above are shared — not your account contents
+            </span>
           </div>
         </div>
 
         <div class="kv-consent-how">
           <div class="kv-consent-group-title">How verification works</div>
-          <For each={['Read required account data', 'Generate a zkTLS proof', 'Return the proof to Kaito']}>
+          <For
+            each={[
+              'Read required account data',
+              'Generate a zkTLS proof',
+              'Return the proof to Kaito',
+            ]}
+          >
             {(step, i) => (
               <div class="kv-step">
                 <span class="kv-step-num">{i() + 1}</span>
@@ -469,7 +545,9 @@ export const ConsentView: Component<{
 
       <div class="kv-consent-footer">
         <Show when={props.notice}>
-          <p class="kv-consent-notice" role="alert">{props.notice}</p>
+          <p class="kv-consent-notice" role="alert">
+            {props.notice}
+          </p>
         </Show>
         {}
         <p class="kv-consent-legal">
@@ -510,9 +588,7 @@ export const CampaignDetail: Component<{
   const detail = () => meta().detail;
   const canVerify = () => Boolean(props.task.verifier) && !props.busy;
   const ctaLabel = () =>
-    meta().kind === 'wallet'
-      ? `Connect wallet to verify`
-      : `Verify with ${meta().displayName}`;
+    meta().kind === 'wallet' ? `Connect wallet to verify` : `Verify with ${meta().displayName}`;
 
   return (
     <div>
@@ -566,11 +642,18 @@ export const CampaignDetail: Component<{
       </For>
 
       <div class="kv-cta-wrap">
-        <button type="button" class="kv-cta" disabled={!canVerify()} onClick={() => props.onVerify()}>
+        <button
+          type="button"
+          class="kv-cta"
+          disabled={!canVerify()}
+          onClick={() => props.onVerify()}
+        >
           {ctaLabel()}
         </button>
         <p class="kv-cta-note">
-          {props.task.verifier ? detail().footnote : 'This verification is not live yet — the backend verifier is being rolled out.'}
+          {props.task.verifier
+            ? detail().footnote
+            : 'This verification is not live yet — the backend verifier is being rolled out.'}
         </p>
       </div>
     </div>
@@ -591,7 +674,11 @@ const PROGRESS_HEAD_TEXT: Record<VerifyStepId, { title: string; sub: string }> =
   generate: { title: 'Generating your proof...', sub: 'Almost done. Usually 30–60s' },
 };
 
-function progressStepSub(id: VerifyStepId, state: VerifyStepState, platform: string): string | undefined {
+function progressStepSub(
+  id: VerifyStepId,
+  state: VerifyStepState,
+  platform: string,
+): string | undefined {
   if (id === 'connect' && state !== 'pending') return `A ${platform} window has opened`;
   if (id === 'generate' && state === 'active')
     return 'Generated locally — your data never leaves this device. Keep this window open.';
@@ -618,7 +705,8 @@ export const ProgressView: Component<{
   const steps = (): VerifyStep[] => {
     const current = VERIFY_STEP_IDS.indexOf(activeStep());
     return VERIFY_STEP_IDS.map((id, order) => {
-      const state: VerifyStepState = order < current ? 'done' : order === current ? 'active' : 'pending';
+      const state: VerifyStepState =
+        order < current ? 'done' : order === current ? 'active' : 'pending';
       return { id, state, sub: progressStepSub(id, state, platform()) };
     });
   };
@@ -630,12 +718,16 @@ export const ProgressView: Component<{
           {}
           <Show
             when={activeStep() === 'connect'}
-            fallback={<Show when={props.task}>{(task) => <PlatformTile meta={task().meta} />}</Show>}
+            fallback={
+              <Show when={props.task}>{(task) => <PlatformTile meta={task().meta} />}</Show>
+            }
           >
             <div class="kv-proof-connect-anim">
               <Show when={props.task}>{(task) => <PlatformTile meta={task().meta} />}</Show>
               <span class="kv-proof-connect-spinner" aria-hidden="true" />
-              <span class="kv-proof-kaito-tile"><KaitoMark size={22} /></span>
+              <span class="kv-proof-kaito-tile">
+                <KaitoMark size={22} />
+              </span>
             </div>
           </Show>
           <div class="kv-flow-copy">
@@ -707,7 +799,6 @@ export const ResultView: Component<{
   onSeeOtherTasks: () => void;
   onDone?: () => void;
 }> = (props) => {
-
   const name = () => props.task?.meta.displayName ?? 'account';
   const platform = () => props.task?.meta.displayName ?? 'the platform';
   const error = () => props.result?.error;
@@ -729,10 +820,15 @@ export const ResultView: Component<{
       case 'canceled':
         return `The ${platform()} window closed before your data could be read.`;
       default: {
-        const description = errorDescription(error()?.code, name(), error()?.reason || error()?.message);
+        const description = errorDescription(
+          error()?.code,
+          name(),
+          error()?.reason || error()?.message,
+        );
         const headline = errorHeadline(error()?.code);
 
-        return description === errorDescription(undefined, name()) && headline !== errorHeadline(undefined)
+        return description === errorDescription(undefined, name()) &&
+          headline !== errorHeadline(undefined)
           ? `${headline}. ${description}`
           : description;
       }
@@ -744,8 +840,10 @@ export const ResultView: Component<{
   const steps = (): VerifyStep[] => {
     const stoppedAt = verified() ? VERIFY_STEP_IDS.length : VERIFY_STEP_IDS.indexOf(failedStep());
     return VERIFY_STEP_IDS.map((id, order): VerifyStep => {
-      if (order < stoppedAt) return { id, state: 'done', sub: id === 'connect' ? openedSub() : undefined };
-      if (order === stoppedAt) return { id, state: tone() === 'warn' ? 'warn' : 'error', sub: failureMessage() };
+      if (order < stoppedAt)
+        return { id, state: 'done', sub: id === 'connect' ? openedSub() : undefined };
+      if (order === stoppedAt)
+        return { id, state: tone() === 'warn' ? 'warn' : 'error', sub: failureMessage() };
       return { id, state: 'pending' };
     });
   };
@@ -764,10 +862,7 @@ export const ResultView: Component<{
       <div class="kv-flow-main">
         <div class="kv-flow-head">
           <span class={`kv-flow-mark ${tone()}`}>
-            <Show
-              when={!verified()}
-              fallback={<SuccessCircleIcon size={48} />}
-            >
+            <Show when={!verified()} fallback={<SuccessCircleIcon size={48} />}>
               <Show when={props.kind === 'timeout'} fallback={<FailCircleIcon size={32} />}>
                 <ClockCircleIcon size={48} />
               </Show>
@@ -800,11 +895,19 @@ export const ResultView: Component<{
           <p class="kv-flow-note">{footerNote()}</p>
         </Show>
         <div class="kv-flow-actions">
-          <button type="button" class="kv-flow-btn secondary" onClick={() => props.onSeeOtherTasks()}>
+          <button
+            type="button"
+            class="kv-flow-btn secondary"
+            onClick={() => props.onSeeOtherTasks()}
+          >
             {verified() ? 'Verify more' : 'Cancel'}
           </button>
           <Show when={verified()}>
-            <button type="button" class="kv-flow-btn primary" onClick={() => (props.onDone ?? props.onSeeOtherTasks)()}>
+            <button
+              type="button"
+              class="kv-flow-btn primary"
+              onClick={() => (props.onDone ?? props.onSeeOtherTasks)()}
+            >
               Done
             </button>
           </Show>

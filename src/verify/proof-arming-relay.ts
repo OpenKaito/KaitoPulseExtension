@@ -1,6 +1,9 @@
-
 import { sendVerifyMessage } from './messaging';
-import { clearProofArmed, markProofArmed, PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
+import {
+  clearProofArmed,
+  markProofArmed,
+  PROOF_RUNTIME_TEARDOWN_EVENT,
+} from '@/shared/proof-arming';
 import { guard } from '@/lib/guard';
 
 const POLL_MS = 700;
@@ -36,7 +39,6 @@ export function startProofArmingRelay(doc: Document): () => void {
       });
       inProgress = next?.phase === 'progress';
     } catch {
-
       return;
     }
 

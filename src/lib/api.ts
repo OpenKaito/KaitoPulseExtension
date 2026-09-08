@@ -3,24 +3,28 @@ import type { TradingSummaryResponse } from '@/shared/trading-summary';
 import { ENV, logDev } from './env';
 import { buildClientHeaders } from './client-headers';
 import {
-  AcceptTermsResponse,
-  ActivityInsightsPreference,
+  type AcceptTermsResponse,
+  type ActivityInsightsPreference,
   ApiError,
-  Attestation,
-  CreateSessionResponse,
-  ExtensionMeResponse,
-  ExtensionVerifier,
-  ListAutoVerificationsResponse,
-  ListPlatformBindingsResponse,
-  ListPreferencesResponse,
-  ListProofsResponse,
-  UnbindPlatformResponse,
-  SignResponse,
-  SubmitProofResponse,
+  type Attestation,
+  type CreateSessionResponse,
+  type ExtensionMeResponse,
+  type ExtensionVerifier,
+  type ListAutoVerificationsResponse,
+  type ListPlatformBindingsResponse,
+  type ListPreferencesResponse,
+  type ListProofsResponse,
+  type UnbindPlatformResponse,
+  type SignResponse,
+  type SubmitProofResponse,
 } from '@/shared/contracts';
 import type { AdFlagQueryResponse, AdFlagWriteResult } from '@/shared/ad-flag';
 import type { BadgesResponse, HoverCardResult } from '@/shared/social-card';
-import type { ExtensionSocialCardActivityResponse, ExtensionSocialSummary } from '@/shared/extension-social';
+import type { WalletDetailRequest, WalletDetailResult } from '@/shared/wallet-detail';
+import type {
+  ExtensionSocialCardActivityResponse,
+  ExtensionSocialSummary,
+} from '@/shared/extension-social';
 import type {
   SocialCardScope,
   VoicesSmartEngagementActivity,
@@ -29,7 +33,11 @@ import type {
 } from '@/shared/voices-social-card';
 import type { CashtagOccurrence, TickerResolveResponse } from '@/shared/ticker-resolve';
 import type { TickerChartResponse } from '@/shared/token-chart';
-import type { AttentionConfigResponse, AttentionEventBatch, AttentionEventBatchResponse } from '@/shared/attention';
+import type {
+  AttentionConfigResponse,
+  AttentionEventBatch,
+  AttentionEventBatchResponse,
+} from '@/shared/attention';
 import type { FollowActionReport, FollowRecommendationResponse } from '@/shared/recommend-follow';
 import { finishDebugRequest, startDebugRequest } from '@/background/debug-log';
 
@@ -115,7 +123,7 @@ async function requestInner<T>(
     });
     throw new ApiError(0, undefined, `network_error: ${(error as Error).message}`);
   }
-  let body: unknown = undefined;
+  let body: unknown;
   if (text.length > 0) {
     try {
       body = JSON.parse(text);
@@ -128,7 +136,9 @@ async function requestInner<T>(
     let messagePart: string;
     if (typeof body === 'object' && body !== null) {
       const obj = body as Record<string, unknown>;
-      messagePart = String(obj.reason || obj.message || obj.error || response.statusText || 'unknown');
+      messagePart = String(
+        obj.reason || obj.message || obj.error || response.statusText || 'unknown',
+      );
     } else if (typeof body === 'string' && body.length > 0) {
       messagePart = body;
     } else {
@@ -142,11 +152,7 @@ async function requestInner<T>(
       responseBody: body,
       error: message,
     });
-    throw new ApiError(
-      response.status,
-      body as ApiError['body'],
-      message,
-    );
+    throw new ApiError(response.status, body as ApiError['body'], message);
   }
 
   finishDebugRequest(debugId, {
@@ -178,7 +184,9 @@ export const api = {
     return request<ExtensionVerifier[]>('/api/v1/extension/verifiers', { sessionToken });
   },
   getAutoVerifications(sessionToken: string): Promise<ListAutoVerificationsResponse> {
-    return request<ListAutoVerificationsResponse>('/api/v1/extension/auto-verifications', { sessionToken });
+    return request<ListAutoVerificationsResponse>('/api/v1/extension/auto-verifications', {
+      sessionToken,
+    });
   },
   getProofs(sessionToken: string): Promise<ListProofsResponse> {
     return request<ListProofsResponse>('/api/v1/extension/proofs', { sessionToken });
@@ -188,10 +196,13 @@ export const api = {
   },
 
   unbindPlatform(sessionToken: string, platform: string): Promise<UnbindPlatformResponse> {
-    return request<UnbindPlatformResponse>(`/api/v1/extension/bindings/${encodeURIComponent(platform)}`, {
-      method: 'DELETE',
-      sessionToken,
-    });
+    return request<UnbindPlatformResponse>(
+      `/api/v1/extension/bindings/${encodeURIComponent(platform)}`,
+      {
+        method: 'DELETE',
+        sessionToken,
+      },
+    );
   },
   enableAutoVerification(sessionToken: string, verifierId: string): Promise<void> {
     return request<void>(`/api/v1/extension/auto-verifications/${encodeURIComponent(verifierId)}`, {
@@ -206,7 +217,11 @@ export const api = {
       sessionToken,
     });
   },
-  submitProof(sessionToken: string, requestId: string, attestation: Attestation): Promise<SubmitProofResponse> {
+  submitProof(
+    sessionToken: string,
+    requestId: string,
+    attestation: Attestation,
+  ): Promise<SubmitProofResponse> {
     return request<SubmitProofResponse>('/api/v1/extension/proof/submit', {
       method: 'POST',
       body: { requestId, attestation },
@@ -242,7 +257,17 @@ export const api = {
 
   getHoverCard(twitterId: string, sessionToken?: string): Promise<HoverCardResult> {
     const qs = new URLSearchParams({ twitter_id: twitterId });
-    return request<HoverCardResult>(`/api/v1/extension/hover-card?${qs.toString()}`, { sessionToken });
+    return request<HoverCardResult>(`/api/v1/extension/hover-card?${qs.toString()}`, {
+      sessionToken,
+    });
+  },
+
+  getWalletDetail(body: WalletDetailRequest, sessionToken: string): Promise<WalletDetailResult> {
+    return request<WalletDetailResult>('/api/v1/extension/wallet-detail', {
+      method: 'POST',
+      body,
+      sessionToken,
+    });
   },
 
   getSocialSummary(sessionToken: string): Promise<ExtensionSocialSummary> {
@@ -255,13 +280,23 @@ export const api = {
     });
   },
 
-  getVoicesSocialCardOverview(scope: SocialCardScope, twitterId: string): Promise<VoicesSocialCardOverview> {
+  getVoicesSocialCardOverview(
+    scope: SocialCardScope,
+    twitterId: string,
+  ): Promise<VoicesSocialCardOverview> {
     const qs = new URLSearchParams({ user_id: twitterId });
-    return request<VoicesSocialCardOverview>(`/api/v1/voices/social_card/${scope}/overview?${qs.toString()}`);
+    return request<VoicesSocialCardOverview>(
+      `/api/v1/voices/social_card/${scope}/overview?${qs.toString()}`,
+    );
   },
-  getVoicesSocialCardDetails(scope: SocialCardScope, twitterId: string): Promise<VoicesSocialCardDetails> {
+  getVoicesSocialCardDetails(
+    scope: SocialCardScope,
+    twitterId: string,
+  ): Promise<VoicesSocialCardDetails> {
     const qs = new URLSearchParams({ user_id: twitterId });
-    return request<VoicesSocialCardDetails>(`/api/v1/voices/social_card/${scope}/details?${qs.toString()}`);
+    return request<VoicesSocialCardDetails>(
+      `/api/v1/voices/social_card/${scope}/details?${qs.toString()}`,
+    );
   },
 
   getVoicesSocialCardActivity(
@@ -274,7 +309,10 @@ export const api = {
     );
   },
 
-  postAttentionEventBatch(sessionToken: string, batch: AttentionEventBatch): Promise<AttentionEventBatchResponse> {
+  postAttentionEventBatch(
+    sessionToken: string,
+    batch: AttentionEventBatch,
+  ): Promise<AttentionEventBatchResponse> {
     return request<AttentionEventBatchResponse>('/api/v1/extension/attention/event-batches', {
       method: 'POST',
       body: batch,
@@ -289,7 +327,9 @@ export const api = {
   },
 
   getFollowRecommendations(sessionToken: string): Promise<FollowRecommendationResponse> {
-    return request<FollowRecommendationResponse>('/api/v1/extension/recommendations/follow', { sessionToken });
+    return request<FollowRecommendationResponse>('/api/v1/extension/recommendations/follow', {
+      sessionToken,
+    });
   },
 
   getAuraSummary(sessionToken: string): Promise<AuraSummaryResponse> {
@@ -308,7 +348,10 @@ export const api = {
     });
   },
 
-  putActivityInsightsPreference(sessionToken: string, enabled: boolean): Promise<ActivityInsightsPreference> {
+  putActivityInsightsPreference(
+    sessionToken: string,
+    enabled: boolean,
+  ): Promise<ActivityInsightsPreference> {
     return request<ActivityInsightsPreference>('/api/v1/extension/preferences/activity_insights', {
       method: 'PUT',
       body: { enabled },
@@ -320,27 +363,39 @@ export const api = {
     return request<ListPreferencesResponse>('/api/v1/extension/preferences', { sessionToken });
   },
 
-  putTradingTotalsPublic(sessionToken: string, enabled: boolean): Promise<ActivityInsightsPreference> {
-    return request<ActivityInsightsPreference>('/api/v1/extension/preferences/trading_totals_public', {
-      method: 'PUT',
-      body: { enabled },
-      sessionToken,
-    });
+  putTradingTotalsPublic(
+    sessionToken: string,
+    enabled: boolean,
+  ): Promise<ActivityInsightsPreference> {
+    return request<ActivityInsightsPreference>(
+      '/api/v1/extension/preferences/trading_totals_public',
+      {
+        method: 'PUT',
+        body: { enabled },
+        sessionToken,
+      },
+    );
   },
 
   putAdFlag(sessionToken: string, tweetId: string, reason: string): Promise<AdFlagWriteResult> {
-    return request<AdFlagWriteResult>(`/api/v1/extension/tweets/${encodeURIComponent(tweetId)}/ad-flag`, {
-      method: 'PUT',
-      body: { reason },
-      sessionToken,
-    });
+    return request<AdFlagWriteResult>(
+      `/api/v1/extension/tweets/${encodeURIComponent(tweetId)}/ad-flag`,
+      {
+        method: 'PUT',
+        body: { reason },
+        sessionToken,
+      },
+    );
   },
 
   removeAdFlag(sessionToken: string, tweetId: string): Promise<AdFlagWriteResult> {
-    return request<AdFlagWriteResult>(`/api/v1/extension/tweets/${encodeURIComponent(tweetId)}/ad-flag`, {
-      method: 'DELETE',
-      sessionToken,
-    });
+    return request<AdFlagWriteResult>(
+      `/api/v1/extension/tweets/${encodeURIComponent(tweetId)}/ad-flag`,
+      {
+        method: 'DELETE',
+        sessionToken,
+      },
+    );
   },
 
   queryAdFlags(tweetIds: string[], sessionToken?: string): Promise<AdFlagQueryResponse> {
@@ -351,7 +406,10 @@ export const api = {
     });
   },
 
-  resolveTickers(occurrences: CashtagOccurrence[], sessionToken?: string): Promise<TickerResolveResponse> {
+  resolveTickers(
+    occurrences: CashtagOccurrence[],
+    sessionToken?: string,
+  ): Promise<TickerResolveResponse> {
     return request<TickerResolveResponse>('/api/v1/extension/tickers/resolve', {
       method: 'POST',
 
@@ -369,8 +427,11 @@ export const api = {
   ): Promise<TickerChartResponse> {
     const qs = new URLSearchParams({ duration });
     if (entity) qs.set('entity', entity);
-    return request<TickerChartResponse>(`/api/v1/extension/tickers/${encodeURIComponent(ticker)}/chart?${qs.toString()}`, {
-      sessionToken,
-    });
+    return request<TickerChartResponse>(
+      `/api/v1/extension/tickers/${encodeURIComponent(ticker)}/chart?${qs.toString()}`,
+      {
+        sessionToken,
+      },
+    );
   },
 };

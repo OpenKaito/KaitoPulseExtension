@@ -1,4 +1,4 @@
-import type { SignalSurfaceKey } from "./settings";
+import type { SignalSurfaceKey } from './settings';
 
 export type AnchorKind =
   | 'feed-avatar'

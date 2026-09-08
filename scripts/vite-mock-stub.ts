@@ -1,14 +1,12 @@
+import { existsSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
+import type { Plugin } from 'vite';
 
-import { existsSync } from "node:fs";
-import { resolve, sep } from "node:path";
-import type { Plugin } from "vite";
+const MOCK_MODULES = ['popup-data', 'hover-card', 'settings'] as const;
 
-const MOCK_MODULES = ["popup-data", "hover-card", "settings"] as const;
-
-const MOCK_DIR = resolve("src/mock");
+const MOCK_DIR = resolve('src/mock');
 
 function mockName(source: string, importer: string | undefined): string | undefined {
-
   if (source.startsWith(MOCK_DIR + sep)) {
     const rest = source.slice(MOCK_DIR.length + 1).replace(/\.(ts|tsx|js|mjs)$/, '');
     return known(rest);
@@ -28,9 +26,9 @@ function known(name: string): string | undefined {
 
 export function mockStub(active: boolean): Plugin {
   return {
-    name: "kaito-mock-stub",
+    name: 'kaito-mock-stub',
 
-    enforce: "pre",
+    enforce: 'pre',
     resolveId(source, importer) {
       if (!active) return null;
 
@@ -40,7 +38,9 @@ export function mockStub(active: boolean): Plugin {
       const stub = resolve(MOCK_DIR, `${name}.stub.ts`);
 
       if (!existsSync(stub)) {
-        this.error(`[kaito-mock-stub] ${source} has no stub at ${stub} — a release build must not resolve the real mock module`);
+        this.error(
+          `[kaito-mock-stub] ${source} has no stub at ${stub} — a release build must not resolve the real mock module`,
+        );
       }
       return stub;
     },

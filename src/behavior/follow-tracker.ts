@@ -1,4 +1,3 @@
-
 import { SIGNAL_DOM_SELECTORS as SELECTORS } from '@/signal/dom/selectors';
 import { ARTICLE_SELECTOR, isPromotedArticle } from './dom-helpers';
 import { getArticleTweetId } from '@/signal/dom/adapter';
@@ -50,7 +49,6 @@ export class FollowTracker {
       if (!control.isConnected) return;
       const after = (control.getAttribute('data-testid') ?? '').match(FOLLOW_TESTID_RE);
       if (after && after[2] !== beforeState) {
-
         const kind = after[2] === 'unfollow' ? 'follow' : 'unfollow';
         this.emit({
           id: createBehaviorEventId(),
@@ -66,7 +64,6 @@ export class FollowTracker {
       if (performance.now() - startedAt < CONFIRM_WATCH_MS) {
         requestAnimationFrame(checkForFlip);
       }
-
     };
     requestAnimationFrame(checkForFlip);
   }

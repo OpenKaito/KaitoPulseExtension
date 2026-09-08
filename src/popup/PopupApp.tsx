@@ -27,17 +27,18 @@ import { ScenarioSwitch } from './dev/ScenarioSwitch';
 import { ConsentSheet } from './onboarding/ConsentSheet';
 import { acceptTermsAndEnter, termsGate } from '@/recommend-follow/store';
 import { SignedOutView } from '@/recommend-follow/SignedOutView';
+import { UpdateBanner } from './components/UpdateBanner';
 
 export const PopupApp: Component = () => {
   const [tab, setTab] = createSignal<PopupTab>(POPUP_TABS[0]);
 
   const [openPlatform, setOpenPlatform] = createSignal<string | null>(null);
-  const openGroup = () => popupData().platformGroups.find((group) => group.platform === openPlatform());
+  const openGroup = () =>
+    popupData().platformGroups.find((group) => group.platform === openPlatform());
 
   const [consentDismissed, setConsentDismissed] = createSignal(false);
 
   onMount(() => {
-
     void initPopupData();
 
     onCleanup(watchPopupSession());
@@ -59,60 +60,63 @@ export const PopupApp: Component = () => {
   };
 
   return (
-    <Show
-      when={entered()}
-      fallback={
-        <Show when={gateResolved()}>
-          <SignedOutView onResume={resumeConsent()} />
-          <Show when={askConsent()}>
-            <ConsentSheet onAgree={agree} onCancel={() => setConsentDismissed(true)} />
-          </Show>
-        </Show>
-      }
-    >
-      <>
-        {}
-        <ScenarioSwitch />
-        {}
+    <div class="pv-popup-frame">
+      <UpdateBanner />
+      <div class="pv-popup-frame__content">
         <Show
-          when={openGroup()}
-
+          when={entered()}
           fallback={
-            <div class="pv-root">
-              <ProfileBlock
-                profile={popupData().profile}
-
-                platforms={popupData().platformGroups.map((g) => g.platform)}
-                auraLoading={auraLoading()}
-                cardLoading={cardLoading()}
-                tradeLoading={tradeLoading()}
-              />
-              <div class="pv-body">
-                <TabBar active={tab()} onSelect={setTab} />
-                <div class="pv-panel" role="tabpanel">
-                  <Switch>
-                    <Match when={tab() === 'Aura'}>
-                      <AuraTab />
-                    </Match>
-                    <Match when={tab() === 'Social'}>
-                      <SocialTab />
-                    </Match>
-                    <Match when={tab() === 'Trading'}>
-                      <TradingTab onOpenPlatform={setOpenPlatform} />
-                    </Match>
-                    <Match when={tab() === 'X Analytics'}>
-                      <XAnalyticsTab />
-                    </Match>
-                  </Switch>
-                </div>
-              </div>
-              <PoweredBy />
-            </div>
+            <Show when={gateResolved()}>
+              <SignedOutView onResume={resumeConsent()} />
+              <Show when={askConsent()}>
+                <ConsentSheet onAgree={agree} onCancel={() => setConsentDismissed(true)} />
+              </Show>
+            </Show>
           }
         >
-          {(group) => <PlatformAccountsView group={group()} onBack={() => setOpenPlatform(null)} />}
+          <>
+            <ScenarioSwitch />
+            <Show
+              when={openGroup()}
+              fallback={
+                <div class="pv-root">
+                  <ProfileBlock
+                    profile={popupData().profile}
+                    platforms={popupData().platformGroups.map((g) => g.platform)}
+                    auraLoading={auraLoading()}
+                    cardLoading={cardLoading()}
+                    tradeLoading={tradeLoading()}
+                  />
+                  <div class="pv-body">
+                    <TabBar active={tab()} onSelect={setTab} />
+                    <div class="pv-panel" role="tabpanel">
+                      <Switch>
+                        <Match when={tab() === 'Aura'}>
+                          <AuraTab />
+                        </Match>
+                        <Match when={tab() === 'Social'}>
+                          <SocialTab />
+                        </Match>
+                        <Match when={tab() === 'Trading'}>
+                          <TradingTab onOpenPlatform={setOpenPlatform} />
+                        </Match>
+                        <Match when={tab() === 'X Analytics'}>
+                          <XAnalyticsTab />
+                        </Match>
+                      </Switch>
+                    </div>
+                  </div>
+                  <PoweredBy />
+                </div>
+              }
+            >
+              {(group) => (
+                <PlatformAccountsView group={group()} onBack={() => setOpenPlatform(null)} />
+              )}
+            </Show>
+          </>
         </Show>
-      </>
-    </Show>
+      </div>
+    </div>
   );
 };

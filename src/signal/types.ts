@@ -1,5 +1,5 @@
-
 import type { AccountSizeTier } from '@/shared/account-size';
+import type { ProfileCardMode } from '@/shared/social-card';
 
 export interface AvatarSignalProfile {
   tweetId: string;
@@ -17,7 +17,6 @@ export interface NameTagEntry {
 }
 
 export interface NameTagProfile {
-
   id: string;
 
   entries: NameTagEntry[];
@@ -28,6 +27,15 @@ export interface SmartFollowerStat {
   value: string;
 
   rank?: string;
+
+  verifiedBadge?: boolean;
+}
+
+export interface HoverCardStatsView {
+  verified?: SmartFollowerStat;
+  active?: SmartFollowerStat;
+
+  categories: SmartFollowerStat[];
 }
 
 export interface PerpPosition {
@@ -53,11 +61,16 @@ export interface ChartPoint {
   time: string;
 }
 
-export interface HyperliquidSummary {
-
-  address: string;
+export interface HyperliquidAccount {
+  address: string | null;
 
   addressShort: string;
+
+  anonymous: boolean;
+
+  hasDetail: boolean;
+
+  hasPositions: boolean;
   accountValue: string;
   profitLoss: string;
   profitLossNegative: boolean;
@@ -69,6 +82,24 @@ export interface HyperliquidSummary {
   positionsTotal: number;
 
   positions: PerpPosition[];
+}
+
+export interface HyperliquidSummary {
+  heading: string;
+
+  aggregate: boolean;
+
+  accounts: HyperliquidAccount[];
+
+  accountValue: string;
+  profitLoss: string;
+  profitLossNegative: boolean;
+  upnl: string;
+  upnlNegative: boolean;
+
+  charts: Record<string, ChartPoint[]>;
+
+  positionsTotal: number;
 }
 
 export interface PredictionMarket {
@@ -89,8 +120,16 @@ export interface PredictionMarket {
   iconUrl?: string;
 }
 
-export interface PredictionSummary {
+export interface PolymarketAccount {
   name: string;
+
+  address: string | null;
+
+  profileHandle: string | null;
+
+  anonymous: boolean;
+  hasDetail: boolean;
+  hasPositions: boolean;
 
   avatarUrl?: string;
   meta: string;
@@ -108,30 +147,64 @@ export interface PredictionSummary {
   markets: PredictionMarket[];
 }
 
-export interface PopoverTotals {
+export interface PredictionSummary {
+  heading: string;
 
-  accountSizeTier: AccountSizeTier | null;
+  aggregate: boolean;
 
-  accountSizeLabel: string;
+  accounts: PolymarketAccount[];
 
-  allTimePnl: string;
+  positionsValue: string;
+  profitLoss: string;
+  profitLossNegative: boolean;
+  predictions: string;
 
-  allTimePnlDirection: "gain" | "loss" | "flat" | null;
+  charts: Record<string, ChartPoint[]>;
+
+  positionsTotal: number;
+}
+export interface AccountValueTotal {
+  tier: AccountSizeTier;
+
+  label: string;
+
+  platforms: string[];
+}
+
+export interface AllTimePnlTotal {
+  text: string;
+
+  direction: 'gain' | 'loss' | 'flat';
+
+  platforms: string[];
 
   coverage?: { covered: number; total: number };
+}
 
-  accountValuePlatforms: string[];
-  allTimePnlPlatforms: string[];
+export interface PopoverTotals {
+  accountValue?: AccountValueTotal;
+
+  allTimePnl?: AllTimePnlTotal;
+
+  platforms: string[];
 }
 
 export interface SignalPopoverData {
   smartFollowers: SmartFollowerStat[];
 
+  smartFollowerTotal?: SmartFollowerStat;
+  smartFollowerCategories?: SmartFollowerStat[];
+
+  topSegment?: SmartFollowerStat;
+
+  verifiedFollowers?: SmartFollowerStat;
+  activeFollowers?: SmartFollowerStat;
+
+  profileCardMode?: ProfileCardMode;
+
   bio?: string;
   hyperliquid?: HyperliquidSummary;
   polymarket?: PredictionSummary;
-
-  compareValues?: { hyperliquid?: number; polymarket?: number };
 
   totals?: PopoverTotals;
 }
@@ -143,7 +216,6 @@ export interface SignalProfileSnapshot {
 }
 
 export interface UsernameChange {
-
   from: string;
 
   to: string;
@@ -152,7 +224,6 @@ export interface UsernameChange {
 }
 
 export interface TopSmartFollower {
-
   avatarUrl?: string;
 
   username?: string;
@@ -161,7 +232,6 @@ export interface TopSmartFollower {
 }
 
 export interface UserInfoData extends SignalPopoverData {
-
   topSmartFollowers: TopSmartFollower[];
 }
 

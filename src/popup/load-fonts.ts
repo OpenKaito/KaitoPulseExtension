@@ -1,4 +1,3 @@
-
 import interWoff2 from 'https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2?remote-inline';
 
 function dataUriToArrayBuffer(uri: string): ArrayBuffer {
@@ -15,12 +14,13 @@ export function ensurePopupFonts(): Promise<void> {
   ready ??= (async () => {
     if (typeof document === 'undefined' || !('fonts' in document)) return;
     try {
-      const face = new FontFace('Inter', dataUriToArrayBuffer(interWoff2), { style: 'normal', weight: '100 900' });
+      const face = new FontFace('Inter', dataUriToArrayBuffer(interWoff2), {
+        style: 'normal',
+        weight: '100 900',
+      });
       await face.load();
       document.fonts.add(face);
-    } catch {
-
-    }
+    } catch {}
   })();
   return ready;
 }

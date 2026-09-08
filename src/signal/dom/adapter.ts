@@ -1,8 +1,13 @@
-import type { AvatarSignalProfile, SignalProfileSnapshot } from "../types";
-import type { SignalSurfaceKey } from "../settings";
-import { SIGNAL_DOM_ATTRS as DOM_ATTRS, SIGNAL_DOM_SELECTORS as SELECTORS } from "./selectors";
-import { canonicalAvatarRoot, classifyAddedNodes, findPrimaryAvatarRoot, surfaceForAvatarHost } from "./queries";
-import { normalizeHandle, normalizeHandleFromHref, normalizeHandleFromText } from "../identity";
+import type { AvatarSignalProfile, SignalProfileSnapshot } from '../types';
+import type { SignalSurfaceKey } from '../settings';
+import { SIGNAL_DOM_ATTRS as DOM_ATTRS, SIGNAL_DOM_SELECTORS as SELECTORS } from './selectors';
+import {
+  canonicalAvatarRoot,
+  classifyAddedNodes,
+  findPrimaryAvatarRoot,
+  surfaceForAvatarHost,
+} from './queries';
+import { normalizeHandle, normalizeHandleFromHref, normalizeHandleFromText } from '../identity';
 
 export interface AvatarAnchor {
   avatarRoot: HTMLElement;
@@ -60,10 +65,9 @@ export class DomAdapter {
     avatarSize: AvatarSignalProfile['avatarSize'] = 'regular',
     surface: SignalSurfaceKey = 'avatar.feed',
   ): { container: HTMLElement; avatarRoot: HTMLElement } | null {
-
     const scope = avatarRoot.parentElement?.closest(SELECTORS.AVATAR) ?? avatarRoot;
     const existing = scope.querySelector(
-      `[${DOM_ATTRS.AVATAR_INJECTED_FLAG}]`
+      `[${DOM_ATTRS.AVATAR_INJECTED_FLAG}]`,
     ) as HTMLElement | null;
     if (existing) {
       if (existing.getAttribute(DOM_ATTRS.AVATAR_HANDLE) === identity) return null;
@@ -71,7 +75,8 @@ export class DomAdapter {
       existing.remove();
 
       if (
-        staleHost && staleHost !== avatarRoot &&
+        staleHost &&
+        staleHost !== avatarRoot &&
         !staleHost.querySelector(`[${DOM_ATTRS.AVATAR_INJECTED_FLAG}]`)
       ) {
         staleHost.classList.remove('signal-avatar-host');
@@ -82,9 +87,10 @@ export class DomAdapter {
     container.setAttribute(DOM_ATTRS.AVATAR_INJECTED_FLAG, tweetId);
     container.setAttribute(DOM_ATTRS.AVATAR_HANDLE, identity);
     container.setAttribute(DOM_ATTRS.SURFACE, surface);
-    container.className = avatarSize === 'compact'
-      ? 'signal-avatar-mount signal-avatar-mount--compact'
-      : 'signal-avatar-mount';
+    container.className =
+      avatarSize === 'compact'
+        ? 'signal-avatar-mount signal-avatar-mount--compact'
+        : 'signal-avatar-mount';
 
     avatarRoot.classList.add('signal-avatar-host');
 
@@ -138,7 +144,9 @@ export class DomAdapter {
     const out: HoverCardAnchor[] = [];
     for (const card of this.document.querySelectorAll(SELECTORS.HOVER_CARD)) {
       const cardEl = card as HTMLElement;
-      const avatarRoot = cardEl.querySelector(SELECTORS.AVATAR_CONTAINER_KNOWN) as HTMLElement | null;
+      const avatarRoot = cardEl.querySelector(
+        SELECTORS.AVATAR_CONTAINER_KNOWN,
+      ) as HTMLElement | null;
       if (!avatarRoot) continue;
       const id = getContainerUserId(cardEl);
       if (!id) continue;
@@ -164,10 +172,13 @@ export class DomAdapter {
         hoverCard: SELECTORS.HOVER_CARD,
       });
 
-      const feedContentChanged = !added.feed && mutations.some(
-        (mutation) => mutation.target instanceof HTMLElement &&
-          mutation.target.closest(SELECTORS.TWEET_TEXT) != null
-      );
+      const feedContentChanged =
+        !added.feed &&
+        mutations.some(
+          (mutation) =>
+            mutation.target instanceof HTMLElement &&
+            mutation.target.closest(SELECTORS.TWEET_TEXT) != null,
+        );
       if (added.feed || feedContentChanged) this.scheduleFeedScan();
       if (added.userCell) this.scheduleUserCellScan();
       if (added.hoverCard) this.scheduleHoverCardScan();
@@ -176,25 +187,43 @@ export class DomAdapter {
 
     return () => {
       observer.disconnect();
-      if (this.feedScanTimer !== undefined) { clearTimeout(this.feedScanTimer); this.feedScanTimer = undefined; }
-      if (this.userCellScanTimer !== undefined) { clearTimeout(this.userCellScanTimer); this.userCellScanTimer = undefined; }
-      if (this.hoverCardScanTimer !== undefined) { clearTimeout(this.hoverCardScanTimer); this.hoverCardScanTimer = undefined; }
+      if (this.feedScanTimer !== undefined) {
+        clearTimeout(this.feedScanTimer);
+        this.feedScanTimer = undefined;
+      }
+      if (this.userCellScanTimer !== undefined) {
+        clearTimeout(this.userCellScanTimer);
+        this.userCellScanTimer = undefined;
+      }
+      if (this.hoverCardScanTimer !== undefined) {
+        clearTimeout(this.hoverCardScanTimer);
+        this.hoverCardScanTimer = undefined;
+      }
     };
   }
 
   private scheduleFeedScan(): void {
     if (this.feedScanTimer !== undefined) return;
-    this.feedScanTimer = setTimeout(() => { this.feedScanTimer = undefined; this.scans?.onFeed(); }, TIMING.FEED_SCAN_DELAY);
+    this.feedScanTimer = setTimeout(() => {
+      this.feedScanTimer = undefined;
+      this.scans?.onFeed();
+    }, TIMING.FEED_SCAN_DELAY);
   }
 
   private scheduleUserCellScan(): void {
     if (this.userCellScanTimer !== undefined) return;
-    this.userCellScanTimer = setTimeout(() => { this.userCellScanTimer = undefined; this.scans?.onUserCell(); }, TIMING.USER_CELL_SCAN_DELAY);
+    this.userCellScanTimer = setTimeout(() => {
+      this.userCellScanTimer = undefined;
+      this.scans?.onUserCell();
+    }, TIMING.USER_CELL_SCAN_DELAY);
   }
 
   private scheduleHoverCardScan(): void {
     if (this.hoverCardScanTimer !== undefined) return;
-    this.hoverCardScanTimer = setTimeout(() => { this.hoverCardScanTimer = undefined; this.scans?.onHoverCard(); }, TIMING.HOVER_CARD_SCAN_DELAY);
+    this.hoverCardScanTimer = setTimeout(() => {
+      this.hoverCardScanTimer = undefined;
+      this.scans?.onHoverCard();
+    }, TIMING.HOVER_CARD_SCAN_DELAY);
   }
 
   private refreshAvatarsOnNavigation(): void {
@@ -274,21 +303,25 @@ export function getContainerUserId(container: HTMLElement): string | null {
 
 export function getArticleAuthorHandle(article: HTMLElement): string | null {
   const userNameLink = article.querySelector(
-    `:is(${SELECTORS.USER_NAME}) a[role="link"][href^="/"]`
+    `:is(${SELECTORS.USER_NAME}) a[role="link"][href^="/"]`,
   ) as HTMLAnchorElement | null;
   const avatarRoot = findPrimaryAvatarRoot(article);
 
-  return normalizeHandleFromHref(userNameLink?.getAttribute('href')) ??
+  return (
+    normalizeHandleFromHref(userNameLink?.getAttribute('href')) ??
     normalizeHandleFromText(article.querySelector(SELECTORS.USER_NAME)?.textContent) ??
-    (avatarRoot ? getAvatarRootHandle(avatarRoot) : null);
+    (avatarRoot ? getAvatarRootHandle(avatarRoot) : null)
+  );
 }
 
 export function getArticleTweetId(root: HTMLElement): string | null {
   for (const time of root.querySelectorAll('time')) {
-
     const quoted = time.closest(SELECTORS.QUOTED_TWEET);
     if (quoted && quoted !== root && root.contains(quoted)) continue;
-    const match = time.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1];
+    const match = time
+      .closest('a')
+      ?.getAttribute('href')
+      ?.match(/\/status\/(\d+)/)?.[1];
     if (match) return match;
   }
   return null;
@@ -319,7 +352,7 @@ export function getArticleAuthorProfile(article: HTMLElement): SignalProfileSnap
   if (!handle) return null;
 
   const nameLink = article.querySelector(
-    `:is(${SELECTORS.USER_NAME}) a[role="link"][href^="/"]`
+    `:is(${SELECTORS.USER_NAME}) a[role="link"][href^="/"]`,
   ) as HTMLAnchorElement | null;
   const displayName = (nameLink ? textWithEmojiAlt(nameLink).trim() : '') || `@${handle}`;
 

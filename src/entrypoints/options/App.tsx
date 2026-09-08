@@ -2,6 +2,7 @@ import { createSignal, onCleanup, For, Show, type Component } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { SETTINGS_SECTIONS, type SettingsSection } from './registry';
 import { ENV } from '@/lib/env';
+import { TERMS_OF_SERVICE_URL } from '@/shared/legal-links';
 import {
   attachKonami,
   loadDebugUnlocked,
@@ -30,7 +31,8 @@ export const App: Component = () => {
       void setDebugUnlocked(next);
 
       if (next) location.hash = 'debug';
-      else if (['debug', 'behavior-debug', 'mock'].includes(currentHashId())) location.hash = 'display';
+      else if (['debug', 'behavior-debug', 'mock'].includes(currentHashId()))
+        location.hash = 'display';
     }),
   );
 
@@ -58,6 +60,17 @@ export const App: Component = () => {
               </a>
             )}
           </For>
+          <a
+            class="nav-item nav-item--external"
+            href={TERMS_OF_SERVICE_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Terms of Use
+            <span class="nav-item__external-icon" aria-hidden="true">
+              ↗
+            </span>
+          </a>
         </aside>
         <main class="panel">
           {}

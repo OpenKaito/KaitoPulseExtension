@@ -1,6 +1,6 @@
 import type { ReplyFor, RuntimeRequest } from '@/shared/messages';
 import { sendOverKaitoPort } from '@/shared/port-rpc';
-import { imgBucket, isDirectFetchHost, isXcomRenderableHost } from './image-proxy';
+import { imgBucket, isXcomRenderableHost } from './image-proxy';
 
 export async function sendKaitoMessage<R extends RuntimeRequest>(
   request: R,
@@ -13,13 +13,6 @@ export async function sendKaitoMessage<R extends RuntimeRequest>(
 
 export async function resolveImageSrc(src: string, cssPx: number): Promise<string> {
   if (isXcomRenderableHost(src)) return src;
-  if (isDirectFetchHost(src)) {
-    const response = await sendKaitoMessage({ target: 'kaitoExtension', action: 'fetchRawImage', url: src });
-    if (response.error || !response.dataUri) {
-      throw new Error(response.error || 'raw image fetch returned no data');
-    }
-    return response.dataUri;
-  }
   const response = await sendKaitoMessage({
     target: 'kaitoExtension',
     action: 'fetchImage',

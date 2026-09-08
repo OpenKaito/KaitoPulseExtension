@@ -1,7 +1,6 @@
-import { createLogger } from "./logger";
+import { createLogger } from './logger';
 
 export interface SwrCacheOptions<V> {
-
   freshTtl: number;
 
   negativeTtl: number;
@@ -67,7 +66,7 @@ export class SwrCache<V> {
     this.equals = options.equals ?? Object.is;
     this.isComplete = options.isComplete;
     this.now = options.now ?? Date.now;
-    this.logger = createLogger(options.label ?? "swr-cache");
+    this.logger = createLogger(options.label ?? 'swr-cache');
   }
 
   observe(key: string, cb: Subscriber<V>): () => void {
@@ -209,7 +208,7 @@ export class SwrCache<V> {
         for (const key of keys) this.resolveEntry(key, map.get(key) ?? null, false);
       },
       (error) => {
-        this.logger.error("fetchKeys failed", error);
+        this.logger.error('fetchKeys failed', error);
         for (const key of keys) this.resolveEntry(key, null, true);
       },
     );
@@ -242,7 +241,7 @@ export class SwrCache<V> {
       try {
         cb(entry.value);
       } catch (error) {
-        this.logger.error("subscriber threw; dropping it", error);
+        this.logger.error('subscriber threw; dropping it', error);
         entry.subscribers.delete(cb);
       }
     }

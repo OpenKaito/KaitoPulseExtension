@@ -1,4 +1,3 @@
-
 export type { AccountSizeTier } from '@/shared/account-size';
 import type { AccountSizeTier } from '@/shared/account-size';
 
@@ -10,6 +9,8 @@ export type AuraProfile = {
   aura?: number | null;
   auraDelta?: number | null;
   smartFollowers?: number | null;
+
+  verifiedFollowers?: number | null;
   accountSize?: AccountSizeTier | null;
 
   accountValueUsd?: number | null;
@@ -19,7 +20,6 @@ export type AuraProfile = {
 };
 
 export type AuraStats = {
-
   total?: number | null;
   rank?: number | null;
   earned?: number | null;
@@ -42,8 +42,7 @@ export type SmartFollower = {
 export type FollowerOrdering = 'recent' | 'topBySf';
 
 export type SocialInsights = {
-
-  categories: { label: string; score: number; rank?: number | null }[];
+  categories: { label: string; score: number | null; rank?: number | null }[];
 
   followers: SmartFollower[];
 
@@ -53,7 +52,6 @@ export type SocialInsights = {
 export type TradingCoverage = { covered: number; total: number };
 
 export type TradingOverview = {
-
   calculatedLabel: string | null;
 };
 
@@ -117,7 +115,6 @@ export type PlatformGroup = {
 };
 
 export type TimeSpent = {
-
   minutes: number;
 };
 

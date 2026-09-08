@@ -10,7 +10,11 @@ import {
   SERVE_SET_MESSAGE,
   type AttentionServeSetMessage,
 } from '@/attention/serve-set-extractor';
-import { armGraphqlPrefetch, captureGraphqlAuth, forceGraphqlPrefetch } from '@/verify/x-graphql-prefetch';
+import {
+  armGraphqlPrefetch,
+  captureGraphqlAuth,
+  forceGraphqlPrefetch,
+} from '@/verify/x-graphql-prefetch';
 import { isGraphqlPrefetchRequest } from '@/verify/x-graphql-prefetch-message';
 
 export default defineContentScript({
@@ -37,9 +41,7 @@ function post(pairs: TidPair[]): void {
   const message: TidMapMessage = { source: TID_MAP_MESSAGE, pairs };
   try {
     window.postMessage(message, window.location.origin);
-  } catch {
-
-  }
+  } catch {}
 }
 
 function graphqlOperationName(url: string): string | null {
@@ -52,9 +54,7 @@ function postServeSet(json: unknown, sourceOp: string): void {
   const message: AttentionServeSetMessage = { source: SERVE_SET_MESSAGE, events };
   try {
     window.postMessage(message, window.location.origin);
-  } catch {
-
-  }
+  } catch {}
 }
 
 function safeParse(text: string): unknown {
@@ -144,13 +144,14 @@ function patchFetch(): void {
       if (url) {
         const init = args[1];
         const requestHeaders =
-          input instanceof Request && !init?.headers ? headersToRecord(input.headers) : headersToRecord(init?.headers);
+          input instanceof Request && !init?.headers
+            ? headersToRecord(input.headers)
+            : headersToRecord(init?.headers);
         harvestRequestHeaders(url, requestHeaders);
       }
       if (url && shouldInspect(url)) {
         result.then(
           (response) => {
-
             response
               .clone()
               .text()
@@ -163,9 +164,7 @@ function patchFetch(): void {
           () => {},
         );
       }
-    } catch {
-
-    }
+    } catch {}
     return result;
   };
 }
@@ -178,25 +177,30 @@ function patchXhr(): void {
   const URL_KEY = '__kaitoTidUrl';
   const HEADERS_KEY = '__kaitoTidHeaders';
 
-  const patchedOpen = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: unknown[]): void {
+  const patchedOpen = function (
+    this: XMLHttpRequest,
+    method: string,
+    url: string | URL,
+    ...rest: unknown[]
+  ): void {
     try {
       (this as unknown as Record<string, unknown>)[URL_KEY] =
         typeof url === 'string' ? url : url instanceof URL ? url.href : '';
-    } catch {
-
-    }
+    } catch {}
     return (originalOpen as (...a: unknown[]) => void).apply(this, [method, url, ...rest]);
   };
 
-  const patchedSetRequestHeader = function (this: XMLHttpRequest, name: string, value: string): void {
+  const patchedSetRequestHeader = function (
+    this: XMLHttpRequest,
+    name: string,
+    value: string,
+  ): void {
     try {
       const store = this as unknown as Record<string, unknown>;
       const headers = (store[HEADERS_KEY] as Record<string, string> | undefined) ?? {};
       headers[name] = value;
       store[HEADERS_KEY] = headers;
-    } catch {
-
-    }
+    } catch {}
     return (originalSetRequestHeader as (...a: unknown[]) => void).apply(this, [name, value]);
   };
 
@@ -205,11 +209,12 @@ function patchXhr(): void {
       const store = this as unknown as Record<string, unknown>;
       const sentUrl = store[URL_KEY] as string | undefined;
       if (sentUrl) {
-        harvestRequestHeaders(sentUrl, (store[HEADERS_KEY] as Record<string, string> | undefined) ?? {});
+        harvestRequestHeaders(
+          sentUrl,
+          (store[HEADERS_KEY] as Record<string, string> | undefined) ?? {},
+        );
       }
-    } catch {
-
-    }
+    } catch {}
     try {
       const url = (this as unknown as Record<string, unknown>)[URL_KEY] as string | undefined;
       if (url && shouldInspect(url)) {
@@ -220,14 +225,10 @@ function patchXhr(): void {
             const raw = type === 'json' ? this.response : this.responseText;
             const json = typeof raw === 'string' ? safeParse(raw) : raw;
             if (json && typeof json === 'object') harvestFromJson(json, url);
-          } catch {
-
-          }
+          } catch {}
         });
       }
-    } catch {
-
-    }
+    } catch {}
     return (originalSend as (...a: unknown[]) => void).apply(this, args);
   };
 

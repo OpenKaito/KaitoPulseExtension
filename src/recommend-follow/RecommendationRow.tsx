@@ -21,7 +21,8 @@ function formatLongestView(seconds: number): string {
 function footerText(item: FollowRecommendationItem): string {
   const { seenPostCount, maxViewSeconds, clickCnt } = item.evidence;
   const postsPart = `${seenPostCount} post${seenPostCount === 1 ? '' : 's'} viewed`;
-  if (maxViewSeconds > 0) return `${postsPart} · Longest view: ${formatLongestView(maxViewSeconds)}`;
+  if (maxViewSeconds > 0)
+    return `${postsPart} · Longest view: ${formatLongestView(maxViewSeconds)}`;
   if (clickCnt > 0) return `${postsPart} · Clicked`;
   return postsPart;
 }
@@ -49,7 +50,10 @@ export function RecommendationRow(props: { item: FollowRecommendationItem }): JS
               aria-busy={isPending() ? 'true' : undefined}
               onClick={() => void follow(props.item.twitterId, props.item.handle)}
             >
-              <Show when={!isPending()} fallback={<span class="rf-row__follow-spinner" aria-hidden="true" />}>
+              <Show
+                when={!isPending()}
+                fallback={<span class="rf-row__follow-spinner" aria-hidden="true" />}
+              >
                 <span class="rf-row__follow-icon" aria-hidden="true">
                   +
                 </span>
