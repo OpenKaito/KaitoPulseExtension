@@ -3,13 +3,51 @@ import type { ProofRunSummary } from '@/shared/messages';
 import {
   activeProofProgressItem,
   bootstrapFreshAtItem,
-  lastAttestationItem,
   lastResultItem,
   meCacheItem,
   sessionItem,
   verifySnapshotItem,
   type VerifySnapshot,
 } from '@/shared/storage';
+import {
+  readPrivateValue,
+  writePrivateValue,
+  removePrivateValue,
+} from '@/background/private-storage';
+import { clearDebugRequests } from '@/background/debug-log';
+
+let migration: Promise<void> | undefined;
+
+export function migratePrivateStorage(): Promise<void> {
+  migration ??= (async () => {
+    const legacy = await chrome.storage.local.get([
+      'kaito.session',
+      'kaito.lastAttestation',
+      'kaito.lastResult',
+    ]);
+    const session = legacy['kaito.session'] as StoredSession | undefined;
+    if (session?.sessionToken) {
+      await writePrivateValue('session', session);
+      await sessionItem.setValue({ signedInAt: session.signedInAt });
+    }
+    const result = legacy['kaito.lastResult'] as
+      | (ProofRunSummary & { attestation?: Attestation })
+      | undefined;
+    const attestation = legacy['kaito.lastAttestation'] ?? result?.attestation;
+    if (attestation) {
+      await writePrivateValue('attestation', attestation);
+    }
+    if (result?.attestation) {
+      const { attestation: _attestation, ...summary } = result;
+      await lastResultItem.setValue(summary);
+    }
+    await chrome.storage.local.remove('kaito.lastAttestation');
+  })().catch((error) => {
+    migration = undefined;
+    throw error;
+  });
+  return migration;
+}
 
 export type StoredSession = {
   sessionToken: string;
@@ -17,19 +55,25 @@ export type StoredSession = {
 };
 
 export async function getStoredSession(): Promise<StoredSession | undefined> {
-  return (await sessionItem.getValue()) ?? undefined;
+  await migratePrivateStorage();
+  return readPrivateValue<StoredSession>('session');
 }
 
 export async function setStoredSession(session: StoredSession): Promise<void> {
-  await sessionItem.setValue(session);
+  await migratePrivateStorage();
+  await writePrivateValue('session', session);
+  await sessionItem.setValue({ signedInAt: session.signedInAt });
 }
 
 export async function clearStoredSession(): Promise<void> {
+  await migratePrivateStorage();
+  clearDebugRequests();
   await Promise.all([
+    removePrivateValue('session'),
+    removePrivateValue('attestation'),
     sessionItem.removeValue(),
     meCacheItem.removeValue(),
     lastResultItem.removeValue(),
-    lastAttestationItem.removeValue(),
     activeProofProgressItem.removeValue(),
 
     verifySnapshotItem.removeValue(),
@@ -74,9 +118,12 @@ export async function clearLastResult(): Promise<void> {
 }
 
 export async function getLastAttestation(): Promise<Attestation | undefined> {
-  return (await lastAttestationItem.getValue()) ?? undefined;
+  await migratePrivateStorage();
+  return readPrivateValue<Attestation>('attestation');
 }
 
 export async function setLastAttestation(attestation: Attestation | null): Promise<void> {
-  await lastAttestationItem.setValue(attestation);
+  await migratePrivateStorage();
+  if (attestation === null) await removePrivateValue('attestation');
+  else await writePrivateValue('attestation', attestation);
 }

@@ -41,6 +41,7 @@ export function startProofArmingRelay(doc: Document): () => void {
     } catch {
       return;
     }
+    if (stopped) return;
 
     if (inProgress) {
       if (!armed) {

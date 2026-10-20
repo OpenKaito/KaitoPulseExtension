@@ -1,6 +1,8 @@
+import { revealNoun } from './format/platforms';
 import { For, Show, createSignal, type Component } from 'solid-js';
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from '@/verify/ui/icons';
 import { BrandChip } from './components/BrandChip';
+import { MetricBlocks } from './components/PlatformList';
 import { PnlArrow } from './components/PnlArrow';
 import type { IncludedAccount, PlatformGroup } from './data/types';
 import {
@@ -70,7 +72,8 @@ const AccountRow: Component<{ account: IncludedAccount }> = (props) => {
   const label = () => props.account.profile?.name ?? props.account.accountLabel;
 
   const canReveal = () => props.account.accountId !== label();
-  const revealLabel = () => (revealed() ? 'Hide full address' : 'Show full address');
+  const revealLabel = () =>
+    `${revealed() ? 'Hide' : 'Show'} full ${revealNoun(props.account.platform)}`;
 
   return (
     <div class="pv-acct">
@@ -113,6 +116,13 @@ const AccountRow: Component<{ account: IncludedAccount }> = (props) => {
           approx={props.account.fxApproximate}
         />
       </div>
+
+      <MetricBlocks
+        platform={props.account.platform}
+        referral={props.account.referral}
+        referralVerifiable={props.account.referralVerifiable}
+        points={props.account.points}
+      />
     </div>
   );
 };
@@ -125,7 +135,7 @@ export const PlatformAccountsView: Component<{
   const total = () => approxFigure(formatSignedUsd(props.group.pnl), props.group.fxApproximate);
 
   const introTitle = (): string => {
-    const total = props.group.accounts.length;
+    const total = props.group.accountCount;
     const count = publicCount();
     if (count == null) return `${total} account${total === 1 ? '' : 's'}`;
     return `${count} public account${count === 1 ? '' : 's'}`;
@@ -163,6 +173,9 @@ export const PlatformAccountsView: Component<{
               {total().text}
             </p>
           </div>
+          <Show when={props.group.pnlCoverage}>
+            {(coverage) => <p class="pv-detail__total-caption">Covers {coverage()}</p>}
+          </Show>
         </div>
 
         <div class="pv-detail__intro">
@@ -176,9 +189,9 @@ export const PlatformAccountsView: Component<{
         <div class="pv-detail__panel">
           <div class="pv-detail__panel-head">
             <div class="pv-detail__count">
-              <span class="pv-detail__count-num">{props.group.accounts.length}</span>
+              <span class="pv-detail__count-num">{props.group.accountCount}</span>
               <span class="pv-detail__count-label">
-                {props.group.accounts.length === 1 ? 'Account' : 'Accounts'}
+                {props.group.accountCount === 1 ? 'Account' : 'Accounts'}
               </span>
             </div>
             {}

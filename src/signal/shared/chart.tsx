@@ -1,5 +1,6 @@
 import { createMemo, onCleanup, onMount, Show, For, type JSX } from 'solid-js';
-import type { ChartPoint } from '../types';
+import type { ChartPoint, SignalProtocol } from '../types';
+import { hasChartPoints } from './chart-periods';
 
 let chartSeq = 0;
 const W = 240;
@@ -13,7 +14,7 @@ export function Sparkline(props: {
   onScrub?: (point: ChartPoint | null) => void;
 }): JSX.Element {
   const gradientId = `signal-popover-spark-${chartSeq++}`;
-  const stroke = (): string => (props.tone === 'loss' ? '#cb3131' : '#10c2a3');
+  const stroke = (): string => (props.tone === 'loss' ? '#F25454' : '#10c2a3');
 
   const isDegenerate = createMemo(() => props.points.length < 2);
   const values = createMemo(() => props.points.map((p) => p.v));
@@ -146,10 +147,12 @@ export function Sparkline(props: {
   );
 }
 
+export { hasChartPoints, servedPeriod } from './chart-periods';
+
 export function ChartGroup(props: {
   charts: Record<string, ChartPoint[]>;
   selected?: string;
-  card?: 'hyperliquid' | 'polymarket';
+  card?: SignalProtocol;
   wide?: boolean;
   pnlLabel?: string;
   pnlValue?: string;
@@ -158,10 +161,15 @@ export function ChartGroup(props: {
   chartTone?: 'gain' | 'loss';
   onSelectPeriod?: (period: string) => void;
 }): JSX.Element {
-  const periodKeys = createMemo(() => Object.keys(props.charts));
+  const periodKeys = createMemo(() => {
+    if (props.card !== 'fomo')
+      return Object.keys(props.charts).filter((k) => props.charts[k].length > 0);
+
+    return ['24H', '7D', '30D'].filter((period) => period in props.charts);
+  });
   const selected = createMemo(() => props.selected ?? periodKeys()[periodKeys().length - 1]);
 
-  const hasSeries = createMemo(() => periodKeys().length > 0);
+  const hasSeries = createMemo(() => periodKeys().length > 0 && hasChartPoints(props.charts));
 
   let valueRef!: HTMLDivElement;
   let dateRef!: HTMLSpanElement;

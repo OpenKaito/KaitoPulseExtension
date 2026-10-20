@@ -1,7 +1,9 @@
 import { attnFingerprintItem, deviceFingerprintItem, viewerItem } from '@/shared/storage';
 import { stableHash } from '@/signal/hash';
+import { readActivityConsent } from '@/shared/activity-consent';
 
 async function getDeviceFingerprint(): Promise<string | undefined> {
+  if ((await readActivityConsent()) !== 'granted') return undefined;
   const fp = await attnFingerprintItem.getValue();
   if (!fp) return undefined;
   const hash = stableHash(fp);

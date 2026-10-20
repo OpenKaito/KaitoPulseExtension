@@ -183,10 +183,14 @@ class VerifyAuthReplayController {
     private readonly addOwnerVisibilityListener: (listener: () => void) => () => void,
   ) {}
 
-  private readonly openVerifyWindow = async (taskId: string): Promise<void> => {
+  private readonly openVerifyWindow = async (
+    taskId: string,
+    expectedAccountId?: string,
+  ): Promise<void> => {
     const response = await sendVerifyMessage({
       action: 'openVerifyWindow',
       verifierId: taskId,
+      ...(expectedAccountId ? { expectedAccountId } : {}),
     });
     if (response.ok !== true) throw new Error(response.error);
   };
@@ -215,14 +219,18 @@ class VerifyAuthReplayController {
     if (this.controller.view().name === 'signing-in') this.controller.goHub();
   };
 
-  readonly startVerify = (taskId: string, openPendingSurface = true): void => {
+  readonly startVerify = (
+    taskId: string,
+    openPendingSurface = true,
+    expectedAccountId?: string,
+  ): void => {
     if (!this.active) return;
     if (this.controller.signedIn()) {
       if (this.openWindowInFlight) return;
       this.openWindowInFlight = true;
 
       this.closeFloat();
-      void this.openVerifyWindow(taskId)
+      void this.openVerifyWindow(taskId, expectedAccountId)
         .catch(() => {
           if (this.active) toastOpenFailure('verification');
         })
@@ -235,7 +243,10 @@ class VerifyAuthReplayController {
     this.controller.showSigningIn(taskId);
     void (async () => {
       try {
-        await recordAuthIntent({ kind: 'verify-start', params: { taskId } });
+        await recordAuthIntent({
+          kind: 'verify-start',
+          params: expectedAccountId ? { taskId, expectedAccountId } : { taskId },
+        });
       } catch {
         if (!this.active) return;
         this.controller.goHub();
@@ -316,7 +327,7 @@ class VerifyAuthReplayController {
       }
       hadPending = true;
       replayTaskId = taskId;
-      await this.openVerifyWindow(taskId);
+      await this.openVerifyWindow(taskId, intent?.params.expectedAccountId);
       if (!this.active) return;
       const ownsPendingView = this.ownsPendingView(taskId);
 
@@ -355,12 +366,14 @@ export class YapsVerifySurface {
     sendResponse: (response: { ok: true }) => void,
   ): void => {
     if (!msg || typeof msg !== 'object') return;
-    const message = msg as { type?: string; taskId?: string };
+    const message = msg as { type?: string; taskId?: string; expectedAccountId?: string };
     if (message.type !== 'kaito:openVerifyPanel') return;
     if (message.taskId) {
       const taskId = message.taskId;
+      const expectedAccountId =
+        typeof message.expectedAccountId === 'string' ? message.expectedAccountId : undefined;
       void (this.bootstrapPromise ?? this.controller.bootstrap()).then(() =>
-        this.authReplay.startVerify(taskId),
+        this.authReplay.startVerify(taskId, true, expectedAccountId),
       );
     } else {
       this.float.open();
@@ -370,11 +383,16 @@ export class YapsVerifySurface {
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event.source !== this.doc.defaultView) return;
+    if (!chrome.runtime?.id) {
+      this.detachOrphaned();
+      return;
+    }
     const data = event.data as {
       source?: string;
       kind?: string;
       requestId?: string;
       verifierId?: string;
+      expectedAccountId?: string;
     } | null;
     if (!data || data.source !== 'kaito-web' || typeof data.requestId !== 'string') return;
     const requestId = data.requestId;
@@ -392,8 +410,10 @@ export class YapsVerifySurface {
       void ready.then(() => reply(this.buildStatus()));
     } else if (data.kind === 'openVerification' && typeof data.verifierId === 'string') {
       const verifierId = data.verifierId;
+      const expectedAccountId =
+        typeof data.expectedAccountId === 'string' ? data.expectedAccountId : undefined;
       void ready.then(() => {
-        this.authReplay.startVerify(verifierId);
+        this.authReplay.startVerify(verifierId, true, expectedAccountId);
         reply({ ok: true, opened: true });
       });
     }
@@ -463,6 +483,7 @@ export class YapsVerifySurface {
   }
 
   start(): void {
+    for (const stale of this.doc.querySelectorAll('div.kaito-verify-float')) stale.remove();
     this.float.mount(this.doc);
     this.bootstrapPromise = this.controller.bootstrap();
     chrome.runtime.onMessage.addListener(this.onRuntimeMessage);
@@ -506,5 +527,22 @@ export class YapsVerifySurface {
     this.float.unmount();
     this.controller.dispose();
     this.bootstrapPromise = null;
+  }
+
+  private detachOrphaned(): void {
+    try {
+      this.doc.defaultView?.removeEventListener('message', this.onWindowMessage);
+    } catch {}
+    for (const unsubscribe of this.unsubscribers) {
+      try {
+        unsubscribe();
+      } catch {}
+    }
+    this.unsubscribers = [];
+    try {
+      this.authReplay.stop();
+      this.float.unmount();
+      this.controller.dispose();
+    } catch {}
   }
 }

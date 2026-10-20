@@ -6,6 +6,7 @@ import type {
 } from '@/shared/messages';
 import { registerSignInMessageHandler } from '@/background/external-sign-in-handler';
 import { clearDebugRequests, getDebugRequestSnapshot } from '@/background/debug-log';
+import { canAccessMessage, isTrustedExtensionSender } from '@/background/message-access';
 import {
   clearBehaviorEvents,
   getBehaviorEventSnapshot,
@@ -36,7 +37,7 @@ import {
   registerRecommendationFollowConfirmedHandler,
 } from '@/background/recommend-follow-handlers';
 import { handleGetAuraSummary } from '@/background/aura-handlers';
-import { handleGetTradingSummary } from '@/background/trading-handlers';
+import { handleGetReferralSummary, handleGetTradingSummary } from '@/background/trading-handlers';
 import { handleSetActivityInsightsPreference } from '@/background/activity-insights-handlers';
 import {
   handleGetTradingTotalsPublic,
@@ -45,6 +46,8 @@ import {
 import { handleAcceptTerms } from '@/background/terms-handlers';
 import { clearPrimusAttestationState } from '@/background/primus-adapter';
 import { openVerifyWindow, returnToOriginTabAfterVerify } from '@/background/popup-window';
+import { cleanExpectedAccountId, setExpectedAccount } from '@/background/expected-account';
+import { guardVendorMessageListeners } from '@/background/vendor-listener-guard';
 import {
   handleForceRefreshSelectorOverrides,
   handleGetSelectorOverrides,
@@ -188,6 +191,8 @@ export default defineBackground({
         void bootstrap();
 
         void injectConnectTabsAfterInstall();
+      } else if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
+        void injectConnectTabsAfterInstall();
       }
     });
     chrome.runtime.onStartup.addListener(() => {
@@ -246,13 +251,16 @@ export default defineBackground({
 
     async function handleKaitoMessage(
       message: RuntimeRequest,
-      senderTabId?: number,
+      sender?: chrome.runtime.MessageSender,
     ): Promise<unknown> {
+      if (!canAccessMessage(message.action, sender, chrome.runtime.id)) {
+        return { error: 'forbidden' };
+      }
+      const senderTabId = sender?.tab?.id;
+      const trusted = isTrustedExtensionSender(sender, chrome.runtime.id);
       try {
         switch (message.action) {
           case 'init': {
-            // The verify hub just opened — bypass the bootstrap freshness
-            // window so the user always sees live verifiers/proofs there.
             const state = await bootstrap({ force: true });
             return { state };
           }
@@ -264,9 +272,11 @@ export default defineBackground({
           }
           case 'startProof': {
             const result = await runProofFlow(message.verifierId, {
-              tabId: typeof message.tabId === 'number' ? message.tabId : undefined,
+              tabId: trusted && typeof message.tabId === 'number' ? message.tabId : undefined,
               ownerWindowId:
-                typeof message.ownerWindowId === 'number' ? message.ownerWindowId : undefined,
+                trusted && typeof message.ownerWindowId === 'number'
+                  ? message.ownerWindowId
+                  : undefined,
             });
             return { ok: !result.error, result, state: getState() };
           }
@@ -275,7 +285,11 @@ export default defineBackground({
             return { ok: true, accepted: cancel.accepted, state: cancel.state };
           }
           case 'openVerifyWindow': {
-            await openVerifyWindow(message.verifierId, senderTabId);
+            await setExpectedAccount(
+              message.verifierId,
+              cleanExpectedAccountId(message.expectedAccountId),
+            );
+            await openVerifyWindow(message.verifierId, senderTabId, sender?.tab?.windowId);
             return { ok: true };
           }
           case 'returnFromVerifyWindow': {
@@ -392,6 +406,9 @@ export default defineBackground({
           case 'getTradingSummary':
             return handleGetTradingSummary();
 
+          case 'getReferralSummary':
+            return handleGetReferralSummary();
+
           case 'getTradingTotalsPublic':
             return handleGetTradingTotalsPublic();
           case 'setTradingTotalsPublic':
@@ -428,7 +445,7 @@ export default defineBackground({
           port.postMessage({ error: 'unknown_message' });
           return;
         }
-        void handleKaitoMessage(message, port.sender?.tab?.id).then((response) => {
+        void handleKaitoMessage(message, port.sender).then((response) => {
           try {
             port.postMessage(response);
           } finally {
@@ -440,7 +457,7 @@ export default defineBackground({
 
     chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendResponse) => {
       if (!isKaitoMessage(message)) return false;
-      void handleKaitoMessage(message, sender.tab?.id).then(sendResponse);
+      void handleKaitoMessage(message, sender).then(sendResponse);
       return true;
     });
 
@@ -450,6 +467,7 @@ export default defineBackground({
 
     void clearPrimusAttestationState().catch(() => undefined);
 
+    guardVendorMessageListeners(chrome.runtime.onMessage, isKaitoMessage);
     console.log('[TIMING] before importScripts', performance.now());
     try {
       (globalThis as unknown as { importScripts: (...urls: string[]) => void }).importScripts(

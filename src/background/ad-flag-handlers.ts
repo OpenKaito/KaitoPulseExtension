@@ -52,8 +52,6 @@ export async function handleQueryAdFlags(tweetIds: string[]): Promise<AdFlagQuer
       const response = await api.queryAdFlags(missIds, stored.sessionToken);
       return response.items;
     });
-    // The message contract has no null slot — absent means "no flag"; the
-    // cache keeps the nulls internally as negative entries.
     const items: Record<string, AdFlagQueryItem> = {};
     for (const [tweetId, item] of Object.entries(merged)) {
       if (item) items[tweetId] = item;

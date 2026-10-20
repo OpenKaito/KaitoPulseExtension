@@ -1,12 +1,23 @@
 import { logDev } from '@/lib/env';
 import { PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
-import { optionalPatternForUrl, PROOF_TARGETS } from '@/shared/proof-targets';
-import { verifierUrlMatches } from '@/shared/verifier-url';
+import { optionalPatternsForUrl, PROOF_TARGETS } from '@/shared/proof-targets';
+import { navigationTargetForLog, verifierUrlMatches } from '@/shared/verifier-url';
 
 const SCRIPT_IDS = [
   'kaito-proof-arming',
   'kaito-axis-prefetch',
   'kaito-polymarket-prefetch',
+  'kaito-pumpfun-prefetch',
+  'kaito-fomo-prefetch',
+  'kaito-lighter-prefetch',
+  'kaito-variational-prefetch',
+  'kaito-binance-prefetch',
+  'kaito-okx-prefetch',
+  'kaito-bybit-prefetch',
+  'kaito-kraken-prefetch',
+  'kaito-bitget-prefetch',
+  'kaito-gate-prefetch',
+  'kaito-mexc-prefetch',
 ] as const;
 
 type RegisteredScript = chrome.scripting.RegisteredContentScript;
@@ -44,9 +55,91 @@ function mainWorldScriptFor(hostname: string): MainWorldScript | undefined {
         runAt: 'document_idle',
         world: 'MAIN',
       };
+    case 'pump.fun':
+      return {
+        id: 'kaito-pumpfun-prefetch',
+        js: ['pumpfun-verify-prefetch.js'],
+        runAt: 'document_idle',
+        world: 'MAIN',
+      };
+    case 'fomo.family':
+      return {
+        id: 'kaito-fomo-prefetch',
+        js: ['fomo-verify-prefetch.js'],
+        runAt: 'document_idle',
+        world: 'MAIN',
+      };
+    case 'app.lighter.xyz':
+      return {
+        id: 'kaito-lighter-prefetch',
+        js: ['lighter-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'omni.variational.io':
+      return {
+        id: 'kaito-variational-prefetch',
+        js: ['variational-verify-prefetch.js'],
+        runAt: 'document_idle',
+        world: 'MAIN',
+      };
+    case 'www.binance.com':
+      return {
+        id: 'kaito-binance-prefetch',
+        js: ['binance-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.okx.com':
+    case 'app.okx.com':
+      return {
+        id: 'kaito-okx-prefetch',
+        js: ['okx-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.bitget.com':
+      return {
+        id: 'kaito-bitget-prefetch',
+        js: ['bitget-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.mexc.com':
+      return {
+        id: 'kaito-mexc-prefetch',
+        js: ['mexc-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.gate.com':
+      return {
+        id: 'kaito-gate-prefetch',
+        js: ['gate-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.kraken.com':
+      return {
+        id: 'kaito-kraken-prefetch',
+        js: ['kraken-verify-prefetch.js'],
+        runAt: 'document_start',
+        world: 'MAIN',
+      };
+    case 'www.bybit.com':
+      return {
+        id: 'kaito-bybit-prefetch',
+        js: ['bybit-verify-prefetch.js'],
+        runAt: 'document_idle',
+        world: 'MAIN',
+      };
     default:
       return undefined;
   }
+}
+
+export function hasMainWorldPrefetch(hostname: string): boolean {
+  return mainWorldScriptFor(hostname) !== undefined;
 }
 
 async function unregisterKnownScripts(): Promise<boolean> {
@@ -93,6 +186,7 @@ async function teardownInjectedTabs(origin?: string): Promise<void> {
               sessionStorage.removeItem('kaito.proofArmed');
             } catch {}
             document.documentElement?.removeAttribute('data-kaito-proof-armed');
+            document.documentElement?.removeAttribute('data-kaito-proof-captured');
           },
         })
         .catch(() => undefined);
@@ -131,14 +225,14 @@ export async function activateVerifierRuntime(guideUrl: string): Promise<Verifie
   await initializeVerifierRuntime();
 
   const url = new URL(guideUrl);
-  const optionalPattern = optionalPatternForUrl(guideUrl);
-  if (!optionalPattern) {
+  const optionalPatterns = optionalPatternsForUrl(guideUrl);
+  if (optionalPatterns.length === 0) {
     return {
       prepareTab: async () => undefined,
       dispose: async () => undefined,
     };
   }
-  if (!(await chrome.permissions.contains({ origins: [optionalPattern] }))) {
+  if (!(await chrome.permissions.contains({ origins: optionalPatterns }))) {
     throw new Error(`proof_host_permission_required:${url.hostname}`);
   }
 
@@ -181,7 +275,9 @@ export async function activateVerifierRuntime(guideUrl: string): Promise<Verifie
       const tabUrl =
         tab.status === 'loading' ? tab.pendingUrl || tab.url : tab.url || tab.pendingUrl;
       if (!verifierUrlMatches(tabUrl, guideUrl)) {
-        throw new Error(`verifier_runtime_tab_mismatch:${tabId}`);
+        throw new Error(
+          `verifier_runtime_tab_mismatch:${tabId} at ${tabUrl ? navigationTargetForLog(tabUrl, guideUrl) : 'unknown'}`,
+        );
       }
       if (tab.status !== 'complete') return;
       await injectIntoTab(tabId, scripts);

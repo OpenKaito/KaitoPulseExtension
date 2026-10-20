@@ -3,7 +3,8 @@ import { ImpressionTracker } from './impression-tracker';
 import { ClickTracker } from './click-tracker';
 import { FollowTracker } from './follow-tracker';
 import { PresenceTracker } from './presence-tracker';
-import { activityInsightsConsentItem, viewerItem } from '@/shared/storage';
+import { viewerItem } from '@/shared/storage';
+import { readActivityConsent, watchActivityConsent } from '@/shared/activity-consent';
 import { guard } from '@/lib/guard';
 import type { BehaviorActor, BehaviorEvent } from '@/shared/behavior';
 import type { AttentionBehaviorEvent } from '@/shared/attention';
@@ -94,10 +95,10 @@ export class BehaviorTracker {
 
   private awaitConsentGranted(): Promise<void> {
     return new Promise((resolve) => {
-      this.consentUnwatch = activityInsightsConsentItem.watch((value) => {
+      this.consentUnwatch = watchActivityConsent((value) => {
         this.onConsentValue(value, resolve);
       });
-      void activityInsightsConsentItem.getValue().then((initial) => {
+      void readActivityConsent().then((initial) => {
         if (this.stopped) return;
 
         if (initial === 'granted') this.onConsentValue(initial, resolve);

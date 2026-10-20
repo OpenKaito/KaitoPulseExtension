@@ -22,6 +22,17 @@ export function formatUsd(value: number | null | undefined): string {
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export function formatCompactUsd(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return NO_VALUE;
+  if (Math.abs(value) < 10_000) return `$${Math.round(value).toLocaleString('en-US')}`;
+  return `$${value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })}`;
+}
+
+export function formatPoints(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return NO_VALUE;
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
 export function formatSignedUsdCents(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return NO_VALUE;
   const sign = value < 0 ? '-' : '+';

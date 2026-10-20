@@ -7,6 +7,9 @@ export type VerifyRuntimeRequest = RuntimeRequestPayload<RuntimeRequest>;
 export function sendVerifyMessage<R extends VerifyRuntimeRequest>(
   payload: R,
 ): Promise<ReplyFor<R['action']>> {
+  if (payload.action === 'openVerifyWindow') {
+    return chrome.runtime.sendMessage({ target: 'kaitoExtension', ...payload });
+  }
   return sendOverKaitoPort<ReplyFor<R['action']>>(
     { target: 'kaitoExtension', ...payload },
     {

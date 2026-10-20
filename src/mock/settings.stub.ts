@@ -26,6 +26,8 @@ export const MOCK_DEFAULTS: MockConfig = {
   hoverCardFollowers: 'off',
   hoverCardHyperliquid: 'off',
   hoverCardPolymarket: 'off',
+  hoverCardFomo: 'off',
+  hoverCardPumpfun: 'off',
   hoverCardWalletDetail: 'off',
   hoverCardWallets: 'off',
   hoverCardScenario: 'live',

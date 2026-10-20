@@ -8,7 +8,7 @@ import { initRecommendations, locallyFollowedIds, view } from '@/recommend-follo
 import { LinkXAction } from '../components/LinkXAction';
 import { UnlockState } from '../components/UnlockState';
 import { fixtureRecommendations, xLinked } from '../data/store';
-import linkXArtwork from '../assets/link-x-artwork.png';
+import linkXArtwork from '../assets/link-x-artwork.webp';
 
 export const XAnalyticsTab: Component = () => {
   onMount(() => {
@@ -43,9 +43,7 @@ export const XAnalyticsTab: Component = () => {
           <UnlockState title="Sign in to see your X Analytics" />
         </Match>
         <Match when={true}>
-          <Show when={seconds() !== null}>
-            <TimeSpentCard seconds={seconds()!} />
-          </Show>
+          <TimeSpentCard seconds={seconds()} />
 
           <div class="rf-accounts-block">
             <AccountsHeading />

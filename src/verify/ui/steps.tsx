@@ -14,7 +14,14 @@ export interface VerifyStep {
 
 export const VERIFY_STEP_IDS: VerifyStepId[] = ['connect', 'read', 'generate'];
 
-export function verifyStepTitle(id: VerifyStepId, platform: string): string {
+export function verifyStepTitle(id: VerifyStepId, platform: string, serverRead = false): string {
+  if (serverRead) {
+    return id === 'connect'
+      ? `Find your verified ${platform} wallet`
+      : id === 'read'
+        ? `Read your public ${platform} stats`
+        : 'Record the reading';
+  }
   return id === 'connect'
     ? `Connect to ${platform}`
     : id === 'read'
@@ -27,6 +34,7 @@ export const VerifyStepList: Component<{
   platform: string;
 
   variant: 'progress' | 'result';
+  serverRead?: boolean;
 }> = (props) => (
   <div class="kv-proof-steps" classList={{ result: props.variant === 'result' }}>
     <For each={props.steps}>
@@ -46,7 +54,9 @@ export const VerifyStepList: Component<{
             <Show when={step.state === 'pending'}>{i() + 1}</Show>
           </span>
           <div class="kv-proof-step-body">
-            <p class="kv-proof-step-title">{verifyStepTitle(step.id, props.platform)}</p>
+            <p class="kv-proof-step-title">
+              {verifyStepTitle(step.id, props.platform, props.serverRead)}
+            </p>
             <Show when={step.sub}>
               <p class="kv-proof-step-sub">{step.sub}</p>
             </Show>

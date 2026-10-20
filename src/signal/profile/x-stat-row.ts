@@ -4,12 +4,6 @@ import { TOTAL_SMART_FOLLOWERS_LABEL } from '../social-card-map';
 
 const X_STAT_CELLS = 4;
 
-/*
- * `smartFollowers: null` on the wire = the SF hop missed or errored, so there is
- * no `topSegment` to name the segment cell after. The row is a fixed 4-column
- * grid, so the cell keeps its slot under a neutral label and reads the same
- * no-data dash the trading cells use, rather than leaving a hole at the end.
- */
 const SEGMENT_PLACEHOLDER_LABEL = 'Smart followers';
 
 export interface XStatRow {

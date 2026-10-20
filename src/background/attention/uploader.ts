@@ -3,15 +3,13 @@ import { getStoredSession } from '@/lib/client-storage';
 import {
   attnCursorItem,
   attnFingerprintItem,
-  attnOpenSpanSnapshotItem,
   attnPausedAuthItem,
   attnPendingEventsItem,
   attnPendingServeEventsItem,
-  activityInsightsConsentItem,
-  deviceFingerprintItem,
   sessionItem,
 } from '@/shared/storage';
-import { byteLength, peekPendingBatch, removeSentBatch } from './buffer';
+import { byteLength, peekPendingBatch, removeSentBatch, discardBufferedActivity } from './buffer';
+import { readActivityConsent } from '@/shared/activity-consent';
 import { getAttentionConfig, isConfigStale } from './remote-config';
 import {
   createAttentionEventId,
@@ -23,7 +21,6 @@ import { logDev } from '@/lib/env';
 
 const FLUSH_ALARM = 'attn-upload-flush';
 const DEFAULT_FLUSH_PERIOD_SEC = 30;
-// Chrome clamps anything shorter up to this anyway.
 const MIN_ALARM_DELAY_MS = DEFAULT_FLUSH_PERIOD_SEC * 1000;
 const BLOCKED_RETRY_MS = 5 * 60_000;
 
@@ -41,10 +38,6 @@ let flushToken = 0;
 
 const FLUSH_STALE_MS = 2 * 60_000;
 
-// The alarm is one-shot and only exists while there is something to send. A
-// standing periodic alarm wakes the worker forever, which keeps the extension
-// permanently non-idle and makes Chrome defer a pending update until the browser
-// is restarted.
 export function startAttentionUploader(): void {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === FLUSH_ALARM) void flushOnce();
@@ -75,8 +68,6 @@ export async function scheduleAttentionFlush(delayMs = MIN_ALARM_DELAY_MS): Prom
 
 async function resumePendingFlush(): Promise<void> {
   const existing = await chrome.alarms.get(FLUSH_ALARM);
-  // Alarms survive an update, so an install coming from 1.0.2 still carries the
-  // periodic one this version stopped creating.
   if (existing?.periodInMinutes !== undefined) await chrome.alarms.clear(FLUSH_ALARM);
   if (await hasPendingEvents()) await scheduleAttentionFlush();
 }
@@ -116,16 +107,9 @@ async function flushOnce(): Promise<void> {
 }
 
 async function purgeIfNotConsented(): Promise<boolean> {
-  const consent = await activityInsightsConsentItem.getValue();
+  const consent = await readActivityConsent();
   if (consent === 'granted') return true;
-  await Promise.all([
-    attnPendingEventsItem.setValue([]),
-    attnPendingServeEventsItem.setValue([]),
-    attnOpenSpanSnapshotItem.removeValue(),
-
-    attnFingerprintItem.removeValue(),
-    deviceFingerprintItem.removeValue(),
-  ]);
+  await discardBufferedActivity();
   return false;
 }
 
@@ -166,6 +150,7 @@ async function flushOnceInner(): Promise<FlushOutcome> {
   };
 
   try {
+    if ((await readActivityConsent()) !== 'granted') return 'drained';
     const response = await api.postAttentionEventBatch(session.sessionToken, batch);
 
     const accepted = response?.accepted;

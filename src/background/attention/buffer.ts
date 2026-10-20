@@ -1,9 +1,11 @@
 import {
-  activityInsightsConsentItem,
   attnFingerprintItem,
+  attnOpenSpanSnapshotItem,
+  deviceFingerprintItem,
   attnPendingEventsItem,
   attnPendingServeEventsItem,
 } from '@/shared/storage';
+import { readActivityConsent } from '@/shared/activity-consent';
 import type {
   AttentionBehaviorEvent,
   AttentionFingerprint,
@@ -43,7 +45,7 @@ export function recordAttentionEvents(
   fp: AttentionFingerprint,
 ): Promise<{ ok: true }> {
   return serialize(async () => {
-    if ((await activityInsightsConsentItem.getValue()) !== 'granted') return { ok: true };
+    if ((await readActivityConsent()) !== 'granted') return { ok: true };
 
     await attnFingerprintItem.setValue(fp);
     if (events.length === 0 && serveEvents.length === 0) return { ok: true };
@@ -60,6 +62,18 @@ export function recordAttentionEvents(
       attnPendingServeEventsItem.setValue(merged.serveEvents),
     ]);
     return { ok: true };
+  });
+}
+
+export function discardBufferedActivity(): Promise<void> {
+  return serialize(async () => {
+    await Promise.all([
+      attnPendingEventsItem.setValue([]),
+      attnPendingServeEventsItem.setValue([]),
+      attnOpenSpanSnapshotItem.removeValue(),
+      attnFingerprintItem.removeValue(),
+      deviceFingerprintItem.removeValue(),
+    ]);
   });
 }
 

@@ -10,19 +10,8 @@ import {
   type TtlCachePolicy,
 } from '@/shared/ttl-cache';
 
-/**
- * Background-only L2 cache for the two hottest per-item lookups the content
- * scripts fan out (badges by author, ad-flags by tweet). The signal layer's
- * per-tab SwrCache stays as L1; this layer survives MV3 service-worker
- * restarts and is shared across tabs, which is where most duplicate origin
- * requests come from. `session:` storage is background-only by default and
- * clears on browser restart, so entries can never outlive a browser session.
- */
-
 const BADGE_POLICY: TtlCachePolicy<BadgeItem> = {
   positiveTtlMs: 30 * 60_000,
-  // null = author has no badge (most of the timeline); incomplete = server
-  // still backfilling smartFollowers. Both retry sooner than full items.
   negativeTtlMs: 10 * 60_000,
   maxEntries: 1500,
   isComplete: (badge) => badge.smartFollowers != null,
@@ -34,19 +23,55 @@ const AD_FLAG_POLICY: TtlCachePolicy<AdFlagQueryItem> = {
   maxEntries: 1500,
 };
 
+const badgesPausedUntilItem = storage.defineItem<number>('session:kaito.badges.pausedUntil', {
+  fallback: 0,
+});
+
+const BADGES_PROBE_MS = 60_000;
+
+export type BadgesFetchClaim = { allowed: false } | { allowed: true; probe?: number };
+
+export function claimBadgesFetch(): Promise<BadgesFetchClaim> {
+  return serialize('badgesPause', async () => {
+    const until = await badgesPausedUntilItem.getValue();
+    const now = Date.now();
+    if (now < until) return { allowed: false };
+    if (until === 0) return { allowed: true };
+    const probe = now + BADGES_PROBE_MS;
+    await badgesPausedUntilItem.setValue(probe);
+    return { allowed: true, probe };
+  });
+}
+
+export function releaseBadgesProbe(probe: number): Promise<void> {
+  return serialize('badgesPause', async () => {
+    if ((await badgesPausedUntilItem.getValue()) === probe) {
+      await badgesPausedUntilItem.setValue(0);
+    }
+  });
+}
+
+export function pauseBadgesUntil(
+  until: number,
+  stillCurrent: () => Promise<boolean>,
+): Promise<void> {
+  return serialize('badgesPause', async () => {
+    if (!(await stillCurrent())) return;
+    if (until > (await badgesPausedUntilItem.getValue())) {
+      await badgesPausedUntilItem.setValue(until);
+    }
+  });
+}
+
 const badgeCacheItem = storage.defineItem<TtlCacheMap<BadgeItem>>('session:kaito.cache.badges', {
   fallback: {},
 });
 
-// Entries carry the viewer's own my_reason, so this cache must be cleared on
-// any session change (see clearEdgeCaches callers in worker-core).
 const adFlagCacheItem = storage.defineItem<TtlCacheMap<AdFlagQueryItem>>(
   'session:kaito.cache.adFlags',
   { fallback: {} },
 );
 
-// Serialize read-modify-write per cache so concurrent handler calls in one
-// service-worker lifetime cannot drop each other's writes.
 const writeQueues = new Map<string, Promise<unknown>>();
 function serialize<T>(key: string, task: () => Promise<T>): Promise<T> {
   const previous = writeQueues.get(key) ?? Promise.resolve();
@@ -86,12 +111,10 @@ async function cachedBatchFetch<T>(
   if (misses.length === 0) return hits;
 
   const fetched = await fetchMisses(misses);
-  // Stamp every requested miss so "no data" answers negative-cache too.
   const updates: Record<string, T | null> = {};
   for (const id of misses) {
     updates[id] = fetched[id] ?? null;
   }
-  // Best-effort: a failed cache write must not fail the fetch itself.
   await serialize(cache.key, async () => {
     const latest = await cache.item.getValue();
     await cache.item.setValue(mergeEntries(latest, updates, Date.now(), cache.policy));
@@ -99,6 +122,17 @@ async function cachedBatchFetch<T>(
     logDev(`edge-cache write failed (${cache.key})`, error);
   });
   return { ...hits, ...updates };
+}
+
+export async function cachedBadgesIgnoringTtl(
+  twitterIds: readonly string[],
+): Promise<Record<string, BadgeItem | null>> {
+  const map = await badgeCacheItem.getValue();
+  const items: Record<string, BadgeItem | null> = {};
+  for (const id of twitterIds) {
+    if (map[id]) items[id] = map[id].v;
+  }
+  return items;
 }
 
 export function cachedFetchBadges(
@@ -115,7 +149,6 @@ export function cachedFetchAdFlags(
   return cachedBatchFetch(AD_FLAG_CACHE, tweetIds, fetchMisses);
 }
 
-/** Write-through after a successful ad-flag put/remove. */
 export function setCachedAdFlag(tweetId: string, item: AdFlagQueryItem): Promise<void> {
   return serialize(AD_FLAG_CACHE.key, async () => {
     const latest = await adFlagCacheItem.getValue();
@@ -125,7 +158,6 @@ export function setCachedAdFlag(tweetId: string, item: AdFlagQueryItem): Promise
   });
 }
 
-/** Drop one author's badge (e.g. the signed-in user after a fresh proof). */
 export function invalidateBadge(twitterId: string): Promise<void> {
   return serialize(BADGE_CACHE.key, async () => {
     const latest = await badgeCacheItem.getValue();
@@ -134,10 +166,10 @@ export function invalidateBadge(twitterId: string): Promise<void> {
   });
 }
 
-/** Sign-in/sign-out: ad-flag entries embed the viewer's my_reason. */
 export async function clearEdgeCaches(): Promise<void> {
   await Promise.all([
     serialize(BADGE_CACHE.key, () => badgeCacheItem.setValue({})),
     serialize(AD_FLAG_CACHE.key, () => adFlagCacheItem.setValue({})),
+    serialize('badgesPause', () => badgesPausedUntilItem.setValue(0)),
   ]);
 }

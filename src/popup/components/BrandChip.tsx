@@ -8,7 +8,9 @@ export const BrandChip: Component<{ account: BrandChipSubject }> = (props) => {
     PROTOCOL_ICON_DATA_URI[props.account.platform as keyof typeof PROTOCOL_ICON_DATA_URI];
   return (
     <span class="pv-brand" style={{ color: props.account.brandColor }}>
-      <Show when={logo()}>{(src) => <img src={src()} alt="" />}</Show>
+      <Show when={logo()}>
+        {(src) => <img src={src()} data-platform={props.account.platform} alt="" />}
+      </Show>
       <span>{props.account.displayName}</span>
     </span>
   );

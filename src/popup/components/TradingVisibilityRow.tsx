@@ -10,8 +10,8 @@ export const TradingVisibilityRow: Component = () => {
     <section class="pv-vis">
       <div class="pv-vis__row">
         <div class="pv-vis__copy">
-          <p class="pv-vis__title">Trading accounts</p>
-          <p class="pv-vis__helper">Covers only the wallets you show on X. Manage them in Kaito.</p>
+          <p class="pv-vis__title">Included Accounts</p>
+          <p class="pv-vis__helper">Only public accounts count toward the totals below.</p>
         </div>
         {}
         <Show when={!visibilityLoading()}>

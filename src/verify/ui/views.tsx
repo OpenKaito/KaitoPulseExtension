@@ -5,13 +5,20 @@ import {
   createSignal,
   onCleanup,
   onMount,
+  createResource,
   type Component,
 } from 'solid-js';
+import { expectedAccountFor, updatesExistingAccount } from '@/background/expected-account';
 import type { ProofErrorCode, ProofProgress, ProofRunSummary } from '@/shared/messages';
-import { CATEGORY_TABS, dataTypeLabels, tasksInCategory } from '../catalog';
+import { CATEGORY_TABS, consentFields, isSnapshotUpdate, tasksInCategory } from '../catalog';
 import type { ResultKind, VerifyCategory, VerifyTask } from '../types';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/shared/legal-links';
-import { errorDescription, errorHeadline, isRetryPointless } from '../controller';
+import {
+  errorDescription,
+  errorHeadline,
+  isAcknowledgeOnly,
+  isRetryPointless,
+} from '../controller';
 import {
   AssetIcon,
   CheckIcon,
@@ -41,6 +48,7 @@ import signinStar2 from '../assets/signin-star-2.svg?inline';
 const OPENING_SIGN_IN_LABEL = 'Opening sign in…';
 
 const VERIFIED_LABEL = '✓ Verified';
+const UPDATE_LABEL = '↻ Update';
 
 export const SignInGate: Component<{ onSignIn: () => void }> = (props) => (
   <div class="kv-signin">
@@ -132,7 +140,7 @@ const CardAction: Component<{
             disabled={props.locked}
             onClick={() => props.onOpen()}
           >
-            {VERIFIED_LABEL}
+            {isSnapshotUpdate(props.task) ? UPDATE_LABEL : VERIFIED_LABEL}
           </button>
         </Show>
       </Show>
@@ -477,16 +485,40 @@ export const ConsentView: Component<{
   onContinue: () => void;
 }> = (props) => {
   const meta = () => props.task.meta;
-  const dataFields = () => dataTypeLabels(meta().detail.verifies);
+  const dataFields = () => consentFields(meta().detail.verifies);
+  const serverRead = () => meta().kind === 'server_read';
+  const [expectedAccount] = createResource(
+    () => props.task.verifier?.id ?? props.task.id,
+    (verifierId) => expectedAccountFor(verifierId),
+  );
+  const updatesAccount = () =>
+    isSnapshotUpdate(props.task) && updatesExistingAccount(expectedAccount());
+  const snapshotAsOf = () => {
+    const status = props.task.status;
+    if (!updatesAccount() || status.state !== 'verified') return null;
+    return new Date(status.proof.verifiedAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
 
   return (
     <div class="kv-consent">
       <div class="kv-consent-scroll">
         <PlatformTile meta={meta()} />
         <div class="kv-consent-head">
-          <h3 class="kv-consent-title">Verify your {meta().displayName} account</h3>
+          <h3 class="kv-consent-title">
+            {serverRead()
+              ? `Verify your ${meta().displayName} referrals`
+              : updatesAccount()
+                ? `Re-verify your ${meta().displayName} data`
+                : `Verify your ${meta().displayName} account`}
+          </h3>
           <p class="kv-consent-sub">
-            Verify your {meta().displayName} account to complete this campaign.
+            {serverRead()
+              ? `We read your public ${meta().displayName} stats for the wallet you verified on Kaito.`
+              : `Verify your ${meta().displayName} account to complete this campaign.`}
           </p>
         </div>
 
@@ -515,23 +547,54 @@ export const ConsentView: Component<{
             <AssetIcon size={16} />
             <span>Your assets are never moved</span>
           </div>
-          {}
           <div class="kv-consent-item">
             <ProofIcon size={16} />
             <span>
-              Only the proof and the fields listed above are shared — not your account contents
+              {serverRead()
+                ? 'Only the fields listed above are recorded — read from a public endpoint, nothing private.'
+                : 'Verification runs in this browser using zero-knowledge proofs.'}
             </span>
           </div>
+          <details class="kv-consent-disclosure">
+            <summary class="kv-consent-disclosure-summary">What's shared</summary>
+            <Show
+              when={!serverRead()}
+              fallback={
+                <div class="kv-consent-disclosure-item">
+                  With Kaito — the fields listed above, along with the wallet address they were read
+                  for, which you verified on Kaito.
+                </div>
+              }
+            >
+              <div class="kv-consent-disclosure-item">
+                With Kaito — a signed proof of the data listed above, along with your account ID or
+                wallet address, which identifies the account the proof belongs to.
+              </div>
+              <div class="kv-consent-disclosure-item">
+                With Primus (Pado Labs), the proof service — a device identity, your network
+                connection (IP address) while the proof is generated, and whether a verification
+                started, succeeded or failed.
+              </div>
+              <div class="kv-consent-disclosure-item">
+                Not shared — your password, cookies and session tokens. They stay in your browser
+                and are only used to read the data above.
+              </div>
+            </Show>
+          </details>
         </div>
 
         <div class="kv-consent-how">
           <div class="kv-consent-group-title">How verification works</div>
           <For
-            each={[
-              'Read required account data',
-              'Generate a zkTLS proof',
-              'Return the proof to Kaito',
-            ]}
+            each={
+              serverRead()
+                ? meta().detail.steps
+                : [
+                    'Read required account data',
+                    'Generate a zkTLS proof',
+                    'Return the proof to Kaito',
+                  ]
+            }
           >
             {(step, i) => (
               <div class="kv-step">
@@ -544,6 +607,9 @@ export const ConsentView: Component<{
       </div>
 
       <div class="kv-consent-footer">
+        <Show when={snapshotAsOf()}>
+          {(asOf) => <p class="kv-cta-asof">Data as of {asOf()} · verify again to update</p>}
+        </Show>
         <Show when={props.notice}>
           <p class="kv-consent-notice" role="alert">
             {props.notice}
@@ -570,91 +636,13 @@ export const ConsentView: Component<{
             disabled={props.busy || props.redirecting}
             onClick={() => props.onContinue()}
           >
-            {props.redirecting ? OPENING_SIGN_IN_LABEL : 'Continue'}
+            {props.redirecting
+              ? OPENING_SIGN_IN_LABEL
+              : updatesAccount()
+                ? 'Re-verify'
+                : 'Continue'}
           </button>
         </div>
-      </div>
-    </div>
-  );
-};
-
-export const CampaignDetail: Component<{
-  task: VerifyTask;
-  busy: boolean;
-  onBack: () => void;
-  onVerify: () => void;
-}> = (props) => {
-  const meta = () => props.task.meta;
-  const detail = () => meta().detail;
-  const canVerify = () => Boolean(props.task.verifier) && !props.busy;
-  const ctaLabel = () =>
-    meta().kind === 'wallet' ? `Connect wallet to verify` : `Verify with ${meta().displayName}`;
-
-  return (
-    <div>
-      <button type="button" class="kv-back" onClick={() => props.onBack()}>
-        ← Back
-      </button>
-
-      <div class="kv-detail-head">
-        <PlatformTile meta={meta()} />
-        <div>
-          <div class="kv-detail-platform">{meta().displayName}</div>
-          <h3 class="kv-detail-title">{meta().cardTitle}</h3>
-        </div>
-      </div>
-      <p class="kv-detail-desc">{props.task.verifier?.guide.message || meta().cardSubtitle}</p>
-
-      <div class="kv-req-card">
-        <div class="kv-req-label">Requirement</div>
-        <div class="kv-req-value">{detail().requirement}</div>
-      </div>
-
-      <div class="kv-meta-card">
-        <div class="kv-meta-row">
-          <span class="k">Verifies</span>
-          {}
-          <span class="v">{dataTypeLabels(detail().verifies).join(' · ')}</span>
-        </div>
-        <div class="kv-meta-row">
-          <span class="k">Time</span>
-          <span class="v">{detail().time}</span>
-        </div>
-        <div class="kv-meta-row">
-          <span class="k">Validity</span>
-          <span class="v">{detail().validity}</span>
-        </div>
-      </div>
-
-      <div class="kv-earn-card">
-        <div class="kv-earn-label">You will earn</div>
-        <For each={detail().earn}>{(line) => <div class="kv-earn-item">{line}</div>}</For>
-      </div>
-
-      <h4 class="kv-steps-title">Step-by-step</h4>
-      <For each={detail().steps}>
-        {(step, i) => (
-          <div class="kv-step">
-            <span class="kv-step-num">{i() + 1}</span>
-            <span>{step}</span>
-          </div>
-        )}
-      </For>
-
-      <div class="kv-cta-wrap">
-        <button
-          type="button"
-          class="kv-cta"
-          disabled={!canVerify()}
-          onClick={() => props.onVerify()}
-        >
-          {ctaLabel()}
-        </button>
-        <p class="kv-cta-note">
-          {props.task.verifier
-            ? detail().footnote
-            : 'This verification is not live yet — the backend verifier is being rolled out.'}
-        </p>
       </div>
     </div>
   );
@@ -674,14 +662,26 @@ const PROGRESS_HEAD_TEXT: Record<VerifyStepId, { title: string; sub: string }> =
   generate: { title: 'Generating your proof...', sub: 'Almost done. Usually 30–60s' },
 };
 
+const SERVER_READ_HEAD_TEXT: Record<VerifyStepId, { title: string; sub: string }> = {
+  connect: { title: 'Checking your wallet...', sub: 'This runs automatically — no action needed' },
+  read: { title: 'Reading your public stats...', sub: 'This runs on our side' },
+  generate: { title: 'Recording your reading...', sub: 'Almost done' },
+};
+
 function progressStepSub(
   id: VerifyStepId,
   state: VerifyStepState,
   platform: string,
+  serverRead = false,
 ): string | undefined {
-  if (id === 'connect' && state !== 'pending') return `A ${platform} window has opened`;
+  if (serverRead) {
+    if (id === 'read' && state !== 'pending')
+      return 'Read from a public endpoint — no login needed';
+    return undefined;
+  }
+  if (id === 'connect' && state !== 'pending') return `A ${platform} tab has opened`;
   if (id === 'generate' && state === 'active')
-    return 'Generated locally — your data never leaves this device. Keep this window open.';
+    return 'Generating the proof in this browser. Keep the verification tab open.';
   return undefined;
 }
 
@@ -700,14 +700,18 @@ export const ProgressView: Component<{
   const stage = () => props.progress?.stage ?? 'preparing';
   const activeStep = () => STEP_FOR_STAGE[stage()];
   const platform = () => props.task?.meta.displayName ?? 'the platform';
-  const head = () => (props.cancelRefused ? CANCEL_REFUSED_HEAD : PROGRESS_HEAD_TEXT[activeStep()]);
+  const serverRead = () => props.task?.meta.kind === 'server_read';
+  const head = () =>
+    props.cancelRefused
+      ? CANCEL_REFUSED_HEAD
+      : (serverRead() ? SERVER_READ_HEAD_TEXT : PROGRESS_HEAD_TEXT)[activeStep()];
 
   const steps = (): VerifyStep[] => {
     const current = VERIFY_STEP_IDS.indexOf(activeStep());
     return VERIFY_STEP_IDS.map((id, order) => {
       const state: VerifyStepState =
         order < current ? 'done' : order === current ? 'active' : 'pending';
-      return { id, state, sub: progressStepSub(id, state, platform()) };
+      return { id, state, sub: progressStepSub(id, state, platform(), serverRead()) };
     });
   };
 
@@ -736,7 +740,12 @@ export const ProgressView: Component<{
           </div>
         </div>
 
-        <VerifyStepList steps={steps()} platform={platform()} variant="progress" />
+        <VerifyStepList
+          steps={steps()}
+          platform={platform()}
+          variant="progress"
+          serverRead={serverRead()}
+        />
       </div>
 
       {}
@@ -777,6 +786,7 @@ const RESULT_TONE: Record<ResultKind, ResultTone> = {
 };
 
 const STEP_FOR_ERROR: Partial<Record<ProofErrorCode, VerifyStepId>> = {
+  proof_initialization_failed: 'connect',
   third_party_login_required: 'read',
   target_page_not_ready: 'read',
   target_data_missing: 'read',
@@ -787,6 +797,8 @@ const STEP_FOR_ERROR: Partial<Record<ProofErrorCode, VerifyStepId>> = {
   target_api_changed: 'read',
   page_closed: 'read',
   page_interrupted: 'read',
+  wallet_binding_required: 'connect',
+  platform_unreadable: 'read',
 };
 
 export const ResultView: Component<{
@@ -804,6 +816,7 @@ export const ResultView: Component<{
   const error = () => props.result?.error;
   const tone = () => RESULT_TONE[props.kind];
   const verified = () => props.kind === 'verified';
+  const serverRead = () => props.task?.meta.kind === 'server_read';
 
   const failedStep = (): VerifyStepId => {
     if (props.kind !== 'failed') return 'read';
@@ -814,11 +827,15 @@ export const ResultView: Component<{
   const failureMessage = (): string => {
     switch (props.kind) {
       case 'login':
-        return `We couldn't read your data. Make sure you're logged in to ${platform()} in the opened window.`;
+        return serverRead()
+          ? `We couldn't read your ${platform()} data.`
+          : `We couldn't read your data. Make sure you're logged in to ${platform()} in the opened tab.`;
       case 'timeout':
         return 'This took too long and was stopped. No data was read — you can try again.';
       case 'canceled':
-        return `The ${platform()} window closed before your data could be read.`;
+        return serverRead()
+          ? 'This was stopped before your data could be read.'
+          : `The ${platform()} tab closed before your data could be read.`;
       default: {
         const description = errorDescription(
           error()?.code,
@@ -835,7 +852,7 @@ export const ResultView: Component<{
     }
   };
 
-  const openedSub = () => `A ${platform()} window has opened`;
+  const openedSub = () => (serverRead() ? undefined : `A ${platform()} tab has opened`);
 
   const steps = (): VerifyStep[] => {
     const stoppedAt = verified() ? VERIFY_STEP_IDS.length : VERIFY_STEP_IDS.indexOf(failedStep());
@@ -848,14 +865,17 @@ export const ResultView: Component<{
     });
   };
 
-  const canRetry = () => !verified() && !isRetryPointless(error()?.code);
+  const acknowledgeOnly = () => !verified() && isAcknowledgeOnly(error()?.code);
+  const canRetry = () => !verified() && !acknowledgeOnly() && !isRetryPointless(error()?.code);
 
   const footerNote = (): string | undefined =>
     verified()
       ? 'Your verified status now shows under My Credentials.'
       : canRetry()
         ? 'No data was shared. You can safely try again.'
-        : undefined;
+        : acknowledgeOnly()
+          ? 'No data was shared.'
+          : undefined;
 
   return (
     <div class="kv-flow">
@@ -887,7 +907,12 @@ export const ResultView: Component<{
           </div>
         </div>
 
-        <VerifyStepList steps={steps()} platform={platform()} variant="result" />
+        <VerifyStepList
+          steps={steps()}
+          platform={platform()}
+          variant="result"
+          serverRead={serverRead()}
+        />
       </div>
 
       <div class="kv-flow-footer">
@@ -909,6 +934,15 @@ export const ResultView: Component<{
               onClick={() => (props.onDone ?? props.onSeeOtherTasks)()}
             >
               Done
+            </button>
+          </Show>
+          <Show when={acknowledgeOnly()}>
+            <button
+              type="button"
+              class="kv-flow-btn primary"
+              onClick={() => (props.onDone ?? props.onSeeOtherTasks)()}
+            >
+              Got it
             </button>
           </Show>
           <Show when={canRetry()}>

@@ -7,6 +7,8 @@ export type MockTotals = 'off' | 'filled' | 'hidden';
 export type MockFollowers = 'off' | 'filled' | 'zero';
 
 export type MockHyperliquid = 'off' | 'fill' | 'force';
+export type MockFomo = 'off' | 'fill' | 'force';
+export type MockPumpfun = 'off' | 'fill' | 'force';
 
 export type MockPolymarket = 'off' | 'fill' | 'force';
 
@@ -41,6 +43,10 @@ export interface MockConfig {
 
   hoverCardPolymarket: MockPolymarket;
 
+  hoverCardFomo: MockFomo;
+
+  hoverCardPumpfun: MockPumpfun;
+
   hoverCardWalletDetail: MockWalletDetail;
 
   hoverCardWallets: MockWallets;
@@ -58,6 +64,8 @@ export const MOCK_DEFAULTS: MockConfig = {
   hoverCardFollowers: 'off',
   hoverCardHyperliquid: 'off',
   hoverCardPolymarket: 'off',
+  hoverCardFomo: 'off',
+  hoverCardPumpfun: 'off',
   hoverCardWalletDetail: 'off',
   hoverCardWallets: 'off',
   hoverCardScenario: 'live',
@@ -432,6 +440,89 @@ export const MOCK_SWITCHES: MockSwitch[] = [
     ],
   },
   {
+    key: 'hoverCardFomo',
+    label: 'Payload: fomo block',
+    group: 'Advanced payload overrides',
+    rest: 'off',
+    description:
+      'Substitutes a synthetic fomo account — equity, lifetime trades, three token positions ' +
+      '(one with no entry price) and the 24H/7D/30D sparkline windows, plus the platform ' +
+      'total that carries the All-Time P&L the card names. ' +
+      'The BFF ships fomo behind a kill switch that is off by default, so without this the card ' +
+      'is unreachable locally. Count is 9 against 3 rows on purpose: the block is a top-3 ' +
+      'preview with no drawer behind it, so the trigger must read "3 of 9".',
+    kind: 'select',
+    options: [
+      {
+        value: 'off',
+        note: 'real block',
+        preview: { lines: [{ key: 'fomo', value: 'backend', tone: 'muted' }] },
+      },
+      {
+        value: 'fill',
+        note: 'only when the backend returned none',
+        preview: {
+          lines: [
+            { key: 'fomo', value: 'if absent', tone: 'ghost' },
+            { key: 'Tokens', value: '3 of 9', tone: 'value' },
+          ],
+        },
+      },
+      {
+        value: 'force',
+        note: 'always replace what came back',
+        preview: {
+          lines: [
+            { key: 'fomo', value: 'synthetic', tone: 'value' },
+            { key: 'Tokens', value: '3 of 9 (1 N/A entry)', tone: 'value' },
+            { key: 'P&L windows', value: '3 (no all-time)', tone: 'muted' },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    key: 'hoverCardPumpfun',
+    label: 'Payload: pump.fun accounts',
+    group: 'Advanced payload overrides',
+    rest: 'off',
+    description:
+      'pump.fun has no block in OnchainCardResult, so its card is assembled from published ' +
+      'accounts plus the platform total. This serves three accounts and a total, which is the ' +
+      'only way to reach the grouped view and its chip row locally. Token rows stay empty on ' +
+      'purpose — nothing upstream serves them yet, and a fixture that invented them would hide ' +
+      'that.',
+    kind: 'select',
+    options: [
+      {
+        value: 'off',
+        note: 'real accounts',
+        preview: { lines: [{ key: 'pump.fun', value: 'backend', tone: 'muted' }] },
+      },
+      {
+        value: 'fill',
+        note: 'only when the backend served no pump.fun total',
+        preview: {
+          lines: [
+            { key: 'pump.fun', value: 'if absent', tone: 'ghost' },
+            { key: 'Accounts', value: '3', tone: 'value' },
+          ],
+        },
+      },
+      {
+        value: 'force',
+        note: 'always replace what came back',
+        preview: {
+          lines: [
+            { key: 'pump.fun', value: 'synthetic', tone: 'value' },
+            { key: 'Accounts', value: '3 (grouped view)', tone: 'value' },
+            { key: 'Tokens', value: 'none served', tone: 'muted' },
+          ],
+        },
+      },
+    ],
+  },
+  {
     key: 'hoverCardWalletDetail',
     label: 'Wallet detail: the chip drawer',
     group: 'Advanced payload overrides',
@@ -639,6 +730,8 @@ const NO_HOVER_CARD_OVERRIDES = {
   hoverCardFollowers: 'off',
   hoverCardHyperliquid: 'off',
   hoverCardPolymarket: 'off',
+  hoverCardFomo: 'off',
+  hoverCardPumpfun: 'off',
   hoverCardWalletDetail: 'off',
   hoverCardWallets: 'off',
   hoverCardScenario: 'live',
@@ -711,6 +804,26 @@ export const MOCK_SCENARIOS: MockScenarioPreset[] = [
       hoverCardPolymarket: 'force',
       hoverCardWallets: 'mixed',
       hoverCardWalletDetail: 'served',
+    },
+  },
+  {
+    id: 'fomo-card',
+    name: 'fomo card',
+    blurb: 'a single-account token book — profile head, three tokens, no drawer',
+    patch: {
+      ...NO_HOVER_CARD_OVERRIDES,
+      popup: 'live',
+      hoverCardFomo: 'force',
+    },
+  },
+  {
+    id: 'pumpfun-card',
+    name: 'pump.fun card',
+    blurb: '3 accounts and a chip row — the grouped shape, with no token rows',
+    patch: {
+      ...NO_HOVER_CARD_OVERRIDES,
+      popup: 'live',
+      hoverCardPumpfun: 'force',
     },
   },
   {

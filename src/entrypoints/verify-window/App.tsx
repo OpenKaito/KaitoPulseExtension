@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal, onMount, onCleanup, type Component } from 'solid-js';
+import { Show, createSignal, onMount, onCleanup, type Component } from 'solid-js';
 import {
   createVerifyController,
   resolvePlaceholderTaskId,
@@ -10,23 +10,15 @@ import { ensureProofHostPermission, permissionHostLabel } from '@/verify/host-pe
 import type { ResultKind } from '@/verify/types';
 import { activeProofProgressItem, lastResultItem, sessionItem } from '@/shared/storage';
 
-const VERIFIED_AUTO_CLOSE_MS = 2500;
-
-const RETURN_ACK_DEADLINE_MS = 400;
-
-let ownWindowId: number | undefined;
-const controller = createVerifyController({ ownerWindowId: () => ownWindowId });
-
-function verifierIdFromUrl(): string {
-  try {
-    return new URLSearchParams(window.location.search).get('verifierId') ?? '';
-  } catch {
-    return '';
-  }
-}
+import { verifySurfaceKey, type VerifySurfaceRequest } from '@/shared/verify-surface';
 
 export const App: Component = () => {
-  const c = controller;
+  let ownWindowId: number | undefined;
+  const c = createVerifyController({ ownerWindowId: () => ownWindowId });
+  onCleanup(c.dispose);
+  const [verifierId, setVerifierId] = createSignal('');
+  const params = new URLSearchParams(window.location.search);
+  const isPopup = params.get('surface') === 'popup';
   const view = c.view;
   const [missing, setMissing] = createSignal(false);
   const [redirecting, setRedirecting] = createSignal(false);
@@ -34,34 +26,71 @@ export const App: Component = () => {
   const [booted, setBooted] = createSignal(false);
   let rootEl!: HTMLDivElement;
 
-  let autoCloseTimer: ReturnType<typeof setTimeout> | undefined;
-  const clearAutoClose = (): void => {
-    if (autoCloseTimer === undefined) return;
-    clearTimeout(autoCloseTimer);
-    autoCloseTimer = undefined;
-  };
-  onCleanup(clearAutoClose);
+  const [surfaceError, setSurfaceError] = createSignal('');
   const closeWindow = (): void => {
-    clearAutoClose();
-    void Promise.race([
-      sendVerifyMessage({ action: 'returnFromVerifyWindow', windowId: ownWindowId }).catch(
-        () => undefined,
-      ),
-      new Promise((resolve) => setTimeout(resolve, RETURN_ACK_DEADLINE_MS)),
-    ]).finally(() => window.close());
+    void sendVerifyMessage({ action: 'returnFromVerifyWindow', windowId: ownWindowId })
+      .then(async () => {
+        if (isPopup) {
+          window.close();
+          return;
+        }
+        const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & {
+          close?: (options: { windowId: number }) => Promise<void>;
+        };
+        if (ownWindowId !== undefined && sidePanel.close) {
+          await sidePanel.close({ windowId: ownWindowId });
+        }
+      })
+      .catch(() => setSurfaceError('Could not return to your page. Please try again.'));
   };
 
-  onMount(async () => {
-    ownWindowId = (await chrome.windows.getCurrent().catch(() => undefined))?.id;
+  const selectRequest = (request?: VerifySurfaceRequest, restoring = false): void => {
+    const id = c.state()?.proofProgress?.verifierId ?? request?.verifierId ?? '';
+    const resolved = resolvePlaceholderTaskId(id, c.tasks());
+    setVerifierId(resolved);
+    setMissing(Boolean(id) && !c.taskById(resolved));
+    setPermissionNotice(undefined);
+    setRedirecting(false);
+    if (c.state()?.proofProgress) {
+      c.showActiveOrHub();
+      return;
+    }
+    c.goHub();
+    const result = c.state()?.lastResult;
+    if (
+      restoring &&
+      result?.verifierId === resolved &&
+      result.finishedAt &&
+      result.finishedAt >= (request?.requestedAt ?? 0)
+    )
+      return;
+    if (resolved && c.taskById(resolved)) c.openConsent(resolved);
+  };
 
-    const unsubscribeSession = sessionItem.watch(() => {
-      setRedirecting(false);
-      void c.refresh();
+  onMount(() => {
+    let disposed = false;
+    onCleanup(() => {
+      disposed = true;
     });
-    onCleanup(unsubscribeSession);
-
+    onCleanup(
+      sessionItem.watch(() => {
+        setRedirecting(false);
+        void c.refresh();
+      }),
+    );
     onCleanup(lastResultItem.watch(() => void c.refresh()));
     onCleanup(activeProofProgressItem.watch(() => void c.refresh()));
+
+    const onStorage = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ): void => {
+      if (area !== 'session' || ownWindowId === undefined || !booted()) return;
+      const change = changes[verifySurfaceKey(ownWindowId)];
+      if (change) selectRequest(change.newValue as VerifySurfaceRequest | undefined);
+    };
+    chrome.storage.onChanged.addListener(onStorage);
+    onCleanup(() => chrome.storage.onChanged.removeListener(onStorage));
 
     const onWindowFocus = (): void => {
       setRedirecting(false);
@@ -78,22 +107,20 @@ export const App: Component = () => {
     mql.addEventListener('change', applyTheme);
     onCleanup(() => mql.removeEventListener('change', applyTheme));
 
-    try {
+    void (async () => {
+      const ownerWindowId = Number(params.get('ownerWindowId'));
+      ownWindowId =
+        isPopup && Number.isInteger(ownerWindowId) && ownerWindowId > 0
+          ? ownerWindowId
+          : (await chrome.windows.getCurrent())?.id;
       await c.bootstrap();
-      const verifierId = verifierIdFromUrl();
-
-      if (c.state()?.proofProgress) {
-        c.showActiveOrHub();
-        return;
-      }
-
-      const resolvedId = verifierId ? resolvePlaceholderTaskId(verifierId, c.tasks()) : '';
-      const task = resolvedId ? c.taskById(resolvedId) : undefined;
-      if (task) c.openConsent(task.id);
-      else setMissing(true);
-    } finally {
+      if (disposed || ownWindowId === undefined) return;
+      const key = verifySurfaceKey(ownWindowId);
+      const stored = await chrome.storage.session.get(key);
+      if (disposed) return;
+      selectRequest(stored[key] as VerifySurfaceRequest | undefined, true);
       setBooted(true);
-    }
+    })().catch(() => setSurfaceError('Could not load verification. Please reopen verification.'));
   });
 
   const [permissionNotice, setPermissionNotice] = createSignal<string | undefined>(undefined);
@@ -126,36 +153,27 @@ export const App: Component = () => {
 
   const ownResult = () => {
     const result = c.state()?.lastResult;
-    return result &&
-      typeof result.finishedAt === 'number' &&
-      result.verifierId === verifierIdFromUrl()
+    return result && typeof result.finishedAt === 'number' && result.verifierId === verifierId()
       ? result
       : undefined;
   };
-  const ownTask = () => c.taskById(verifierIdFromUrl());
+  const ownTask = () => c.taskById(verifierId());
   const finishedKind = (): ResultKind => {
     const error = ownResult()?.error;
     return error ? resultKindForError(error.code) : 'verified';
   };
 
-  const verifiedNow = (): boolean =>
-    view().name === 'result'
-      ? kind() === 'verified'
-      : booted() &&
-        !missing() &&
-        view().name === 'hub' &&
-        ownResult() !== undefined &&
-        finishedKind() === 'verified';
-
-  createEffect(() => {
-    if (!verifiedNow() || autoCloseTimer !== undefined) return;
-    autoCloseTimer = setTimeout(closeWindow, VERIFIED_AUTO_CLOSE_MS);
-  });
-
   return (
     <div class="kv-root kv-panel kv-window-shell" ref={rootEl}>
-      {}
       <div class="kv-body">
+        <Show when={surfaceError() || c.bootError()}>
+          <p class="kv-error-text" role="alert">
+            {surfaceError() || c.bootError()}
+          </p>
+        </Show>
+        <Show when={!booted() && !surfaceError() && !c.bootError()}>
+          <p>Loading verification…</p>
+        </Show>
         <Show when={missing()}>
           <p class="kv-error-text" style={{ 'margin-top': '12px' }}>
             This verification is not available.
@@ -200,13 +218,13 @@ export const App: Component = () => {
           />
         </Show>
 
-        {}
         <Show when={booted() && !missing() && view().name === 'hub'}>
           <Show
             when={ownResult()}
             fallback={
               <p class="kv-error-text" style={{ 'margin-top': '12px' }}>
-                No verification is running. You can close this window.
+                Select Verify in the Verification Hub to start. You can close this side panel at any
+                time.
               </p>
             }
           >
@@ -227,8 +245,9 @@ export const App: Component = () => {
         </Show>
       </div>
 
-      {}
-      <PoweredByPrimus />
+      <Show when={ownTask()?.meta.kind !== 'server_read'}>
+        <PoweredByPrimus />
+      </Show>
     </div>
   );
 };

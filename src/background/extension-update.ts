@@ -5,8 +5,6 @@ const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const PENDING_UPDATE_ALARM = 'kaito-pending-update';
 const PENDING_UPDATE_RETRY_MINUTES = 2;
 
-// A reload that does not install the pending update would be retried forever,
-// and Chrome throttles an extension that reloads in a loop.
 const MAX_APPLY_ATTEMPTS = 3;
 
 const BLOCKING_CONTEXT_TYPES = [
@@ -58,8 +56,6 @@ async function hasOpenExtensionView(): Promise<boolean> {
   }
 }
 
-// Reloading orphans the content scripts already running in a page, so hold off
-// while the user is looking at one of them.
 async function hasFocusedInjectedTab(): Promise<boolean> {
   const matches = (chrome.runtime.getManifest().content_scripts ?? []).flatMap(
     (entry) => entry.matches ?? [],

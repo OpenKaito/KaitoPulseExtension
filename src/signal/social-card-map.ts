@@ -1,5 +1,7 @@
 import type {
   BadgeItem,
+  FomoBlock,
+  FomoWirePosition,
   HoverCardCategory,
   HoverCardResult,
   HoverCardSmartFollowers,
@@ -9,24 +11,44 @@ import type {
   HyperliquidPnlPeriod,
   PolymarketBlock,
   PolymarketPnlPeriod,
+  PumpfunBlock,
+  PumpfunWireHolding,
 } from '@/shared/social-card';
 import type {
+  AccountPlatformSummary,
+  AccountProtocol,
   AccountValueTotal,
   AllTimePnlTotal,
   ChartPoint,
+  TokenAccount,
+  TokenPlatformSummary,
+  TokenProtocol,
   HoverCardStatsView,
   HyperliquidAccount,
   HyperliquidSummary,
   NameTagEntry,
   PolymarketAccount,
+  PlatformAccountChip,
+  PlatformMetrics,
   PopoverTotals,
   PredictionSummary,
+  ReferralTotals,
   SignalPopoverData,
+  SignalProtocol,
   SmartFollowerStat,
+  TokenPosition,
   UserInfoData,
 } from './types';
 import { accountSizeTierFromBucket, formatAccountSize } from '@/shared/account-size';
 import { PROTOCOL_LABEL } from './protocol-labels';
+import {
+  SIGNAL_PROTOCOLS,
+  isSignalProtocol,
+  isSnapshotPlatform,
+  platformCategory,
+} from './platforms';
+import { tokenProfileUrl } from './shared/links';
+import type { AccountChip } from './shared/cards';
 import {
   NO_TOTAL,
   abs,
@@ -34,13 +56,26 @@ import {
   compact,
   count,
   countOrDash,
+  dataAsOfLabel,
   formatJoined,
+  attestedPositionRow,
+  tierLabel,
   perpPositionRow,
+  points,
   predictionMarketRow,
   truncateAddress,
+  usdSigned,
   usd,
 } from './shared/format';
-import { ANONYMOUS_WALLET_LABEL, accountsHeading } from './shared/stat-labels';
+import {
+  ACCOUNT_VALUE_LABEL,
+  ANONYMOUS_ACCOUNT_LABEL,
+  ANONYMOUS_WALLET_LABEL,
+  BUY_VOLUME_LABEL,
+  POSITIONS_COUNT_LABEL,
+  POSITIONS_VALUE_LABEL,
+  accountsHeading,
+} from './shared/stat-labels';
 
 export function badgeToNameTagEntries(badge: BadgeItem | null): NameTagEntry[] {
   if (!badge) return [];
@@ -54,6 +89,15 @@ export function badgeToNameTagEntries(badge: BadgeItem | null): NameTagEntry[] {
     entries.push({ protocol: 'polymarket', positionsCount: n > 0 ? n : null });
   }
 
+  if (badge.platforms.fomo) {
+    const n = badge.platforms.fomoPositions ?? 0;
+    entries.push({ protocol: 'fomo', positionsCount: n > 0 ? n : null });
+  }
+
+  if (badge.platforms.pumpfun) {
+    const n = badge.platforms.pumpfunPositions ?? 0;
+    entries.push({ protocol: 'pumpfun', positionsCount: n > 0 ? n : null });
+  }
   return entries;
 }
 
@@ -92,7 +136,12 @@ function mapPolymarketPreview(
 
   const profileHandle = pm.profile.name ?? pm.profile.pseudonym ?? null;
   return {
-    name: profileHandle ?? (wallet ? walletChipLabel(wallet) : ''),
+    name:
+      profileHandle != null && !isGeneratedAddressName(profileHandle)
+        ? profileHandle
+        : wallet
+          ? walletChipLabel(wallet)
+          : '',
     address: wallet?.address ?? null,
     profileHandle,
     avatarUrl: pm.profile.avatar,
@@ -137,7 +186,7 @@ function platformCharts(
   const charts: Record<string, ChartPoint[]> = {};
   let points = 0;
   for (const [label, wire] of windows) {
-    charts[label] = chartPoints(served[wire], label);
+    charts[label] = chartPoints(served[wire] ?? served[wire.toUpperCase()] ?? served[label], label);
     points += charts[label].length;
   }
   return points > 0 ? charts : null;
@@ -175,9 +224,13 @@ function walletChipLabel(wallet: HoverCardWallet): string {
     : `${ANONYMOUS_WALLET_LABEL} ${wallet.ordinal}`;
 }
 
+export function isGeneratedAddressName(name: string | null | undefined): boolean {
+  return name != null && /^0x[0-9a-fA-F]{40}(-\d+)?$/.test(name.trim());
+}
+
 function walletDisplayName(wallet: HoverCardWallet): string {
   const served = wallet.address == null ? '' : (wallet.displayName ?? '');
-  return served.length > 0 ? served : walletChipLabel(wallet);
+  return served.length > 0 && !isGeneratedAddressName(served) ? served : walletChipLabel(wallet);
 }
 
 function walletAvatarUrl(wallet: HoverCardWallet): string | undefined {
@@ -223,6 +276,10 @@ function chipOnlyPolymarketAccount(wallet: HoverCardWallet): PolymarketAccount {
     positionsTotal: 0,
     markets: [],
   };
+}
+
+function chipCount(accounts: unknown[], platformTotal: HoverCardPlatformTotal | undefined): number {
+  return Math.max(accounts.length, platformTotal?.totalAccounts ?? 0);
 }
 
 function platformFigure(served: number | null | undefined): { text: string; negative: boolean } {
@@ -297,6 +354,7 @@ function mapHyperliquid(
       heading: preview?.addressShort ?? accounts[0]?.addressShort ?? PROTOCOL_LABEL.hyperliquid,
       aggregate: false,
       accounts,
+      accountCount: accounts.length,
       accountValue: preview?.accountValue ?? NO_TOTAL,
       profitLoss: preview?.profitLoss ?? NO_TOTAL,
       profitLossNegative: preview?.profitLossNegative ?? false,
@@ -310,11 +368,13 @@ function mapHyperliquid(
   const value = platformFigure(platformTotal.valueUsd);
   const pnl = platformFigure(platformTotal.pnlUsd);
   const upnl = platformFigure(platformTotal.upnlUsd);
+  const chips = chipCount(accounts, platformTotal);
 
   return {
-    heading: accountsHeading(platformTotal.totalAccounts, PROTOCOL_LABEL.hyperliquid),
+    heading: accountsHeading(chips, PROTOCOL_LABEL.hyperliquid),
     aggregate: true,
     accounts,
+    accountCount: chips,
     accountValue: value.text,
     profitLoss: pnl.text,
     profitLossNegative: pnl.negative,
@@ -364,6 +424,7 @@ function mapPolymarket(
       heading: preview?.name || accounts[0]?.name || PROTOCOL_LABEL.polymarket,
       aggregate: false,
       accounts,
+      accountCount: accounts.length,
       positionsValue: preview?.positionsValue ?? NO_TOTAL,
       profitLoss: preview?.profitLoss ?? NO_TOTAL,
       profitLossNegative: preview?.profitLossNegative ?? false,
@@ -375,11 +436,13 @@ function mapPolymarket(
 
   const value = platformFigure(platformTotal.valueUsd);
   const pnl = platformFigure(platformTotal.pnlUsd);
+  const chips = chipCount(accounts, platformTotal);
 
   return {
-    heading: accountsHeading(platformTotal.totalAccounts, PROTOCOL_LABEL.polymarket),
+    heading: accountsHeading(chips, PROTOCOL_LABEL.polymarket),
     aggregate: true,
     accounts,
+    accountCount: chips,
     positionsValue: value.text,
     profitLoss: pnl.text,
     profitLossNegative: pnl.negative,
@@ -393,7 +456,229 @@ function mapFollowerCategory(category: HoverCardCategory): SmartFollowerStat {
   return {
     label: category.label,
     value: countOrDash(category.count),
-    rank: category.rank == null ? undefined : `#${category.rank}`,
+    rank: category.rank == null || category.count === 0 ? undefined : `#${category.rank}`,
+  };
+}
+
+export function tokenRow(t: FomoWirePosition | PumpfunWireHolding): TokenPosition {
+  const basis = t.costBasis ?? 0;
+  const unrealized = t.unrealizedPnl;
+  const pct = unrealized != null && basis > 0 ? (unrealized / basis) * 100 : null;
+  return {
+    symbol: t.symbol,
+    iconUrl: t.icon,
+
+    supply: `${compact(t.amount)} ${t.symbol}`,
+    value: usd(t.value),
+    pnl: unrealized == null ? '-' : usdSigned(unrealized),
+    changePct: pct == null ? '' : `${Math.abs(pct).toFixed(2)}%`,
+    changeNegative: unrealized != null && unrealized < 0,
+  };
+}
+
+function fomoPreview(fomo: FomoBlock, pnlAllTime: number | null): TokenAccount {
+  const handle = fomo.profile.handle ?? '';
+  return {
+    name: fomo.profile.name ?? handle,
+    avatarUrl: fomo.profile.avatar,
+    meta: handle ? `@${handle}` : '',
+    bio: fomo.profile.bio ?? '',
+    profileUrl: tokenProfileUrl('fomo', handle),
+    anonymous: false,
+    hasDetail: true,
+    hasPositions: fomo.positionsCount > 0,
+    accountValue: usd(fomo.equity),
+    profitLoss: pnlAllTime == null ? NO_TOTAL : usd(pnlAllTime),
+    profitLossNegative: pnlAllTime != null && pnlAllTime < 0,
+    trades: count(fomo.trades),
+    positionsTotal: fomo.positionsCount,
+    tokens: fomo.positions.map(tokenRow),
+  };
+}
+
+function pumpfunPreview(pump: PumpfunBlock): TokenAccount {
+  const handle = pump.profile?.twitterHandle ?? '';
+  const name = pump.profile?.name ?? '';
+  return {
+    name: name.length > 0 ? name : truncateAddress(pump.address),
+    address: pump.address,
+    avatarUrl: pump.profile?.avatar,
+    meta: handle ? `@${handle}` : '',
+    bio: pump.profile?.bio ?? '',
+    profileUrl: tokenProfileUrl('pumpfun', pump.address),
+    anonymous: false,
+    hasDetail: true,
+    hasPositions: pump.positionsCount > 0,
+    accountValue: pump.accountValue == null ? NO_TOTAL : usd(pump.accountValue),
+    profitLoss: NO_TOTAL,
+    profitLossNegative: false,
+    trades: NO_TOTAL,
+    positionsTotal: pump.positionsCount,
+    tokens: pump.positions.map(tokenRow),
+  };
+}
+
+function chipOnlyTokenAccount(protocol: TokenProtocol, wallet: HoverCardWallet): TokenAccount {
+  const served = wallet.address == null ? '' : (wallet.displayName ?? '');
+  return {
+    name: served.length > 0 ? served : walletChipLabel(wallet),
+    address: protocol === 'pumpfun' ? (wallet.address ?? undefined) : undefined,
+    avatarUrl: walletAvatarUrl(wallet),
+    meta: '',
+    bio: '',
+    profileUrl: protocol === 'pumpfun' ? tokenProfileUrl(protocol, wallet.address) : undefined,
+    anonymous: wallet.address == null,
+    hasDetail: false,
+    hasPositions: wallet.hasPositions === true,
+    accountValue: NO_TOTAL,
+    profitLoss: NO_TOTAL,
+    profitLossNegative: false,
+    trades: NO_TOTAL,
+    positionsTotal: 0,
+    tokens: [],
+  };
+}
+
+export function tokenPlatformChips(accounts: TokenAccount[]): AccountChip[] {
+  return accounts.map((a) => ({
+    label: a.name,
+    avatarUrl: a.avatarUrl,
+    hasPositions: a.hasPositions,
+    profileUrl: a.profileUrl,
+  }));
+}
+
+function previewIndex(published: HoverCardWallet[], address: string | null): number {
+  if (address == null) return 0;
+  const found = published.findIndex((w) => w.address === address);
+  return found === -1 ? 0 : found;
+}
+
+function mapTokenPlatform(
+  protocol: TokenProtocol,
+  preview: TokenAccount | null,
+  previewAddress: string | null,
+  wallets: HoverCardWallet[] | undefined,
+  platformTotal: HoverCardPlatformTotal | undefined,
+): TokenPlatformSummary | undefined {
+  const pnl = platformTotal?.pnlUsd ?? null;
+
+  const published = wallets == null ? null : publishedWallets(protocol, wallets);
+  const at = published == null ? 0 : previewIndex(published, previewAddress);
+
+  const accounts: TokenAccount[] =
+    published == null || published.length === 0
+      ? preview
+        ? [preview]
+        : []
+      : published.map((wallet, i) =>
+          i === at && preview ? preview : chipOnlyTokenAccount(protocol, wallet),
+        );
+
+  if (platformTotal == null && accounts.length === 0) return undefined;
+
+  const totalAccounts = platformTotal?.totalAccounts ?? accounts.length;
+  const single = totalAccounts <= 1;
+  const chips = chipCount(accounts, platformTotal);
+  const value = single
+    ? (preview?.accountValue ?? NO_TOTAL)
+    : platformFigure(platformTotal?.valueUsd).text;
+
+  return {
+    protocol,
+    heading: single
+      ? (preview?.name ?? accounts[0]?.name ?? PROTOCOL_LABEL[protocol])
+      : accountsHeading(chips, PROTOCOL_LABEL[protocol]),
+    aggregate: !single,
+    accounts,
+    accountCount: chips,
+    valueLabel: single ? ACCOUNT_VALUE_LABEL : POSITIONS_VALUE_LABEL,
+    accountValue: value,
+    profitLoss: pnl == null ? NO_TOTAL : usd(pnl),
+    profitLossNegative: pnl != null && pnl < 0,
+    countLabel: protocol === 'pumpfun' ? BUY_VOLUME_LABEL : POSITIONS_COUNT_LABEL,
+    trades:
+      protocol === 'pumpfun'
+        ? platformTotal?.buyVolume == null
+          ? NO_TOTAL
+          : usd(platformTotal.buyVolume)
+        : fomoPositionsCount(platformTotal, preview),
+    positionsTotal: preview?.positionsTotal ?? 0,
+    positionsFooter: protocol === 'fomo' ? 'slice' : 'affordance',
+  };
+}
+
+function fomoPositionsCount(
+  platformTotal: HoverCardPlatformTotal | undefined,
+  preview: TokenAccount | null,
+): string {
+  const n = platformTotal?.positionsCount ?? preview?.positionsTotal;
+  return n == null ? NO_TOTAL : count(n);
+}
+
+function accountPlatformCharts(
+  served: HoverCardPlatformTotal['pnlSeries'] | undefined,
+): Record<string, ChartPoint[]> {
+  if (served == null) return {};
+  const charts: Record<string, ChartPoint[]> = {};
+  for (const label of HYPERLIQUID_PERIODS) {
+    const points = served[label] ?? served[label.toLowerCase()];
+    if (points && points.length > 0) charts[label] = chartPoints(points, label);
+  }
+  return charts;
+}
+
+function accountChip(wallet: HoverCardWallet): PlatformAccountChip {
+  const anonymous = wallet.address == null;
+  const label = anonymous
+    ? wallet.maskedAccountId
+      ? wallet.maskedAccountId
+      : wallet.ordinal == null
+        ? ANONYMOUS_ACCOUNT_LABEL
+        : `${ANONYMOUS_ACCOUNT_LABEL} ${wallet.ordinal}`
+    : walletDisplayName(wallet);
+  return {
+    label,
+    address: wallet.address,
+    anonymous,
+    hasPositions: wallet.hasPositions === true,
+    ...(wallet.positions ? { positions: wallet.positions.map(attestedPositionRow) } : {}),
+    ...(wallet.tier ? { tier: tierLabel(wallet.tier) } : {}),
+  };
+}
+
+export function mapAccountPlatform(
+  protocol: AccountProtocol,
+  wallets: HoverCardWallet[] | undefined,
+  platformTotal: HoverCardPlatformTotal | undefined,
+): AccountPlatformSummary | undefined {
+  const accounts = publishedWallets(protocol, wallets).map(accountChip);
+  if (platformTotal == null && accounts.length === 0) return undefined;
+
+  const chips = chipCount(accounts, platformTotal);
+  const aggregate = chips > 1;
+  const value = platformFigure(platformTotal?.valueUsd);
+  const pnl = platformFigure(platformTotal?.pnlUsd);
+  const upnl = platformFigure(platformTotal?.upnlUsd);
+  const label = PROTOCOL_LABEL[protocol];
+
+  return {
+    protocol,
+    heading: aggregate ? accountsHeading(chips, label) : (accounts[0]?.label ?? label),
+    aggregate,
+    accounts,
+    accountCount: chips,
+    accountValue: value.text,
+    profitLoss: pnl.text,
+    profitLossNegative: pnl.negative,
+    upnl: upnl.text,
+    upnlNegative: upnl.negative,
+    charts: accountPlatformCharts(platformTotal?.pnlSeries),
+    positionsCount: platformTotal?.positionsCount ?? null,
+    ...(platformTotal?.points != null ? { points: points(platformTotal.points) } : {}),
+    dataAsOf: isSnapshotPlatform(protocol, platformTotal?.source)
+      ? dataAsOfLabel(platformTotal?.dataAsOf)
+      : undefined,
   };
 }
 
@@ -419,8 +704,26 @@ function mapFollowerCount(
     : { label, value: count(raw) };
 }
 
+function inDisplayOrder(platforms: readonly string[]): string[] {
+  const rank = (platform: string) => {
+    const index = (SIGNAL_PROTOCOLS as readonly string[]).indexOf(platform);
+    return index === -1 ? SIGNAL_PROTOCOLS.length : index;
+  };
+  return platforms
+    .map((platform, index) => ({ platform, index }))
+    .sort((a, b) => rank(a.platform) - rank(b.platform) || a.index - b.index)
+    .map((entry) => entry.platform);
+}
+
+function totalPnlText(pnl: number): string {
+  const magnitude = Math.abs(pnl);
+  const money = `$${abs(pnl, magnitude > 0 && magnitude < 1 ? 2 : 0)}`;
+  if (pnl === 0) return money;
+  return `${pnl < 0 ? '-' : '+'}${money}`;
+}
+
 function mapTotals(result: HoverCardResult): PopoverTotals | undefined {
-  const platforms = result.tradingPlatforms ?? [];
+  const platforms = inDisplayOrder(result.tradingPlatforms ?? []);
   const tier = accountSizeTierFromBucket(result.accountValue?.bucket);
   const pnl = result.allTimePnl?.value;
 
@@ -430,16 +733,16 @@ function mapTotals(result: HoverCardResult): PopoverTotals | undefined {
       : {
           tier,
           label: formatAccountSize(tier),
-          platforms: result.accountValue?.platforms ?? platforms,
+          platforms: inDisplayOrder(result.accountValue?.platforms ?? platforms),
         };
 
   const allTimePnl: AllTimePnlTotal | undefined =
     pnl == null
       ? undefined
       : {
-          text: `${result.allTimePnl?.fxApproximate ? '≈' : ''}${pnl < 0 ? '-' : '+'}$${abs(pnl, 0)}`,
+          text: `${result.allTimePnl?.fxApproximate ? '≈' : ''}${totalPnlText(pnl)}`,
           direction: pnl === 0 ? 'flat' : pnl < 0 ? 'loss' : 'gain',
-          platforms: result.allTimePnl?.platforms ?? platforms,
+          platforms: inDisplayOrder(result.allTimePnl?.platforms ?? platforms),
           coverage: result.allTimePnl
             ? { covered: result.allTimePnl.coveredAccounts, total: result.allTimePnl.totalAccounts }
             : undefined,
@@ -447,6 +750,34 @@ function mapTotals(result: HoverCardResult): PopoverTotals | undefined {
 
   if (accountValue == null && allTimePnl == null && platforms.length === 0) return undefined;
   return { accountValue, allTimePnl, platforms };
+}
+
+function mapReferralTotals(result: HoverCardResult): ReferralTotals | undefined {
+  const referral = result.referral;
+  if (!referral) return undefined;
+  const servedBy = (key: 'referredUsers' | 'referredVolume') =>
+    inDisplayOrder(
+      referral.platforms.filter((entry) => entry[key] != null).map((entry) => entry.platform),
+    );
+  const out: ReferralTotals = {
+    ...(referral.referredUsers != null
+      ? {
+          referredUsers: {
+            text: count(referral.referredUsers),
+            platforms: servedBy('referredUsers'),
+          },
+        }
+      : {}),
+    ...(referral.referredVolume != null
+      ? {
+          referredVolume: {
+            text: usd(referral.referredVolume, 0),
+            platforms: servedBy('referredVolume'),
+          },
+        }
+      : {}),
+  };
+  return out.referredUsers || out.referredVolume ? out : undefined;
 }
 
 function platformTotal(
@@ -490,7 +821,35 @@ export function hoverCardToPopoverData(result: HoverCardResult): SignalPopoverDa
       result.tradingWallets,
       platformTotal(result, 'polymarket'),
     ),
+    fomo: mapTokenPlatform(
+      'fomo',
+      result.fomo ? fomoPreview(result.fomo, platformTotal(result, 'fomo')?.pnlUsd ?? null) : null,
+      null,
+      result.tradingWallets,
+      platformTotal(result, 'fomo'),
+    ),
+    pumpfun: mapTokenPlatform(
+      'pumpfun',
+      result.pumpfun ? pumpfunPreview(result.pumpfun) : null,
+      result.pumpfun?.address ?? null,
+      result.tradingWallets,
+      platformTotal(result, 'pumpfun'),
+    ),
+    binance: mapAccountPlatform('binance', result.tradingWallets, platformTotal(result, 'binance')),
+    okx: mapAccountPlatform('okx', result.tradingWallets, platformTotal(result, 'okx')),
+    bybit: mapAccountPlatform('bybit', result.tradingWallets, platformTotal(result, 'bybit')),
+    variational: mapAccountPlatform(
+      'variational',
+      result.tradingWallets,
+      platformTotal(result, 'variational'),
+    ),
+    lighter: mapAccountPlatform('lighter', result.tradingWallets, platformTotal(result, 'lighter')),
+    platformMetrics: platformMetricsByPlatform(result),
+    platformCategories: Object.fromEntries(
+      SIGNAL_PROTOCOLS.map((p) => [p, platformCategory(p, platformTotal(result, p)?.category)]),
+    ),
     totals: mapTotals(result),
+    referralTotals: mapReferralTotals(result),
   };
 }
 
@@ -513,4 +872,26 @@ export function hoverCardToUserInfoData(result: HoverCardResult): UserInfoData {
       name: f.name,
     })),
   };
+}
+
+export function platformMetricsByPlatform(
+  result: Pick<HoverCardResult, 'referral' | 'points' | 'tradingPlatformTotals'>,
+): Partial<Record<SignalProtocol, PlatformMetrics>> | undefined {
+  const out: Partial<Record<SignalProtocol, PlatformMetrics>> = {};
+  const put = (platform: string, patch: PlatformMetrics) => {
+    if (!isSignalProtocol(platform)) return;
+    out[platform] = { ...out[platform], ...patch };
+  };
+  for (const entry of result.referral?.platforms ?? []) {
+    put(entry.platform, {
+      ...(entry.referredUsers != null ? { referredTraders: count(entry.referredUsers) } : {}),
+      ...(entry.referredVolume != null ? { referredVolume: usd(entry.referredVolume, 0) } : {}),
+    });
+  }
+  for (const total of result.tradingPlatformTotals ?? []) {
+    if (total.points != null) put(total.platform, { points: points(total.points) });
+  }
+  for (const entry of result.points ?? []) put(entry.platform, { points: points(entry.points) });
+  const filled = Object.entries(out).filter(([, m]) => m && Object.keys(m).length > 0);
+  return filled.length > 0 ? Object.fromEntries(filled) : undefined;
 }

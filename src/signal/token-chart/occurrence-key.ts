@@ -41,11 +41,6 @@ export function toOccurrenceResponseKey(cashtag: string, tweetId?: string | null
   return JSON.stringify([cashtag, tweetId ?? null]);
 }
 
-/**
- * BFF currently echoes only `(cashtag, tweetId)`. If one batch contains different evidence
- * under that same response identity, the client cannot safely map either result back to its
- * anchor. Mark the whole response key as conflicting so the caller can fail closed.
- */
 export function conflictingOccurrenceResponseKeys(
   occurrences: OccurrenceCacheIdentity[],
 ): Set<string> {

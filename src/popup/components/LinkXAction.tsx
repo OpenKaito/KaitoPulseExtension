@@ -2,7 +2,7 @@ import { createSignal, type Component } from 'solid-js';
 import { XLogoIcon } from '@/verify/ui/icons';
 import { sendKaitoMessage } from '@/signal/messaging';
 import { buildLinkTwitterUrl } from '@/verify/controller';
-import artwork from '../assets/link-x-artwork.png';
+import artwork from '../assets/link-x-artwork.webp';
 
 export const LinkXAction: Component<{ surface: string }> = (props) => {
   const [busy, setBusy] = createSignal(false);

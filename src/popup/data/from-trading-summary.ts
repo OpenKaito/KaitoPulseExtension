@@ -1,12 +1,22 @@
-import type { TradingAccount, TradingSummaryResponse } from '@/shared/trading-summary';
+import type {
+  TradingAccount,
+  TradingPlatformSubtotal,
+  TradingSummaryResponse,
+} from '@/shared/trading-summary';
 import { isPerpOnlyPnl, pnlUsdOf } from '@/shared/trading-summary';
 import type { HoverCardResult } from '@/shared/social-card';
+import {
+  REFERRAL_PROGRAM_PLATFORMS,
+  referralAccountKey,
+  type ReferralAccountRow,
+  type ReferralSummaryResponse,
+} from '@/shared/referral-summary';
 import { accountSizeTierFromBucket } from '@/shared/account-size';
 import {
+  accountLabelFor,
   formatJoined,
   platformBrandColor,
   platformDisplayName,
-  shortenAddress,
 } from '../format/platforms';
 import { epochOf, formatCalculated } from '../format/time';
 import {
@@ -35,17 +45,53 @@ function profileFor(
   };
 }
 
+const NAMED_ACCOUNT_PLATFORMS = new Set(['polymarket', 'fomo']);
+
+export function accountLabel(
+  account: Pick<TradingAccount, 'platform' | 'accountId' | 'displayName'>,
+): string {
+  const name = account.displayName?.trim();
+  return name && NAMED_ACCOUNT_PLATFORMS.has(account.platform)
+    ? name
+    : accountLabelFor(account.platform, account.accountId);
+}
+
+function referralOf(
+  account: TradingAccount,
+  rows: ReadonlyMap<string, ReferralAccountRow> | undefined,
+): Pick<IncludedAccount, 'referral' | 'referralVerifiable'> {
+  if (!REFERRAL_PROGRAM_PLATFORMS.has(account.platform)) return {};
+  const row = rows?.get(referralAccountKey(account.platform, account.accountId));
+  if (row && (row.referredUsers != null || row.referredVolume != null)) {
+    return { referral: { users: row.referredUsers, volume: row.referredVolume } };
+  }
+  return rows ? { referralVerifiable: true } : {};
+}
+
+function pointsOf(account: TradingAccount): Pick<IncludedAccount, 'points'> {
+  const tier = account.tier?.name?.trim() || null;
+  if (account.points == null && !tier) return {};
+  return { points: { total: account.points ?? null, tier } };
+}
+
+function allPointsOf(account: TradingAccount): Pick<IncludedAccount, 'allPoints'> {
+  const tier = account.tier?.name?.trim() ? account.tier : null;
+  if (account.points == null && !tier) return {};
+  return { allPoints: { total: account.points ?? null, tier } };
+}
+
 function toIncludedAccount(
   account: TradingAccount,
   card: HoverCardResult | undefined,
   polymarketAccounts: number,
+  referralRows?: ReadonlyMap<string, ReferralAccountRow>,
 ): IncludedAccount {
   const pnlUsd = pnlUsdOf(account);
   return {
     platform: account.platform,
     displayName: platformDisplayName(account.platform),
     brandColor: platformBrandColor(account.platform),
-    accountLabel: shortenAddress(account.accountId),
+    accountLabel: accountLabel(account),
     accountId: account.accountId,
     profile: profileFor(account.platform, card, polymarketAccounts),
     valueLabel: account.valueLabel,
@@ -63,6 +109,10 @@ function toIncludedAccount(
     nativePnlAmount: pnlUsd == null ? formatNativePnl(account) : null,
     fxApproximate: account.fxApproximate,
     publicOnX: account.publicOnX,
+    ...referralOf(account, referralRows),
+    ...pointsOf(account),
+    ...allPointsOf(account),
+    ...(account.origin === 'linked' ? { linked: true } : {}),
   };
 }
 
@@ -76,17 +126,61 @@ function agreed<T>(members: IncludedAccount[], pick: (account: IncludedAccount) 
   return members.every((account) => pick(account) === first) ? first : null;
 }
 
-function oldestTimestampLabel(members: IncludedAccount[]): string | null {
-  let oldest: IncludedAccount | undefined;
+function newestTimestampLabel(members: IncludedAccount[]): string | null {
+  let newest: IncludedAccount | undefined;
   for (const account of members) {
     const at = account.freshnessAt;
     if (at == null || !Number.isFinite(at)) continue;
-    if (!oldest || at < (oldest.freshnessAt as number)) oldest = account;
+    if (!newest || at > (newest.freshnessAt as number)) newest = account;
   }
-  return oldest?.timestampLabel ?? agreed(members, (account) => account.timestampLabel);
+  return newest?.timestampLabel ?? agreed(members, (account) => account.timestampLabel);
 }
 
-export function groupByPlatform(accounts: IncludedAccount[]): PlatformGroup[] {
+function groupReferral(
+  members: IncludedAccount[],
+): Pick<PlatformGroup, 'referral' | 'referralVerifiable'> {
+  const withReferral = members.filter((account) => account.referral && account.publicOnX === true);
+  if (withReferral.length > 0) {
+    return {
+      referral: {
+        users: sumOrNull(withReferral.map((account) => account.referral?.users ?? null)),
+        volume: sumOrNull(withReferral.map((account) => account.referral?.volume ?? null)),
+      },
+    };
+  }
+  return members.some((account) => account.referralVerifiable) ? { referralVerifiable: true } : {};
+}
+
+function bestTier(members: IncludedAccount[]): string | null {
+  let best: { name: string; pointsRate: number } | null = null;
+  for (const account of members) {
+    const tier = account.allPoints?.tier;
+    if (!tier) continue;
+    if (!best || tier.pointsRate > best.pointsRate) best = tier;
+  }
+  return best?.name.trim() ?? null;
+}
+
+function groupPoints(
+  members: IncludedAccount[],
+  subtotal: TradingPlatformSubtotal | undefined,
+): Pick<PlatformGroup, 'points'> {
+  const withPoints = members.filter((account) => account.allPoints);
+  const backendTotal = subtotal?.points ?? null;
+  if (withPoints.length === 0 && backendTotal == null) return {};
+  return {
+    points: {
+      total:
+        backendTotal ?? sumOrNull(withPoints.map((account) => account.allPoints?.total ?? null)),
+      tier: bestTier(withPoints),
+    },
+  };
+}
+
+export function groupByPlatform(
+  accounts: IncludedAccount[],
+  subtotals?: readonly TradingPlatformSubtotal[],
+): PlatformGroup[] {
   const order: string[] = [];
   const byPlatform = new Map<string, IncludedAccount[]>();
   for (const account of accounts) {
@@ -104,7 +198,20 @@ export function groupByPlatform(accounts: IncludedAccount[]): PlatformGroup[] {
     const head = members[0];
     const counted = members.filter((account) => account.includedInTotal);
 
-    const pnlLabel = agreed(members, (account) => account.pnlLabel);
+    const subtotal = subtotals?.find((row) => row.platform === platform);
+    const withPnl = members.filter((account) => account.pnl != null);
+    const pnlLabel = subtotal
+      ? subtotal.pnlUsd == null
+        ? null
+        : pnlLabelFor({ pnlBasis: subtotal.pnlBasis, pnlCoversFrom: subtotal.pnlCoversFrom })
+      : members.length === 1
+        ? members[0].pnlLabel
+        : null;
+    const groupPnl = subtotal ? subtotal.pnlUsd : members.length === 1 ? members[0].pnl : null;
+    const pnlCoverage =
+      subtotal && groupPnl != null && subtotal.pnlCoveredAccounts < subtotal.totalAccounts
+        ? `${subtotal.pnlCoveredAccounts} of ${subtotal.totalAccounts} accounts`
+        : null;
 
     const known = members.filter((account) => account.publicOnX !== undefined);
     return {
@@ -112,40 +219,47 @@ export function groupByPlatform(accounts: IncludedAccount[]): PlatformGroup[] {
       displayName: head.displayName,
       brandColor: head.brandColor,
       accounts: members,
+      accountCount: members.filter((account) => !account.linked).length,
       value: sumOrNull(counted.map((account) => account.value)),
 
-      pnl: pnlLabel == null ? null : sumOrNull(members.map((account) => account.pnl)),
+      pnl: groupPnl,
+      pnlCoverage,
 
-      fxApproximate: members.some((account) => account.fxApproximate),
+      fxApproximate: withPnl.some((account) => account.fxApproximate),
 
       valueLabel: agreed(members, (account) => account.valueLabel) ?? 'Value',
 
       pnlLabel: pnlLabel ?? 'P&L',
 
-      perpOnly: members.every((account) => account.perpOnly),
-      timestampLabel: oldestTimestampLabel(members),
+      perpOnly: withPnl.length > 0 && withPnl.every((account) => account.perpOnly),
+      timestampLabel: newestTimestampLabel(members),
       publicCount: known.length === 0 ? null : known.filter((account) => account.publicOnX).length,
+      ...groupReferral(members),
+      ...groupPoints(members, subtotal),
     };
   });
 }
 
-export function withTradingSummary(
+function headerTotals(
   base: PopupData,
-  summary: TradingSummaryResponse | undefined,
-  hoverCard: HoverCardResult | undefined,
-): PopupData {
-  if (!summary) return base;
-
-  const polymarketAccounts = summary.accounts.filter((a) => a.platform === 'polymarket').length;
-  const includedAccounts = summary.accounts.map((account) =>
-    toIncludedAccount(account, hoverCard, polymarketAccounts),
-  );
-
+  summary: TradingSummaryResponse,
+): Pick<PopupData, 'profile' | 'tradingCoverage'> {
+  if (summary.publicTotals !== undefined) {
+    const totals = summary.publicTotals;
+    return {
+      profile: {
+        ...base.profile,
+        accountSize: totals ? accountSizeTierFromBucket(totals.accountValue.bucket) : null,
+        accountValueUsd: null,
+        allTimePnlUsd: totals?.allTimePnl.value ?? null,
+        allTimePnlApproximate: totals?.allTimePnl.fxApproximate ?? false,
+      },
+      tradingCoverage: totals
+        ? { covered: totals.allTimePnl.coveredAccounts, total: totals.allTimePnl.totalAccounts }
+        : null,
+    };
+  }
   return {
-    ...base,
-    tradingOverview: {
-      calculatedLabel: formatCalculated(summary.calculatedAt),
-    },
     profile: {
       ...base.profile,
 
@@ -162,7 +276,36 @@ export function withTradingSummary(
       covered: summary.allTimePnl.coveredAccounts,
       total: summary.allTimePnl.totalAccounts,
     },
+  };
+}
+
+export function withTradingSummary(
+  base: PopupData,
+  summary: TradingSummaryResponse | undefined,
+  hoverCard: HoverCardResult | undefined,
+  referral?: ReferralSummaryResponse,
+): PopupData {
+  if (!summary) return base;
+
+  const polymarketAccounts = summary.accounts.filter((a) => a.platform === 'polymarket').length;
+  const referralRows = referral
+    ? new Map(
+        referral.accounts
+          .filter((row): row is ReferralAccountRow & { accountId: string } => row.accountId != null)
+          .map((row) => [referralAccountKey(row.platform, row.accountId), row]),
+      )
+    : undefined;
+  const includedAccounts = summary.accounts.map((account) =>
+    toIncludedAccount(account, hoverCard, polymarketAccounts, referralRows),
+  );
+
+  return {
+    ...base,
+    tradingOverview: {
+      calculatedLabel: formatCalculated(summary.calculatedAt),
+    },
+    ...headerTotals(base, summary),
     includedAccounts,
-    platformGroups: groupByPlatform(includedAccounts),
+    platformGroups: groupByPlatform(includedAccounts, summary.platforms),
   };
 }

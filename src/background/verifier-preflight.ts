@@ -5,8 +5,19 @@ import { readJsonFromVerifierPage, type RunAttestationOptions } from './primus-a
 
 type PreflightErrorCode = Extract<
   ProofErrorCode,
-  'third_party_login_required' | 'unsupported_account_type' | 'target_page_not_ready'
+  | 'third_party_login_required'
+  | 'unsupported_account_type'
+  | 'target_page_not_ready'
+  | 'account_mismatch'
+  | 'account_not_linked'
 >;
+
+export type VerifierPreflightOptions = Pick<
+  RunAttestationOptions,
+  'onTargetTab' | 'windowId' | 'forceCreateTab'
+> & {
+  linkedAccountId?: string | null;
+};
 
 export class VerifierPreflightError extends Error {
   readonly code: PreflightErrorCode;
@@ -22,7 +33,7 @@ export async function runVerifierPreflight(
   verifier: ExtensionVerifier,
   guideUrl: string,
   _template: PrimusTemplateMetadata | undefined,
-  options: Pick<RunAttestationOptions, 'onTargetTab'> = {},
+  options: VerifierPreflightOptions = {},
 ): Promise<void> {
   try {
     if (verifier.id === 'x_analytics_overview') {
@@ -41,10 +52,11 @@ export async function runVerifierPreflight(
 
 async function preflightXAnalytics(
   guideUrl: string,
-  options: Pick<RunAttestationOptions, 'onTargetTab'> = {},
+  options: VerifierPreflightOptions = {},
 ): Promise<void> {
   const result = await readJsonFromVerifierPage<{
     overview?: { ok?: boolean; status?: number; errors?: string[] };
+    viewerId?: string | null;
     reason?: string;
   }>(guideUrl, '__kaito_preflight_x_analytics__', options);
 
@@ -58,6 +70,7 @@ async function preflightXAnalytics(
   if (value.reason === 'not_signed_in') {
     throw new VerifierPreflightError('third_party_login_required', 'x_login_required');
   }
+  assertLinkedXAccount(value.viewerId, options.linkedAccountId);
   const overview = value.overview;
   if (!overview) {
     logDev('x analytics preflight inconclusive; overview not read');
@@ -74,5 +87,25 @@ async function preflightXAnalytics(
   }
   if (overview.ok !== true) {
     logDev('x analytics preflight inconclusive; overview non-ok', { status: overview.status });
+  }
+}
+
+function assertLinkedXAccount(
+  viewerId: string | null | undefined,
+  linkedAccountId: string | null | undefined,
+): void {
+  if (linkedAccountId === undefined) {
+    logDev('x analytics preflight: linked X unknown; leaving the identity check to KEBS');
+    return;
+  }
+  if (linkedAccountId === null) {
+    throw new VerifierPreflightError('account_not_linked', 'x_account_not_linked');
+  }
+  if (!viewerId) {
+    logDev('x analytics preflight: twid cookie unreadable; leaving the identity check to KEBS');
+    return;
+  }
+  if (viewerId !== linkedAccountId) {
+    throw new VerifierPreflightError('account_mismatch', 'x_account_mismatch');
   }
 }

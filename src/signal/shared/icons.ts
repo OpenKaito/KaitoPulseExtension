@@ -1,13 +1,15 @@
 import { el, svg } from './dom';
-import { PROTOCOL_ICON_DATA_URI } from '../protocol-icons';
 import { PROTOCOL_LABEL } from '../protocol-labels';
+import type { SignalProtocol } from '../types';
+import { platformMarkSrc } from '@/shared/platform-brand';
 import { KAITO_K_MARK_PATH, KAITO_LETTER_PATHS } from '@/shared/kaito-lockup-paths';
 import { PNL_ARROW_POINTS, PNL_ARROW_VIEW_BOX, type PnlArrowDirection } from '@/shared/pnl-arrow';
 
-export function brandIcon(protocol: keyof typeof PROTOCOL_ICON_DATA_URI): HTMLElement {
+export function brandIcon(protocol: SignalProtocol): HTMLElement {
   const wrap = el('div', 'signal-popover__brand');
   const img = el('img', 'signal-popover__brand-icon');
-  img.src = PROTOCOL_ICON_DATA_URI[protocol];
+  img.dataset.platform = protocol;
+  img.src = platformMarkSrc(protocol);
   img.alt = PROTOCOL_LABEL[protocol];
   img.width = 24;
   img.height = 24;
@@ -16,10 +18,11 @@ export function brandIcon(protocol: keyof typeof PROTOCOL_ICON_DATA_URI): HTMLEl
   return wrap;
 }
 
-export function protocolChip(protocol: keyof typeof PROTOCOL_ICON_DATA_URI): HTMLElement {
+export function protocolChip(protocol: SignalProtocol): HTMLElement {
   const wrap = el('div', 'signal-popover__chip');
   const img = el('img', 'signal-popover__chip-icon');
-  img.src = PROTOCOL_ICON_DATA_URI[protocol];
+  img.dataset.platform = protocol;
+  img.src = platformMarkSrc(protocol);
   img.alt = '';
   img.width = 16;
   img.height = 16;
@@ -151,6 +154,25 @@ export function moreIcon(): SVGElement {
     ...[3.25, 8, 12.75].map((cy) =>
       svg('circle', { cx: '8', cy: String(cy), r: '1.35', fill: 'currentColor' }),
     ),
+  );
+  return root;
+}
+
+export function arrowOut(): SVGElement {
+  const root = svg('svg', {
+    class: 'signal-popover__acct-chip-arrow',
+    viewBox: '0 0 6.4 6.4',
+    fill: 'none',
+    'aria-hidden': 'true',
+  });
+  root.append(
+    svg('path', {
+      d: 'M0.7 5.7L5.7 0.7M5.7 4.7V0.7H1.7',
+      stroke: 'currentColor',
+      'stroke-width': '1.4',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
   );
   return root;
 }

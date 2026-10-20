@@ -359,7 +359,13 @@
   outline-offset: -1px;
 }
 .kv-root.kv-root--dark .kv-tile--logo {
-  outline-color: rgba(255, 255, 255, 0.14);
+  outline-color: rgb(255 255 255 / 10%);
+}
+.kv-root.kv-root--dark .kv-tile--logo[data-platform='hyperliquid'] {
+  outline-color: rgb(255 255 255 / 8%);
+}
+.kv-root.kv-root--dark .kv-tile--logo[data-platform='fomo'] {
+  outline-color: rgb(255 255 255 / 20%);
 }
 .kv-tile img {
   display: block;
@@ -890,6 +896,30 @@
   min-width: 0;
   line-height: 1.5;
 }
+.kv-consent-disclosure {
+  padding-left: 28px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(15, 20, 25, 0.6);
+}
+.kv-root.kv-root--dark .kv-consent-disclosure {
+  color: rgba(255, 255, 255, 0.6);
+}
+.kv-consent-disclosure-summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(15, 20, 25, 0.8);
+}
+.kv-root.kv-root--dark .kv-consent-disclosure-summary {
+  color: rgba(255, 255, 255, 0.8);
+}
+.kv-consent-disclosure[open] .kv-consent-disclosure-summary {
+  margin-bottom: 8px;
+}
+.kv-consent-disclosure-item + .kv-consent-disclosure-item {
+  margin-top: 8px;
+}
 
 .kv-consent-how {
   display: flex;
@@ -1133,6 +1163,12 @@
 .kv-cta:disabled {
   opacity: 0.6;
   cursor: default;
+}
+.kv-cta-asof {
+  font-size: 12px;
+  color: var(--kv-text-2);
+  text-align: center;
+  margin-bottom: 8px;
 }
 .kv-cta-note {
   font-size: 11px;

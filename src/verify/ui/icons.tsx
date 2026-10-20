@@ -43,6 +43,7 @@ export const PlatformTile: Component<{ meta: PlatformMeta }> = (props) => {
     <span
       class="kv-tile"
       classList={{ 'kv-tile--logo': !!icon() }}
+      data-platform={props.meta.platform}
       style={icon() ? undefined : { background: props.meta.tile.bg, color: props.meta.tile.fg }}
       aria-hidden="true"
     >

@@ -14,8 +14,12 @@ function badgeEquals(a: BadgeItem | null, b: BadgeItem | null): boolean {
     a.smartFollowers === b.smartFollowers &&
     a.platforms.hl === b.platforms.hl &&
     a.platforms.pm === b.platforms.pm &&
+    a.platforms.fomo === b.platforms.fomo &&
+    a.platforms.pumpfun === b.platforms.pumpfun &&
     a.platforms.hlPositions === b.platforms.hlPositions &&
     a.platforms.pmPositions === b.platforms.pmPositions &&
+    a.platforms.fomoPositions === b.platforms.fomoPositions &&
+    a.platforms.pumpfunPositions === b.platforms.pumpfunPositions &&
     tradingEquals(a.trading, b.trading)
   );
 }
@@ -78,7 +82,16 @@ export class BadgesBatcher {
       } else if (response.error) {
         map.set(id, {
           smartFollowers: null,
-          platforms: { hl: false, pm: false, hlPositions: null, pmPositions: null },
+          platforms: {
+            hl: false,
+            pm: false,
+            fomo: false,
+            pumpfun: false,
+            hlPositions: null,
+            pmPositions: null,
+            fomoPositions: null,
+            pumpfunPositions: null,
+          },
         });
       } else {
         map.set(id, null);

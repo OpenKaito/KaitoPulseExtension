@@ -67,6 +67,19 @@ export function evmAddress(purpose: string, index: number): string {
   return check(`0x${hex}`, EVM_ADDRESS_SPEC, 'evm address');
 }
 
+export const SOL_ADDRESS_SPEC = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+export function solAddress(purpose: string, index: number): string {
+  const next = stream(`sol/${purpose}`, index);
+  let out = '';
+  for (let i = 0; i < 44; i += 1) {
+    out += BASE58_ALPHABET[Math.floor(next() * BASE58_ALPHABET.length)];
+  }
+  return check(out, SOL_ADDRESS_SPEC, 'solana address');
+}
+
 export function elidedAddress(address: string): string {
   return shortenAddress(address);
 }
@@ -105,8 +118,12 @@ export function assertFixtureShapes(fixture: Walkable): void {
   }
 
   for (const [index, account] of fixture.accounts.entries()) {
-    if (!EVM_ADDRESS_SPEC.test(account.accountId)) {
-      fail(`accounts[${index}].accountId`, account.accountId, EVM_ADDRESS_SPEC);
+    if (!EVM_ADDRESS_SPEC.test(account.accountId) && !SOL_ADDRESS_SPEC.test(account.accountId)) {
+      fail(
+        `accounts[${index}].accountId`,
+        account.accountId,
+        `${EVM_ADDRESS_SPEC} or ${SOL_ADDRESS_SPEC}`,
+      );
     }
     if (account.accountLabel !== shortenAddress(account.accountId)) {
       fail(

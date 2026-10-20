@@ -1,5 +1,5 @@
 import type { Accessor, JSX } from 'solid-js';
-import { Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import type { SignalProtocol } from './types';
 import { StickyShadowCard } from './shared/scroll-shadow';
 
@@ -53,7 +53,7 @@ function SkeletonChartCard(): JSX.Element {
   );
 }
 
-function SkeletonStatCard(props: { variant: 'polymarket' }): JSX.Element {
+function SkeletonStatCard(props: { variant: 'polymarket' | 'fomo' | 'pumpfun' }): JSX.Element {
   return (
     <StickyShadowCard class={`signal-popover__card signal-popover__card--${props.variant}`}>
       <div class="signal-popover__card-top">
@@ -85,6 +85,13 @@ function SkeletonStatCard(props: { variant: 'polymarket' }): JSX.Element {
   );
 }
 
+const LEGACY_SKELETONS: ReadonlySet<SignalProtocol> = new Set([
+  'hyperliquid',
+  'polymarket',
+  'fomo',
+  'pumpfun',
+]);
+
 export function PopoverSkeleton(props: { platforms: Accessor<SignalProtocol[]> }): JSX.Element {
   return (
     <div class="signal-popover__skeleton" aria-hidden="true">
@@ -94,6 +101,20 @@ export function PopoverSkeleton(props: { platforms: Accessor<SignalProtocol[]> }
       <Show when={props.platforms().includes('polymarket')}>
         <SkeletonStatCard variant="polymarket" />
       </Show>
+      <Show when={props.platforms().includes('fomo')}>
+        <SkeletonStatCard variant="fomo" />
+      </Show>
+      <Show when={props.platforms().includes('pumpfun')}>
+        <SkeletonStatCard variant="pumpfun" />
+      </Show>
+      <For
+        each={props
+          .platforms()
+          .filter((p) => !LEGACY_SKELETONS.has(p))
+          .slice(0, 2)}
+      >
+        {() => <SkeletonChartCard />}
+      </For>
     </div>
   );
 }

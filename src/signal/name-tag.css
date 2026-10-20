@@ -36,21 +36,21 @@
 }
 
 .signal-name-tag__pill--value {
-  height: 15px;
-  padding: 0 4px;
-  --nt-bg: rgba(120, 132, 148, 0.16);
-  --nt-text: #e7e9ea;
+  height: 18px;
+  gap: 4px;
+  padding: 0;
+  margin-right: 4px;
+  backdrop-filter: none;
+  --nt-bg: transparent;
+  --nt-text: #f2f4f6;
   --nt-dot-on: #9aa6b2;
   --nt-dot-off: #3a424c;
 }
 
-@media (prefers-color-scheme: light) {
-  .signal-name-tag__pill--value {
-    --nt-bg: rgba(15, 20, 25, 0.08);
-    --nt-text: #0f1419;
-    --nt-dot-on: #536471;
-    --nt-dot-off: #cfd9de;
-  }
+.signal-name-tag--light .signal-name-tag__pill--value {
+  --nt-text: #0f1419;
+  --nt-dot-on: #536471;
+  --nt-dot-off: #cfd9de;
 }
 
 .signal-name-tag__dots {
@@ -59,9 +59,9 @@
 }
 
 .signal-name-tag__value-label {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 15px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
   white-space: nowrap;
 }
 

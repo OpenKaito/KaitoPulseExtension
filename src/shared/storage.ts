@@ -1,12 +1,6 @@
 import { storage } from 'wxt/utils/storage';
-import type {
-  Attestation,
-  ExtensionMeResponse,
-  ExtensionProof,
-  ExtensionVerifier,
-} from '@/shared/contracts';
+import type { ExtensionMeResponse, ExtensionProof, ExtensionVerifier } from '@/shared/contracts';
 import type { ProofProgress, ProofRunSummary } from '@/shared/messages';
-import type { StoredSession } from '@/lib/client-storage';
 import type { ViewerIdentity } from '@/shared/viewer';
 import type { SignalSettings } from '@/signal/settings';
 import type { SelectorOverridePayload } from '@/shared/messages';
@@ -19,15 +13,11 @@ import type {
 } from '@/shared/attention';
 import type { FollowRecommendationResponse, LocallyFollowedMap } from '@/shared/recommend-follow';
 
-export const sessionItem = storage.defineItem<StoredSession | null>('local:kaito.session');
+export const sessionItem = storage.defineItem<{ signedInAt: number } | null>('local:kaito.session');
 
 export const meCacheItem = storage.defineItem<ExtensionMeResponse | null>('local:kaito.me');
 
 export const lastResultItem = storage.defineItem<ProofRunSummary | null>('local:kaito.lastResult');
-
-export const lastAttestationItem = storage.defineItem<Attestation | null>(
-  'local:kaito.lastAttestation',
-);
 
 export const activeProofProgressItem = storage.defineItem<ProofProgress | null>(
   'local:kaito.activeProofProgress',
@@ -41,11 +31,6 @@ export const verifySnapshotItem = storage.defineItem<VerifySnapshot | null>(
   'local:kaito.verifySnapshot',
 );
 
-/**
- * Epoch ms of the last bootstrap whose me/verifiers/proofs trio ALL succeeded.
- * While fresh, bootstrap hydrates from meCacheItem + verifySnapshotItem
- * instead of re-fetching on every service-worker restart.
- */
 export const bootstrapFreshAtItem = storage.defineItem<number | null>(
   'local:kaito.bootstrapFreshAt',
 );
@@ -91,6 +76,11 @@ export const behaviorEventsItem = storage.defineItem<BehaviorEvent[]>(
 export const activityInsightsConsentItem = storage.defineItem<'unset' | 'granted' | 'declined'>(
   'local:kaito.behavior.consent',
   { fallback: 'unset' },
+);
+
+export const activityInsightsDisablePendingItem = storage.defineItem<boolean>(
+  'local:kaito.behavior.disablePending',
+  { fallback: false },
 );
 
 export const debugUnlockedItem = storage.defineItem<boolean>('local:kaito.options.debugUnlocked', {

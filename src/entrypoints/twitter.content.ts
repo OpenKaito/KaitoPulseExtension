@@ -14,7 +14,8 @@ import { ProfileModulesController } from '@/signal/profile/profile-modules';
 import { ensureSignalFonts } from '@/signal/load-fonts';
 import { loadSettings, subscribe, type SignalSettings } from '@/signal/settings';
 import { gateSettings, readSignedIn, readTermsOk, termsOkFromMe } from '@/signal/session-gate';
-import { activityInsightsConsentItem, meCacheItem, sessionItem } from '@/shared/storage';
+import { meCacheItem, sessionItem } from '@/shared/storage';
+import { readActivityConsent, watchActivityConsent } from '@/shared/activity-consent';
 import { BehaviorTracker } from '@/behavior/tracker';
 import { guard, logLocalError } from '@/lib/guard';
 import { applySelectorOverrides } from '@/signal/dom/selectors';
@@ -121,7 +122,7 @@ export default defineContentScript({
         }, 'session.watch'),
       );
 
-      const unsubscribeConsent = activityInsightsConsentItem.watch(
+      const unsubscribeConsent = watchActivityConsent(
         guard((value) => {
           consentGranted = value === 'granted';
           syncCapture();
@@ -169,12 +170,7 @@ export default defineContentScript({
       flushOnUnload = null;
     };
 
-    void Promise.all([
-      loadSettings(),
-      readSignedIn(),
-      readTermsOk(),
-      activityInsightsConsentItem.getValue(),
-    ])
+    void Promise.all([loadSettings(), readSignedIn(), readTermsOk(), readActivityConsent()])
       .then(([loadedSignal, loadedSignedIn, loadedTermsOk, loadedConsent]) => {
         storedSettings = loadedSignal;
         signedIn = loadedSignedIn;

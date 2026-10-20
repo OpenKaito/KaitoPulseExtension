@@ -18,7 +18,15 @@ import { ApiError } from '@/shared/contracts';
 import type { WalletDetailOutcome, WalletDetailRequest } from '@/shared/wallet-detail';
 import { walletDetailOutcomeFor } from '@/shared/wallet-detail';
 import { toAuthedError } from './authed-error';
-import { cachedFetchBadges } from './edge-cache';
+import { budgetPausedUntil } from '@/shared/budget-backoff';
+import {
+  type BadgesFetchClaim,
+  cachedBadgesIgnoringTtl,
+  cachedFetchBadges,
+  claimBadgesFetch,
+  pauseBadgesUntil,
+  releaseBadgesProbe,
+} from './edge-cache';
 import { authedCall } from './worker-core';
 import {
   pickDefaultScope,
@@ -48,14 +56,33 @@ export async function handleFetchBadges(twitterIds: string[]): Promise<FetchBadg
     logger.warn(`badges batch capped at ${BADGES_BATCH_LIMIT} (got ${twitterIds.length})`);
   }
 
+  const claim = await claimBadgesFetch().catch((): BadgesFetchClaim => ({ allowed: true }));
+  if (!claim.allowed) {
+    return { items: await applyBadgesPlatformMock(capped, await cachedBadgesIgnoringTtl(capped)) };
+  }
+
   try {
     const items = await cachedFetchBadges(capped, async (missIds) => {
       const response = await api.getBadges(missIds, stored.sessionToken);
       return response.items;
     });
 
+    if (claim.probe !== undefined) {
+      await releaseBadgesProbe(claim.probe).catch(() => undefined);
+    }
     return { items: await applyBadgesPlatformMock(capped, items) };
   } catch (error) {
+    const pausedUntil = budgetPausedUntil(error, Date.now());
+    if (pausedUntil !== undefined) {
+      await pauseBadgesUntil(
+        pausedUntil,
+        async () => (await getStoredSession())?.sessionToken === stored.sessionToken,
+      ).catch(() => undefined);
+      logger.warn('badges paused after 429', error);
+      return {
+        items: await applyBadgesPlatformMock(capped, await cachedBadgesIgnoringTtl(capped)),
+      };
+    }
     logger.error('fetchBadges error', error);
     return { items: {}, error: (error as Error)?.message || 'badges fetch failed' };
   }

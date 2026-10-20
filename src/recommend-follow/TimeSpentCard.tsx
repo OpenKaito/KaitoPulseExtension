@@ -1,8 +1,9 @@
 import type { JSX } from 'solid-js';
-import { formatTimeSpent } from './format-time-spent';
+import { timeSpentDisplay } from './format-time-spent';
 import timeSpentIcon from './assets/time-spent-icon.svg';
 
-export function TimeSpentCard(props: { seconds: number }): JSX.Element {
+export function TimeSpentCard(props: { seconds: number | null }): JSX.Element {
+  const display = () => timeSpentDisplay(props.seconds);
   return (
     <div class="rf-time-card">
       <div class="rf-time-card__group">
@@ -11,10 +12,15 @@ export function TimeSpentCard(props: { seconds: number }): JSX.Element {
         </span>
         <span class="rf-time-card__text">
           <h2 class="rf-time-card__title">Time spent on X</h2>
-          <span class="rf-time-card__caption">Last 24h · Updates every 5 min</span>
+          <span class="rf-time-card__caption">{display().caption}</span>
         </span>
       </div>
-      <span class="rf-time-card__value">{formatTimeSpent(props.seconds)}</span>
+      <span
+        class="rf-time-card__value"
+        classList={{ 'rf-time-card__value--empty': display().empty }}
+      >
+        {display().value}
+      </span>
     </div>
   );
 }

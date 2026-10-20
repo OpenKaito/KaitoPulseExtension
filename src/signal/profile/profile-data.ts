@@ -3,6 +3,7 @@ import { hoverCardToUserInfoData } from '../social-card-map';
 import { resolveTwitterId } from '../identity';
 import { createLogger } from '../logger';
 import { getHoverCard } from '../hover-card-store';
+import { boundPlatforms } from '../platforms';
 
 const logger = createLogger('profile-data');
 
@@ -36,8 +37,7 @@ export async function loadUserInfoData(handle: string): Promise<UserInfoLoad> {
   const hasContent =
     data.smartFollowers.length > 0 ||
     data.topSmartFollowers.length > 0 ||
-    !!data.hyperliquid ||
-    !!data.polymarket;
+    boundPlatforms(data).length > 0;
   if (!hasContent) {
     emptyIds.add(twitterId);
     return { status: 'empty' };

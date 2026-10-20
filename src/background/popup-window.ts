@@ -1,3 +1,5 @@
+import { verifySurfaceKey, type VerifySurfaceRequest } from '../shared/verify-surface';
+
 export interface PopupSize {
   width: number;
   height: number;
@@ -33,52 +35,60 @@ export async function openPinnedPopupWindow(
   return chrome.windows.create(create);
 }
 
-const VERIFY_RETURN_KEY = 'kaito.verifyReturn';
+export async function openVerifyWindow(
+  verifierId: string,
+  originTabId?: number,
+  originWindowId?: number,
+): Promise<void> {
+  const windowId =
+    originWindowId ??
+    (
+      await chrome.windows.getLastFocused({
+        windowTypes: ['normal'],
+      })
+    ).id;
+  if (typeof windowId !== 'number') throw new Error('verification_window_unavailable');
 
-interface VerifyReturnTarget {
-  windowId?: number;
-
-  tabId: number;
+  const request: VerifySurfaceRequest = {
+    verifierId,
+    originTabId,
+    requestedAt: Date.now(),
+  };
+  const saved = chrome.storage.session.set({ [verifySurfaceKey(windowId)]: request });
+  let opened: Promise<boolean>;
+  try {
+    opened = chrome.sidePanel.open({ windowId }).then(
+      () => true,
+      () => false,
+    );
+  } catch {
+    opened = Promise.resolve(false);
+  }
+  const [, isOpen] = await Promise.all([saved, opened]);
+  if (!isOpen) {
+    const url = chrome.runtime.getURL(`verify-window.html?surface=popup&ownerWindowId=${windowId}`);
+    const platform = await Promise.resolve(chrome.runtime.getPlatformInfo?.()).catch(
+      () => undefined,
+    );
+    if (platform?.os === 'android') {
+      await chrome.tabs.create({ url, active: true });
+    } else {
+      await openPinnedPopupWindow(url);
+    }
+  }
 }
 
-export async function openVerifyWindow(verifierId: string, originTabId?: number): Promise<void> {
-  const url = chrome.runtime.getURL(
-    `verify-window.html?verifierId=${encodeURIComponent(verifierId)}`,
-  );
-  const created = await openPinnedPopupWindow(url);
-
-  if (typeof originTabId !== 'number') {
-    await chrome.storage.session?.remove(VERIFY_RETURN_KEY).catch(() => undefined);
-    return;
-  }
-  await chrome.storage.session
-    ?.set({
-      [VERIFY_RETURN_KEY]: {
-        windowId: created?.id,
-        tabId: originTabId,
-      } satisfies VerifyReturnTarget,
-    })
-    .catch(() => undefined);
-}
-
-export async function returnToOriginTabAfterVerify(closingWindowId?: number): Promise<void> {
-  const stored = await chrome.storage.session?.get(VERIFY_RETURN_KEY).catch(() => undefined);
-  const target = stored?.[VERIFY_RETURN_KEY] as VerifyReturnTarget | undefined;
-  await chrome.storage.session?.remove(VERIFY_RETURN_KEY).catch(() => undefined);
-  if (typeof target?.tabId !== 'number') return;
-  if (
-    typeof closingWindowId === 'number' &&
-    typeof target.windowId === 'number' &&
-    closingWindowId !== target.windowId
-  ) {
-    return;
-  }
-  const tab = await chrome.tabs.get(target.tabId).catch(() => undefined);
+export async function returnToOriginTabAfterVerify(windowId?: number): Promise<void> {
+  if (typeof windowId !== 'number') return;
+  const key = verifySurfaceKey(windowId);
+  const stored = await chrome.storage.session.get(key);
+  const target = stored[key] as VerifySurfaceRequest | undefined;
+  await chrome.storage.session.remove(key);
+  if (typeof target?.originTabId !== 'number') return;
+  const tab = await chrome.tabs.get(target.originTabId).catch(() => undefined);
   if (!tab) return;
-  await chrome.tabs.update(target.tabId, { active: true }).catch(() => undefined);
-  if (tab.windowId !== undefined) {
-    await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
-  }
+  await chrome.tabs.update(target.originTabId, { active: true }).catch(() => undefined);
+  await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
 }
 
 export async function openPopupWindow(): Promise<void> {

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Build vendor/primus-core into vendor/primus-core/build/.
 #
-# Idempotent: re-running is fast (pnpm install --frozen-lockfile + webpack
-# incremental). Use after `git submodule update` when the pinned fork SHA
+# Idempotent: re-running is fast (pnpm install --frozen-lockfile + webpack's
+# filesystem cache). Use after `git submodule update` when the pinned fork SHA
 # changes, or any time the build output looks stale.
 #
-# Uses the production webpack build. The fork carries a few TS-only issues
-# in unused Achievements UI, so webpack.config.js runs ts-loader in
-# transpile-only mode to keep a production-shaped bundle without the dev
+# Runs the fork's production webpack config through scripts/vendor-webpack.config.cjs,
+# which drops the entries this extension never ships. The fork carries a few
+# TS-only issues in unused Achievements UI, so webpack.config.js runs ts-loader
+# in transpile-only mode to keep a production-shaped bundle without the dev
 # React Refresh runtime.
 
 set -euo pipefail
@@ -46,8 +47,8 @@ else
   pnpm install --silent
 fi
 
-echo "[build-vendor] pnpm run build..."
-pnpm run build
+echo "[build-vendor] webpack (shipped entries only)..."
+pnpm exec webpack --config "$ROOT_DIR/scripts/vendor-webpack.config.cjs"
 
 # Sanity check.
 for f in build/background.bundle.js \

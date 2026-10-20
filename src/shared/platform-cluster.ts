@@ -1,18 +1,20 @@
-import { PROTOCOL_ICON_DATA_URI } from '@/signal/protocol-icons';
+import { platformMarkSrc } from './platform-brand';
 
 export type PlatformCluster = {
   icons: { platform: string; src: string }[];
 
-  overflow: number;
+  collapsed: boolean;
 };
 
-export function buildPlatformCluster(platforms: readonly string[], max: number): PlatformCluster {
+export const PLATFORM_MARKS_MAX = 4;
+
+export function buildPlatformCluster(
+  platforms: readonly string[],
+  max = PLATFORM_MARKS_MAX,
+): PlatformCluster {
   const unique = [...new Set(platforms)];
-  const icons: { platform: string; src: string }[] = [];
-  for (const platform of unique) {
-    if (icons.length >= max) break;
-    const src = PROTOCOL_ICON_DATA_URI[platform as keyof typeof PROTOCOL_ICON_DATA_URI];
-    if (src) icons.push({ platform, src });
-  }
-  return { icons, overflow: unique.length - icons.length };
+  return {
+    icons: unique.map((platform) => ({ platform, src: platformMarkSrc(platform) })),
+    collapsed: unique.length > max,
+  };
 }

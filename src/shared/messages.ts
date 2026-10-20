@@ -1,4 +1,5 @@
 import type { AuraSummaryResponse } from './aura-summary';
+import type { ReferralSummaryResponse } from './referral-summary';
 import type { TradingSummaryResponse } from './trading-summary';
 import type {
   AcceptTermsResponse,
@@ -52,7 +53,7 @@ export type KaitoMessageContract = {
   cancelProof: { payload: NoPayload; response: CancelProofResponse };
 
   openVerifyWindow: {
-    payload: { verifierId: string };
+    payload: { verifierId: string; expectedAccountId?: string };
     response: OpenVerifyWindowResponse;
   };
 
@@ -155,6 +156,11 @@ export type KaitoMessageContract = {
     payload: NoPayload;
     response: GetTradingSummaryResponse;
   };
+
+  getReferralSummary: {
+    payload: NoPayload;
+    response: GetReferralSummaryResponse;
+  };
   followFromRecommendation: {
     payload: { twitterId: string; handle: string };
     response: FollowFromRecommendationResponse;
@@ -242,8 +248,12 @@ type ExternalRequestMessage =
   | { type: 'ping' }
   | { type: 'getCapabilities' }
   | { type: 'getVerifyStatus' }
-  | { type: 'openVerification'; verifierId: string }
-  | { type: 'openSurface'; surface: ExternalSurface; params?: { verifierId?: string } }
+  | { type: 'openVerification'; verifierId: string; expectedAccountId?: string }
+  | {
+      type: 'openSurface';
+      surface: ExternalSurface;
+      params?: { verifierId?: string; expectedAccountId?: string };
+    }
   | { type: 'invalidate'; keys: ExternalInvalidateKey[] }
   | { type: 'accountLinked'; method: string };
 
@@ -258,7 +268,6 @@ export type ProofRunSummary = {
   verifiedAt?: number;
 
   finishedAt?: number;
-  attestation?: Attestation;
   error?: {
     message: string;
     status?: number;
@@ -276,9 +285,11 @@ export type ProofStage =
   | 'submitting';
 
 export type ProofErrorCode =
+  | 'update_account_mismatch'
   | 'sign_in_required'
   | 'session_invalid'
   | 'third_party_login_required'
+  | 'permission_required'
   | 'wallet_not_connected'
   | 'page_closed'
   | 'page_interrupted'
@@ -291,10 +302,15 @@ export type ProofErrorCode =
   | 'target_page_not_ready'
   | 'proof_capture_failed'
   | 'proof_engine_stalled'
+  | 'proof_initialization_failed'
   | 'verification_already_running'
   | 'duplicate_proof'
   | 'platform_account_already_claimed'
   | 'platform_account_id_missing'
+  | 'wallet_binding_required'
+  | 'platform_unreadable'
+  | 'account_mismatch'
+  | 'account_not_linked'
   | 'security_check_failed'
   | 'network_error'
   | 'proof_quota_exhausted'
@@ -488,6 +504,12 @@ export type GetAuraSummaryResponse = {
 
 export type GetTradingSummaryResponse = {
   result?: TradingSummaryResponse;
+  error?: string;
+  status?: number;
+};
+
+export type GetReferralSummaryResponse = {
+  result?: ReferralSummaryResponse;
   error?: string;
   status?: number;
 };

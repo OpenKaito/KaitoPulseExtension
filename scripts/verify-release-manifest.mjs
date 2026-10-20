@@ -79,9 +79,33 @@ if (leaks.length) {
   passes.push('host_permissions + externally_connectable carry no dev or localhost origin');
 }
 
+// VITE_KAITO_CONNECT_URL takes a list, so a release build can silently inherit a
+// preview or local origin from a dev .env. An
+// allowlist is the only check that catches an origin nobody thought to blocklist.
+const EXPECTED_CONNECT_MATCHES = ['https://kaito.ai/*', 'https://*.kaito.ai/*'];
+const connectMatches = m.externally_connectable?.matches || [];
+const unexpectedConnect = connectMatches.filter((p) => !EXPECTED_CONNECT_MATCHES.includes(p));
+const missingConnect = EXPECTED_CONNECT_MATCHES.filter((p) => !connectMatches.includes(p));
+if (unexpectedConnect.length || missingConnect.length) {
+  if (unexpectedConnect.length) {
+    fails.push(
+      `externally_connectable carries non-production origins: ${unexpectedConnect.join(', ')} ` +
+        '(a release build must run with VITE_KAITO_CONNECT_URL=https://kaito.ai)',
+    );
+  }
+  if (missingConnect.length) {
+    fails.push(`externally_connectable is missing: ${missingConnect.join(', ')}`);
+  }
+} else {
+  passes.push('externally_connectable is limited to kaito.ai and its subdomains');
+}
+
 const expectedVerifierOrigins = new Set([
   'https://*.polymarket.com/*',
   'https://hub.axisrobotics.ai/*',
+  'https://omni.variational.io/*',
+  'https://app.lighter.xyz/*',
+  'https://mainnet.zklighter.elliot.ai/*',
 ]);
 const actualVerifierOrigins = new Set(m.optional_host_permissions || []);
 const missingVerifierOrigins = [...expectedVerifierOrigins].filter(
@@ -100,7 +124,7 @@ if (missingVerifierOrigins.length || unexpectedVerifierOrigins.length) {
 } else if (!(m.host_permissions || []).includes('https://*.x.com/*')) {
   fails.push('x.com verifier origin is missing from host_permissions');
 } else {
-  passes.push('verifier origins are limited to X, Polymarket, and Axis');
+  passes.push('verifier origins are limited to the PROOF_TARGETS allowlist');
 }
 
 const optionalVerifierDomains = [...actualVerifierOrigins]

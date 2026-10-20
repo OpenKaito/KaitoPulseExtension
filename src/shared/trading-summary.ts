@@ -19,6 +19,7 @@ export type TradingAccountValue = TradingTotalCoverage & {
 export type TradingPnlBasis =
   | 'platform_all_time'
   | 'snapshot_window'
+  | 'longest_window'
   | 'accrued_since_verify'
   | 'open_positions_only';
 
@@ -77,6 +78,18 @@ export type TradingAccount = {
   addressRevealed?: boolean;
 
   walletOrdinal?: number | null;
+
+  displayName?: string | null;
+
+  points?: number | null;
+
+  tier?: { name: string; pointsRate: number };
+
+  referralPublic?: boolean;
+
+  pointsPublic?: boolean;
+
+  origin?: 'verified' | 'partner' | 'scraped' | 'linked';
 };
 
 export type TradingPnlUnavailableReason = 'no_pnl_data' | 'mixed_windows';
@@ -103,10 +116,17 @@ export type TradingPlatformSubtotal = {
   pnlCoveredAccounts: number;
   pnlUnavailableReason: TradingPnlUnavailableReason | null;
 
+  points?: number | null;
+
   fxApproximate?: boolean;
   currency: string;
 
   dataAsOf: string | null;
+};
+
+export type TradingPublicTotals = {
+  accountValue: Omit<TradingAccountValue, 'totalUsd'>;
+  allTimePnl: TradingPnlTotal;
 };
 
 export type TradingSummaryResponse = {
@@ -115,6 +135,8 @@ export type TradingSummaryResponse = {
   accounts: TradingAccount[];
 
   platforms?: TradingPlatformSubtotal[];
+
+  publicTotals?: TradingPublicTotals | null;
 
   includedPlatforms: string[];
 

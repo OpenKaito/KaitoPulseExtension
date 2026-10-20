@@ -2,9 +2,11 @@ import { createSignal } from 'solid-js';
 import { sendKaitoMessage } from '@/signal/messaging';
 import {
   activityInsightsConsentItem,
+  activityInsightsDisablePendingItem,
   followRecommendationCacheItem,
   recommendFollowLocallyFollowedItem,
 } from '@/shared/storage';
+import { readActivityConsent, watchActivityConsent } from '@/shared/activity-consent';
 import type { ExtensionMeResponse } from '@/shared/contracts';
 import { pruneLocallyFollowed, type FollowRecommendationResponse } from '@/shared/recommend-follow';
 
@@ -25,7 +27,7 @@ export type ConsentState = 'loading' | 'unset' | 'granted' | 'declined';
 const [consent, setConsent] = createSignal<ConsentState>('loading');
 export { consent };
 
-activityInsightsConsentItem.watch((value) => setConsent(value));
+watchActivityConsent((value) => setConsent(value));
 
 export type TermsGateState = 'loading' | 'required' | 'accepted';
 const [termsGate, setTermsGate] = createSignal<TermsGateState>('loading');
@@ -39,8 +41,9 @@ function resolveTermsFromMe(me: ExtensionMeResponse | undefined): TermsGateState
 async function resolveConsentFromMe(
   me: ExtensionMeResponse | undefined,
 ): Promise<'unset' | 'granted' | 'declined'> {
+  if (await activityInsightsDisablePendingItem.getValue()) return 'declined';
   if (!me || !('activityInsightsEnabled' in me)) {
-    return activityInsightsConsentItem.getValue();
+    return readActivityConsent();
   }
   const enabled = me.activityInsightsEnabled;
   const resolved = enabled === true ? 'granted' : enabled === false ? 'declined' : 'unset';
@@ -162,6 +165,7 @@ export async function signOut(): Promise<void> {
 }
 
 async function setActivityInsightsPreference(enabled: boolean): Promise<void> {
+  await activityInsightsDisablePendingItem.setValue(!enabled);
   await activityInsightsConsentItem.setValue(enabled ? 'granted' : 'declined');
   const response = await sendKaitoMessage({
     target: 'kaitoExtension',
@@ -188,6 +192,7 @@ export async function acceptTermsAndEnter(activityData: boolean): Promise<void> 
     return;
   }
   if (activityData) {
+    await activityInsightsDisablePendingItem.setValue(false);
     await activityInsightsConsentItem.setValue('granted');
   } else await setActivityInsightsPreference(false);
   setTermsGate('accepted');

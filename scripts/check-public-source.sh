@@ -53,6 +53,9 @@ PATTERNS=(
   '\b[Bb]ug[ -]?[Bb]ash\b|\bCLAUDE\.md\b'
   # Internal branch names, which carry ticket slugs.
   '\bfeat/[A-Za-z0-9._/-]+\b'
+  # Hosted preview deployments: an app id on a hosting domain names an
+  # environment that serves unreleased builds.
+  '\b[a-z0-9]{8,}\.(amplifyapp\.com|vercel\.app|netlify\.app|pages\.dev)\b'
 )
 
 PATTERN="$(IFS='|'; echo "${PATTERNS[*]}")"

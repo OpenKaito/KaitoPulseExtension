@@ -42,12 +42,29 @@ export type ExtensionVerifier = {
   name: string;
   platform: string;
   unit?: string;
+
+  category?: string;
   guide: {
     url: string;
     message: string;
   };
 
   requiresPageSignedInitialTraffic?: boolean;
+
+  routes?: string[];
+};
+
+export type PublicReadVerifyResponse = {
+  verifierId: string;
+  proofId: string;
+  platform: string;
+  platformUserId: string;
+  category: string;
+  verifiedAt: number;
+  value: Record<string, unknown>;
+  wallets?: number;
+  results?: Array<{ proofId: string; platformUserId: string; value: Record<string, unknown> }>;
+  failed?: Array<{ platformUserId: string; reason: string }>;
 };
 
 export type SignResponse = {

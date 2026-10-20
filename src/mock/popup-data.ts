@@ -9,6 +9,7 @@ import {
   evmAddress,
   FIXTURE_NOW,
   minutesBefore,
+  solAddress,
   xId,
 } from './generate';
 
@@ -263,9 +264,78 @@ const POLYMARKET_ACCOUNT: IncludedAccount = {
   publicOnX: true,
 };
 
+const FOMO_ACCOUNT_ADDRESS = solAddress('fomo', 0);
+
+const FOMO_ACCOUNT: IncludedAccount = {
+  platform: 'fomo',
+  displayName: 'Fomo',
+  brandColor: '#ffffff',
+  accountId: FOMO_ACCOUNT_ADDRESS,
+
+  accountLabel: elidedAddress(FOMO_ACCOUNT_ADDRESS),
+  valueLabel: 'Account Value',
+  value: 48215.67,
+  pnl: 12904.55,
+  pnlLabel: 'All-Time P&L',
+  perpOnly: false,
+  includedInTotal: true,
+  timestampLabel: 'Verified Jan 28',
+  nativeAmount: null,
+  publicOnX: true,
+};
+
+const PUMPFUN_MAIN_ADDRESS = solAddress('pumpfun', 0);
+
+const PUMPFUN_MAIN: IncludedAccount = {
+  platform: 'pumpfun',
+  displayName: 'Pump.fun',
+  brandColor: '#86efac',
+  accountId: PUMPFUN_MAIN_ADDRESS,
+
+  accountLabel: elidedAddress(PUMPFUN_MAIN_ADDRESS),
+  valueLabel: 'Account Value',
+  value: 21408.9,
+  pnl: null,
+  pnlLabel: 'P&L',
+  perpOnly: false,
+  includedInTotal: true,
+  timestampLabel: 'Updated 12 min ago',
+  nativeAmount: null,
+  publicOnX: true,
+};
+
+const PUMPFUN_SECOND_ADDRESS = solAddress('pumpfun', 1);
+
+const PUMPFUN_SECOND: IncludedAccount = {
+  platform: 'pumpfun',
+  displayName: 'Pump.fun',
+  brandColor: '#86efac',
+  accountId: PUMPFUN_SECOND_ADDRESS,
+
+  accountLabel: elidedAddress(PUMPFUN_SECOND_ADDRESS),
+  valueLabel: 'Account Value',
+  value: 6874.13,
+  pnl: null,
+  pnlLabel: 'P&L',
+  perpOnly: false,
+  includedInTotal: true,
+  timestampLabel: 'Updated 12 min ago',
+  nativeAmount: null,
+  publicOnX: false,
+};
+
 const HYPERLIQUID_ACCOUNTS: IncludedAccount[] = [HL_MAIN, HL_SECOND, HL_THIRD];
 
-const INCLUDED_ACCOUNTS: IncludedAccount[] = [HL_MAIN, HL_SECOND, HL_THIRD, POLYMARKET_ACCOUNT];
+const PUMPFUN_ACCOUNTS: IncludedAccount[] = [PUMPFUN_MAIN, PUMPFUN_SECOND];
+
+const INCLUDED_ACCOUNTS: IncludedAccount[] = [
+  HL_MAIN,
+  HL_SECOND,
+  HL_THIRD,
+  POLYMARKET_ACCOUNT,
+  FOMO_ACCOUNT,
+  ...PUMPFUN_ACCOUNTS,
+];
 
 const FIXTURE_PLATFORM_GROUPS: PlatformGroup[] = [
   {
@@ -273,6 +343,7 @@ const FIXTURE_PLATFORM_GROUPS: PlatformGroup[] = [
     displayName: 'Hyperliquid',
     brandColor: '#96fce4',
     accounts: HYPERLIQUID_ACCOUNTS,
+    accountCount: HYPERLIQUID_ACCOUNTS.length,
     value: 660456.69,
     pnl: -3412.34,
     valueLabel: 'Account Value',
@@ -286,12 +357,41 @@ const FIXTURE_PLATFORM_GROUPS: PlatformGroup[] = [
     displayName: 'Polymarket',
     brandColor: '#89a2ff',
     accounts: [POLYMARKET_ACCOUNT],
+    accountCount: 1,
     value: 56212.29,
     pnl: 14023.09,
     valueLabel: 'Positions Value',
     pnlLabel: 'All-Time P&L',
     perpOnly: false,
     timestampLabel: 'Updated 2h ago',
+    publicCount: 1,
+  },
+  {
+    platform: 'fomo',
+    displayName: 'Fomo',
+    brandColor: '#ffffff',
+    accounts: [FOMO_ACCOUNT],
+    accountCount: 1,
+    value: 48215.67,
+    pnl: 12904.55,
+    valueLabel: 'Account Value',
+    pnlLabel: 'All-Time P&L',
+    perpOnly: false,
+    timestampLabel: 'Verified Jan 28',
+    publicCount: 1,
+  },
+  {
+    platform: 'pumpfun',
+    displayName: 'Pump.fun',
+    brandColor: '#86efac',
+    accounts: PUMPFUN_ACCOUNTS,
+    accountCount: PUMPFUN_ACCOUNTS.length,
+    value: 28283.03,
+    pnl: null,
+    valueLabel: 'Account Value',
+    pnlLabel: 'P&L',
+    perpOnly: false,
+    timestampLabel: 'Updated 12 min ago',
     publicCount: 1,
   },
 ];

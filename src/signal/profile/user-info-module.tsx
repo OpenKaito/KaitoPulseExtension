@@ -11,8 +11,14 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import type {
+  AccountPlatformSummary,
+  AccountProtocol,
+  SignalProtocol,
+  TokenAccount,
+  TokenPlatformSummary,
   HyperliquidSummary,
   PopoverTotals,
+  PlatformMetrics,
   PredictionSummary,
   SmartFollowerStat,
   TopSmartFollower,
@@ -20,10 +26,10 @@ import type {
 } from '../types';
 import { PROFILE_ATTRS } from './profile-dom';
 import { buildXStatRow } from './x-stat-row';
-import { PROTOCOL_ICON_DATA_URI } from '../protocol-icons';
 import { PROTOCOL_LABEL } from '../protocol-labels';
 import { AccountSizeDots } from '@/shared/AccountSizeDots';
 import { buildPlatformCluster } from '@/shared/platform-cluster';
+import { platformMarkSrc } from '@/shared/platform-brand';
 
 import {
   kaitoLockup,
@@ -33,20 +39,28 @@ import {
   VERIFIED_BADGE_VIEWBOX,
 } from '../shared/icons';
 import { hostPrefersDark } from '../host-theme';
-import { ChartGroup } from '../shared/chart';
+import { ChartGroup, hasChartPoints, servedPeriod } from '../shared/chart';
+import { profileTabs, type ProfileTab } from '../platforms';
 import {
   AccountChipRow,
+  PlatformMetaLine,
+  accountPlatformChips,
   WalletDetailBody,
   hyperliquidChips,
   HyperliquidPositionsTable,
+  StackedPositionsTable,
   MarketTable,
   polymarketChips,
   polymarketProfileUrl,
+  TokenPositionList,
 } from '../shared/cards';
+import { tokenPlatformChips } from '../social-card-map';
 import {
+  createAccountPositions,
   createWalletDetail,
   withHyperliquidDetail,
   withPolymarketDetail,
+  withPumpfunDetail,
 } from '../shared/wallet-detail-view';
 import { hyperliquidAddressUrl } from '../shared/links';
 import { RemoteImg } from '../shared/images';
@@ -57,28 +71,24 @@ import {
   GROUP_ACCOUNT_VALUE_LABEL,
   GROUP_PROFIT_LOSS_ALL_TIME_LABEL,
   GROUP_UPNL_LABEL,
+  POINTS_LABEL,
   POSITIONS_VALUE_LABEL,
   PREDICTIONS_LABEL,
   PROFIT_LOSS_ALL_TIME_LABEL,
   TOTAL_ACCOUNT_VALUE_LABEL,
   TOTAL_ALL_TIME_PNL_LABEL,
+  TRADES_LABEL,
+  UPNL_LABEL,
   VIEW_IN_PROFILE_LABEL,
+  REFERRED_TRADERS_STAT_LABEL,
+  REFERRED_VOLUME_LABEL,
 } from '../shared/stat-labels';
 
 import popoverCss from '../name-tag-popover.css?inline';
 import uinfoCss from './user-info-module.css?inline';
 import { createShadowHost } from '../shared/shadow-host';
 
-type Tab = 'x' | 'hyperliquid' | 'polymarket';
-
-const TAB_ICON: Record<Exclude<Tab, 'x'>, string> = {
-  hyperliquid: PROTOCOL_ICON_DATA_URI.hyperliquid,
-  polymarket: PROTOCOL_ICON_DATA_URI.polymarket,
-};
-const TAB_LABEL: Record<Exclude<Tab, 'x'>, string> = {
-  hyperliquid: PROTOCOL_LABEL.hyperliquid,
-  polymarket: PROTOCOL_LABEL.polymarket,
-};
+type Tab = ProfileTab;
 
 const X_ICON =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">' +
@@ -93,16 +103,18 @@ export interface UserInfoHandle {
 function TabButton(props: {
   tab: Tab;
   active: boolean;
-
   count?: number;
   onClick: () => void;
 }): JSX.Element {
+  const label = (): string =>
+    props.tab === 'x' ? 'X' : PROTOCOL_LABEL[props.tab as SignalProtocol];
   return (
     <button
       type="button"
       class={`signal-uinfo__tab${props.active ? ' signal-uinfo__tab--active' : ''}`}
       onClick={props.onClick}
-      aria-label={props.tab === 'x' ? 'X' : undefined}
+      aria-label={props.active ? undefined : label()}
+      title={props.active ? undefined : label()}
     >
       <Show
         when={props.tab !== 'x'}
@@ -110,16 +122,19 @@ function TabButton(props: {
       >
         <img
           class="signal-uinfo__tab-icon"
-          src={TAB_ICON[props.tab as Exclude<Tab, 'x'>]}
+          data-platform={props.tab}
+          src={platformMarkSrc(props.tab)}
           alt=""
           width={14}
           height={14}
           draggable={false}
         />
-        <span>{TAB_LABEL[props.tab as Exclude<Tab, 'x'>]}</span>
-        <Show when={props.count && props.count > 0}>
-          <span class="signal-uinfo__tab-count signal-popover__num">
-            {(props.count as number).toLocaleString('en-US')}
+        <Show when={props.active}>
+          <span class="signal-uinfo__tab-name">
+            <span>{label()}</span>
+            <Show when={props.count != null && props.count > 0}>
+              <span class="signal-uinfo__tab-count">{props.count}</span>
+            </Show>
           </span>
         </Show>
       </Show>
@@ -268,20 +283,29 @@ function TotalSmartFollowersCell(props: {
 }
 
 function XTotalMarks(props: { platforms: string[] }): JSX.Element {
-  const cluster = () => buildPlatformCluster(props.platforms, X_TOTAL_MAX_MARKS);
+  const cluster = () => buildPlatformCluster(props.platforms);
   return (
     <Show when={cluster().icons.length > 0}>
       <span class="signal-uinfo__xmarks" aria-hidden="true">
-        <For each={cluster().icons}>{(icon) => <img src={icon.src} alt="" />}</For>
-        <Show when={cluster().overflow > 0}>
-          <span class="signal-uinfo__xmarks-more">+{cluster().overflow}</span>
+        <Show
+          when={cluster().collapsed}
+          fallback={
+            <For each={cluster().icons}>
+              {(icon) => <img src={icon.src} data-platform={icon.platform} alt="" />}
+            </For>
+          }
+        >
+          <span class="signal-uinfo__xmarks-more">{cluster().icons.length}</span>
+          <span class="signal-uinfo__xmarks-tip">
+            <For each={cluster().icons}>
+              {(icon) => <img src={icon.src} data-platform={icon.platform} alt="" />}
+            </For>
+          </span>
         </Show>
       </span>
     </Show>
   );
 }
-
-const X_TOTAL_MAX_MARKS = 3;
 
 function TradingTotalCells(props: { totals: PopoverTotals }): JSX.Element {
   const direction = () => props.totals.allTimePnl?.direction;
@@ -415,17 +439,80 @@ function Stat(props: { label: string; value: string; modifier?: 'loss' | 'gain' 
   );
 }
 
+function PerpStatRow(props: {
+  data: Pick<
+    HyperliquidSummary,
+    'accountValue' | 'profitLoss' | 'profitLossNegative' | 'upnl' | 'upnlNegative'
+  >;
+}): JSX.Element {
+  return (
+    <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--thirds">
+      <Stat label={GROUP_ACCOUNT_VALUE_LABEL} value={props.data.accountValue} />
+      <Stat
+        label={GROUP_PROFIT_LOSS_ALL_TIME_LABEL}
+        value={props.data.profitLoss}
+        modifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+      />
+      <Stat
+        label={GROUP_UPNL_LABEL}
+        value={props.data.upnl}
+        modifier={props.data.upnlNegative ? 'loss' : 'gain'}
+      />
+    </div>
+  );
+}
+
+function ProfileMetricsRow(props: { metrics?: PlatformMetrics }): JSX.Element {
+  const cells = () =>
+    [
+      [REFERRED_TRADERS_STAT_LABEL, props.metrics?.referredTraders],
+      [REFERRED_VOLUME_LABEL, props.metrics?.referredVolume],
+      [POINTS_LABEL, props.metrics?.points],
+    ].filter((cell): cell is [string, string] => cell[1] != null);
+  return (
+    <Show when={cells().length > 0}>
+      <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--referral">
+        <For each={cells()}>{([label, value]) => <Stat label={label} value={value} />}</For>
+      </div>
+    </Show>
+  );
+}
+
+function MetricsOnlyCompact(props: {
+  protocol: SignalProtocol;
+  metrics: PlatformMetrics;
+}): JSX.Element {
+  return (
+    <div class="signal-uinfo__cardwrap">
+      <div class={`signal-uinfo__card signal-uinfo__card--${props.protocol}`}>
+        <ProfileMetricsRow metrics={props.metrics} />
+      </div>
+    </div>
+  );
+}
+
+function positionsPanelTitle(
+  multi: boolean,
+  accountLabel: string | undefined,
+  platformLabel: string,
+  positions: number | null,
+): string {
+  if (multi && accountLabel) return accountLabel;
+  return positions == null
+    ? `${platformLabel} Positions`
+    : `${platformLabel} Positions ${positions}`;
+}
+
 function PositionsPanel(props: {
   open: boolean;
-  count: number;
-  platformLabel: string;
+  title: string;
+
+  titleAsHeading?: boolean;
   platformUrl?: string;
   onClose: () => void;
 
   top?: JSX.Element;
   children: JSX.Element;
-
-  headerDivider?: boolean;
 }): JSX.Element {
   let panel: HTMLDivElement | undefined;
   onMount(() => {
@@ -437,10 +524,7 @@ function PositionsPanel(props: {
           event
             .composedPath()
             .some(
-              (n) =>
-                n instanceof HTMLElement &&
-                (n.classList.contains('signal-uinfo__postrigger') ||
-                  n.classList.contains('signal-popover__chiprow')),
+              (n) => n instanceof HTMLElement && n.classList.contains('signal-popover__chiprow'),
             )
         )
           return;
@@ -452,35 +536,51 @@ function PositionsPanel(props: {
   return (
     <Show when={props.open}>
       <div class="signal-uinfo__pospop" ref={panel}>
-        <div
-          class={`signal-uinfo__pospop-head signal-popover__num${
-            props.headerDivider ? ' signal-uinfo__pospop-head--divider' : ''
-          }`}
-        >
-          <span>
-            {props.platformLabel} <span class="signal-uinfo__pospop-count">{props.count}</span>
-          </span>
-          <button
-            type="button"
-            class="signal-uinfo__pospop-close"
-            aria-label="Close"
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onClose();
-            }}
-          >
-            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path
-                d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
+        <div class="signal-uinfo__pospop-fixed">
+          <div class="signal-uinfo__pospop-head signal-popover__num">
+            <span
+              class={`signal-uinfo__pospop-title${
+                props.titleAsHeading ? ' signal-uinfo__pospop-title--addr' : ''
+              }`}
+            >
+              {props.title}
+            </span>
+            <span class="signal-uinfo__pospop-actions">
+              <Show when={props.platformUrl}>
+                {(href) => (
+                  <a
+                    class="signal-uinfo__pospop-profile"
+                    href={href()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {VIEW_IN_PROFILE_LABEL}
+                  </a>
+                )}
+              </Show>
+              <button
+                type="button"
+                class="signal-uinfo__pospop-close"
+                aria-label="Close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onClose();
+                }}
+              >
+                <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path
+                    d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </span>
+          </div>
+          {props.top}
         </div>
-
-        {props.top}
         <a
           class="signal-uinfo__pospop-body"
           href={props.platformUrl}
@@ -488,14 +588,6 @@ function PositionsPanel(props: {
           rel={props.platformUrl ? 'noopener noreferrer' : undefined}
         >
           {props.children}
-        </a>
-        <a
-          class="signal-uinfo__pospop-foot"
-          href={props.platformUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {VIEW_IN_PROFILE_LABEL}
         </a>
       </div>
     </Show>
@@ -511,6 +603,7 @@ function HyperliquidCompact(props: {
   onToggle: () => void;
   onClose: () => void;
   onSelectPeriod: (period: string) => void;
+  metrics?: PlatformMetrics;
 }): JSX.Element {
   const selectedChip = () =>
     props.data.accounts[Math.min(props.selected, props.data.accounts.length - 1)];
@@ -528,36 +621,34 @@ function HyperliquidCompact(props: {
   return (
     <div class="signal-uinfo__cardwrap">
       <div class="signal-uinfo__card signal-uinfo__card--hyperliquid">
-        <div class="signal-uinfo__cardtop">
-          <div class="signal-uinfo__left">
-            <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--stacked">
-              <Stat
-                label={props.data.aggregate ? GROUP_ACCOUNT_VALUE_LABEL : ACCOUNT_VALUE_LABEL}
-                value={props.data.accountValue}
-              />
-              <Stat
-                label={GROUP_UPNL_LABEL}
-                value={props.data.upnl}
-                modifier={props.data.upnlNegative ? 'loss' : 'gain'}
+        <Show when={hasChartPoints(props.data.charts)} fallback={<PerpStatRow data={props.data} />}>
+          <div class="signal-uinfo__cardtop">
+            <div class="signal-uinfo__left">
+              <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--stacked">
+                <Stat label={GROUP_ACCOUNT_VALUE_LABEL} value={props.data.accountValue} />
+                <Stat
+                  label={GROUP_UPNL_LABEL}
+                  value={props.data.upnl}
+                  modifier={props.data.upnlNegative ? 'loss' : 'gain'}
+                />
+              </div>
+            </div>
+            <div class="signal-uinfo__right">
+              <ChartGroup
+                charts={props.data.charts}
+                selected={props.period}
+                card="hyperliquid"
+                wide
+                pnlLabel={GROUP_PROFIT_LOSS_ALL_TIME_LABEL}
+                pnlValue={props.data.profitLoss}
+                pnlValueModifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+                chartTone={props.data.profitLossNegative ? 'loss' : 'gain'}
+                onSelectPeriod={props.onSelectPeriod}
               />
             </div>
           </div>
-          <div class="signal-uinfo__right">
-            <ChartGroup
-              charts={props.data.charts}
-              selected={props.period}
-              card="hyperliquid"
-              wide
-              pnlLabel={
-                props.data.aggregate ? GROUP_PROFIT_LOSS_ALL_TIME_LABEL : PROFIT_LOSS_ALL_TIME_LABEL
-              }
-              pnlValue={props.data.profitLoss}
-              pnlValueModifier={props.data.profitLossNegative ? 'loss' : 'gain'}
-              chartTone={props.data.profitLossNegative ? 'loss' : 'gain'}
-              onSelectPeriod={props.onSelectPeriod}
-            />
-          </div>
-        </div>
+        </Show>
+        <ProfileMetricsRow metrics={props.metrics} />
         <Show when={props.data.accounts.length > 0}>
           <AccountChipRow
             chips={hyperliquidChips(props.data.accounts)}
@@ -571,19 +662,17 @@ function HyperliquidCompact(props: {
       </div>
       <PositionsPanel
         open={props.expanded && account() != null}
-        count={account()?.positionsTotal ?? props.data.positionsTotal}
-        platformLabel={PROTOCOL_LABEL.hyperliquid}
+        title={positionsPanelTitle(
+          !single(),
+          account()?.addressShort,
+          PROTOCOL_LABEL.hyperliquid,
+          account()?.positionsTotal ?? 0,
+        )}
+        titleAsHeading={!single()}
         platformUrl={accountUrl()}
         onClose={props.onClose}
-        headerDivider
         top={
           <Show when={!single()}>
-            <AccountChipRow
-              chips={hyperliquidChips(props.data.accounts)}
-              selected={props.selected}
-              expanded
-              onSelect={props.onSelect}
-            />
             <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
               <Stat label={ACCOUNT_VALUE_LABEL} value={account()?.accountValue ?? NO_TOTAL} />
               <Stat
@@ -616,10 +705,13 @@ function HyperliquidCompact(props: {
 function PolymarketCompact(props: {
   data: PredictionSummary;
   expanded: boolean;
+  period: string;
   selected: number;
   onSelect: (index: number) => void;
   onToggle: () => void;
   onClose: () => void;
+  onSelectPeriod: (period: string) => void;
+  metrics?: PlatformMetrics;
 }): JSX.Element {
   const selectedChip = () =>
     props.data.accounts[Math.min(props.selected, props.data.accounts.length - 1)];
@@ -639,16 +731,47 @@ function PolymarketCompact(props: {
   };
   return (
     <div class="signal-uinfo__cardwrap">
-      <div class="signal-uinfo__card">
-        <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
-          <Stat label={POSITIONS_VALUE_LABEL} value={props.data.positionsValue} />
-          <Stat
-            label={PROFIT_LOSS_ALL_TIME_LABEL}
-            value={props.data.profitLoss}
-            modifier={props.data.profitLossNegative ? 'loss' : 'gain'}
-          />
-          <Stat label={PREDICTIONS_LABEL} value={props.data.predictions} />
-        </div>
+      <div
+        class="signal-uinfo__card"
+        classList={{ 'signal-uinfo__card--chart': hasChartPoints(props.data.charts) }}
+      >
+        <Show
+          when={hasChartPoints(props.data.charts)}
+          fallback={
+            <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
+              <Stat label={POSITIONS_VALUE_LABEL} value={props.data.positionsValue} />
+              <Stat
+                label={PROFIT_LOSS_ALL_TIME_LABEL}
+                value={props.data.profitLoss}
+                modifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+              />
+              <Stat label={PREDICTIONS_LABEL} value={props.data.predictions} />
+            </div>
+          }
+        >
+          <div class="signal-uinfo__cardtop">
+            <div class="signal-uinfo__left">
+              <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--stacked">
+                <Stat label={POSITIONS_VALUE_LABEL} value={props.data.positionsValue} />
+                <Stat label={PREDICTIONS_LABEL} value={props.data.predictions} />
+              </div>
+            </div>
+            <div class="signal-uinfo__right">
+              <ChartGroup
+                charts={props.data.charts}
+                selected={servedPeriod(props.data.charts, props.period)}
+                card="polymarket"
+                wide
+                pnlLabel={PROFIT_LOSS_ALL_TIME_LABEL}
+                pnlValue={props.data.profitLoss}
+                pnlValueModifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+                chartTone={props.data.profitLossNegative ? 'loss' : 'gain'}
+                onSelectPeriod={props.onSelectPeriod}
+              />
+            </div>
+          </div>
+        </Show>
+        <ProfileMetricsRow metrics={props.metrics} />
         <Show when={props.data.accounts.length > 0}>
           <AccountChipRow
             chips={polymarketChips(props.data.accounts)}
@@ -657,23 +780,23 @@ function PolymarketCompact(props: {
             onSelect={props.onSelect}
             onToggle={props.onToggle}
             toggleStyle="details"
+            avatarFallback
           />
         </Show>
       </div>
       <PositionsPanel
         open={props.expanded && account() != null}
-        count={account()?.positionsTotal ?? props.data.positionsTotal}
-        platformLabel={PROTOCOL_LABEL.polymarket}
+        title={positionsPanelTitle(
+          !single(),
+          account()?.name,
+          PROTOCOL_LABEL.polymarket,
+          account()?.positionsTotal ?? 0,
+        )}
+        titleAsHeading={!single()}
         platformUrl={accountUrl()}
         onClose={props.onClose}
         top={
           <Show when={!single()}>
-            <AccountChipRow
-              chips={polymarketChips(props.data.accounts)}
-              selected={props.selected}
-              expanded
-              onSelect={props.onSelect}
-            />
             <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
               <Stat label={POSITIONS_VALUE_LABEL} value={account()?.positionsValue ?? NO_TOTAL} />
               <Stat
@@ -699,46 +822,252 @@ function PolymarketCompact(props: {
   );
 }
 
-function UserInfoModule(props: { data: UserInfoData }): JSX.Element {
-  const tabs = (): Tab[] => {
-    const list: Tab[] = ['x'];
-    if (props.data.hyperliquid) list.push('hyperliquid');
-    if (props.data.polymarket) list.push('polymarket');
-    return list;
-  };
+function TokenPlatformCompact(props: {
+  data: TokenPlatformSummary;
+  expanded: boolean;
+  selected: number;
+  onSelect: (index: number) => void;
+  onToggle: () => void;
+  onClose: () => void;
+  metrics?: PlatformMetrics;
+}): JSX.Element {
+  const selectedChip = (): TokenAccount | undefined =>
+    props.data.accounts[Math.min(props.selected, props.data.accounts.length - 1)];
 
-  const tabCount = (tab: Tab): number | undefined => {
-    if (tab === 'x') return undefined;
-    return props.data[tab]?.positionsTotal;
+  const single = (): boolean => !props.data.aggregate;
+
+  const detail = createWalletDetail('pumpfun', () =>
+    props.data.protocol === 'pumpfun' && props.expanded ? (selectedChip()?.address ?? null) : null,
+  );
+  const account = (): TokenAccount | undefined => {
+    const chip = selectedChip();
+    return chip && withPumpfunDetail(chip, detail());
   };
+  const hasDetail = (): boolean =>
+    account()?.hasDetail === true ||
+    (props.data.protocol === 'pumpfun' && account()?.address != null);
+
+  return (
+    <div class="signal-uinfo__cardwrap">
+      <div class={`signal-uinfo__card signal-uinfo__card--${props.data.protocol}`}>
+        <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
+          <Stat label={props.data.valueLabel} value={props.data.accountValue} />
+          <Stat
+            label={PROFIT_LOSS_ALL_TIME_LABEL}
+            value={props.data.profitLoss}
+            modifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+          />
+          <Stat label={props.data.countLabel} value={props.data.trades} />
+        </div>
+        <ProfileMetricsRow metrics={props.metrics} />
+        <Show when={props.data.accounts.length > 0}>
+          <AccountChipRow
+            chips={tokenPlatformChips(props.data.accounts)}
+            selected={props.selected}
+            expanded={props.expanded}
+            onSelect={props.onSelect}
+            onToggle={props.onToggle}
+            toggleStyle="details"
+            avatarFallback
+          />
+        </Show>
+      </div>
+      <PositionsPanel
+        open={props.expanded && account() != null}
+        title={positionsPanelTitle(
+          !single(),
+          account()?.name,
+          PROTOCOL_LABEL[props.data.protocol],
+          props.data.positionsFooter === 'affordance' ? null : (account()?.positionsTotal ?? 0),
+        )}
+        titleAsHeading={!single()}
+        platformUrl={account()?.profileUrl}
+        onClose={props.onClose}
+        top={
+          <Show when={!single()}>
+            <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
+              <Stat label={ACCOUNT_VALUE_LABEL} value={account()?.accountValue ?? NO_TOTAL} />
+              <Stat
+                label={PROFIT_LOSS_ALL_TIME_LABEL}
+                value={account()?.profitLoss ?? NO_TOTAL}
+                modifier={account()?.profitLossNegative ? 'loss' : 'gain'}
+              />
+              <Stat label={TRADES_LABEL} value={account()?.trades ?? NO_TOTAL} />
+            </div>
+          </Show>
+        }
+      >
+        <WalletDetailBody
+          status={detail().status}
+          hasDetail={hasDetail()}
+          rows={account()?.tokens.length ?? 0}
+          skeleton="polymarket-profile"
+        >
+          <TokenPositionList tokens={account()?.tokens ?? []} />
+        </WalletDetailBody>
+      </PositionsPanel>
+    </div>
+  );
+}
+
+function AccountPlatformCompact(props: {
+  data: AccountPlatformSummary;
+  period: string;
+  onSelectPeriod: (period: string) => void;
+  expanded?: boolean;
+  selected?: number;
+  onSelect?: (index: number) => void;
+  onToggle?: () => void;
+  onClose?: () => void;
+  metrics?: PlatformMetrics;
+}): JSX.Element {
+  const single = (): boolean => !props.data.aggregate;
+  const {
+    hasDetail,
+    chip: selectedChip,
+    canOpen,
+    view: detail,
+  } = createAccountPositions(
+    () => props.data,
+    () => props.selected ?? 0,
+    () => props.expanded === true,
+  );
+  const lighterSummary = () => {
+    const summary = detail().summary;
+    return summary?.platform === 'lighter' ? summary : undefined;
+  };
+  return (
+    <div class="signal-uinfo__cardwrap">
+      <div
+        class={`signal-uinfo__card signal-uinfo__card--chart signal-uinfo__card--${props.data.protocol}`}
+      >
+        <Show when={hasChartPoints(props.data.charts)} fallback={<PerpStatRow data={props.data} />}>
+          <div class="signal-uinfo__cardtop">
+            <div class="signal-uinfo__left">
+              <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--stacked">
+                <Stat label={GROUP_ACCOUNT_VALUE_LABEL} value={props.data.accountValue} />
+                <Stat
+                  label={GROUP_UPNL_LABEL}
+                  value={props.data.upnl}
+                  modifier={props.data.upnlNegative ? 'loss' : 'gain'}
+                />
+              </div>
+            </div>
+            <div class="signal-uinfo__right">
+              <ChartGroup
+                charts={props.data.charts}
+                selected={servedPeriod(props.data.charts, props.period)}
+                card={props.data.protocol}
+                wide
+                pnlLabel={GROUP_PROFIT_LOSS_ALL_TIME_LABEL}
+                pnlValue={props.data.profitLoss}
+                pnlValueModifier={props.data.profitLossNegative ? 'loss' : 'gain'}
+                chartTone={props.data.profitLossNegative ? 'loss' : 'gain'}
+                onSelectPeriod={props.onSelectPeriod}
+              />
+            </div>
+          </div>
+        </Show>
+        <ProfileMetricsRow metrics={props.metrics} />
+        <Show when={props.data.accounts.length > 0}>
+          <AccountChipRow
+            chips={accountPlatformChips(props.data.accounts)}
+            selected={hasDetail() ? (props.selected ?? 0) : 0}
+            expanded={hasDetail() && props.expanded === true}
+            onSelect={hasDetail() ? props.onSelect : undefined}
+            onToggle={hasDetail() ? props.onToggle : undefined}
+            toggleStyle={hasDetail() ? 'details' : undefined}
+          />
+        </Show>
+        <PlatformMetaLine
+          class="signal-uinfo__platform-meta"
+          positionsCount={props.data.positionsCount}
+          dataAsOf={props.data.dataAsOf}
+        />
+      </div>
+      <Show when={hasDetail()}>
+        <PositionsPanel
+          open={props.expanded === true && canOpen()}
+          title={positionsPanelTitle(
+            !single(),
+            selectedChip()?.label,
+            PROTOCOL_LABEL[props.data.protocol],
+            detail().positionsTotal ?? props.data.positionsCount ?? 0,
+          )}
+          titleAsHeading={!single()}
+          onClose={() => props.onClose?.()}
+          top={
+            <>
+              <Show when={selectedChip()?.tier}>
+                {(tier) => <span class="signal-popover__tier">{tier()}</span>}
+              </Show>
+              <Show when={!single() && props.data.protocol === 'lighter'}>
+                <div class="signal-uinfo__metrics-row signal-uinfo__metrics-row--wide">
+                  <Stat
+                    label={ACCOUNT_VALUE_LABEL}
+                    value={lighterSummary()?.accountValue ?? NO_TOTAL}
+                  />
+                  <Stat
+                    label={UPNL_LABEL}
+                    value={lighterSummary()?.upnl ?? NO_TOTAL}
+                    modifier={lighterSummary()?.upnlNegative ? 'loss' : 'gain'}
+                  />
+                  <Stat
+                    label={PROFIT_LOSS_ALL_TIME_LABEL}
+                    value={lighterSummary()?.profitLoss ?? NO_TOTAL}
+                    modifier={lighterSummary()?.profitLossNegative ? 'loss' : 'gain'}
+                  />
+                </div>
+              </Show>
+            </>
+          }
+        >
+          <WalletDetailBody
+            status={detail().status}
+            hasDetail
+            rows={detail().positions.length}
+            skeleton="hyperliquid-profile"
+          >
+            <StackedPositionsTable positions={detail().positions} />
+          </WalletDetailBody>
+        </PositionsPanel>
+      </Show>
+    </div>
+  );
+}
+
+function tabAccountCount(data: UserInfoData, tab: Tab): number | undefined {
+  if (tab === 'x') return undefined;
+  const summary = data[tab] as { accountCount?: number } | null | undefined;
+  return summary?.accountCount;
+}
+
+const TOKEN_TABS = ['fomo', 'pumpfun'] as const;
+const ACCOUNT_TABS: AccountProtocol[] = ['binance', 'okx', 'bybit', 'variational', 'lighter'];
+
+function UserInfoModule(props: { data: UserInfoData }): JSX.Element {
+  const tabs = (): Tab[] => profileTabs(props.data);
+
   const [activeTab, setActiveTab] = createSignal<Tab>(tabs()[0] ?? 'x');
   const [expanded, setExpanded] = createSignal(false);
 
-  const [selected, setSelected] = createSignal<Record<'hyperliquid' | 'polymarket', number>>({
-    hyperliquid: 0,
-    polymarket: 0,
-  });
-  const [periods, setPeriods] = createSignal<{
-    hyperliquid: string;
-    polymarket: string;
-  }>({
-    hyperliquid: 'ALL',
-    polymarket: 'ALL',
-  });
+  const [selected, setSelected] = createSignal<Partial<Record<SignalProtocol, number>>>({});
+  const [periods, setPeriods] = createSignal<Partial<Record<SignalProtocol, string>>>({});
+  const period = (card: SignalProtocol): string => periods()[card] ?? 'ALL';
 
   const selectTab = (tab: Tab): void => {
     if (tab === activeTab()) return;
     setActiveTab(tab);
     setExpanded(false);
   };
-  const selectPeriod = (card: 'hyperliquid' | 'polymarket', period: string): void => {
-    setPeriods((prev) => (prev[card] === period ? prev : { ...prev, [card]: period }));
+  const selectPeriod = (card: SignalProtocol, value: string): void => {
+    setPeriods((prev) => (prev[card] === value ? prev : { ...prev, [card]: value }));
   };
   const toggleExpanded = (): void => {
     setExpanded((prev) => !prev);
   };
 
-  const selectAccount = (card: 'hyperliquid' | 'polymarket', index: number): void => {
+  const selectAccount = (card: SignalProtocol, index: number): void => {
     setSelected((prev) => ({ ...prev, [card]: index }));
     setExpanded(true);
   };
@@ -753,23 +1082,23 @@ function UserInfoModule(props: { data: UserInfoData }): JSX.Element {
               <TabButton
                 tab={tab}
                 active={tab === activeTab()}
-                count={tabCount(tab)}
+                count={tabAccountCount(props.data, tab)}
                 onClick={() => selectTab(tab)}
               />
             )}
           </For>
         </div>
-        <span class="signal-uinfo__logo">{kaitoLockup()}</span>
       </div>
       <div class="signal-uinfo__body">
         <Switch fallback={<XTab data={props.data} />}>
-          <Match when={activeTab() === 'hyperliquid' && props.data.hyperliquid}>
+          <Match keyed when={activeTab() === 'hyperliquid' && props.data.hyperliquid}>
             {(hl) => (
               <HyperliquidCompact
-                data={hl()}
+                data={hl}
+                metrics={props.data.platformMetrics?.hyperliquid}
                 expanded={expanded()}
-                period={periods().hyperliquid}
-                selected={selected().hyperliquid}
+                period={period('hyperliquid')}
+                selected={selected().hyperliquid ?? 0}
                 onSelect={(i) => selectAccount('hyperliquid', i)}
                 onToggle={toggleExpanded}
                 onClose={() => setExpanded(false)}
@@ -777,19 +1106,73 @@ function UserInfoModule(props: { data: UserInfoData }): JSX.Element {
               />
             )}
           </Match>
-          <Match when={activeTab() === 'polymarket' && props.data.polymarket}>
+          <Match keyed when={activeTab() === 'polymarket' && props.data.polymarket}>
             {(pm) => (
               <PolymarketCompact
-                data={pm()}
+                data={pm}
+                metrics={props.data.platformMetrics?.polymarket}
                 expanded={expanded()}
-                selected={selected().polymarket}
+                period={period('polymarket')}
+                selected={selected().polymarket ?? 0}
                 onSelect={(i) => selectAccount('polymarket', i)}
                 onToggle={toggleExpanded}
                 onClose={() => setExpanded(false)}
+                onSelectPeriod={(p) => selectPeriod('polymarket', p)}
               />
             )}
           </Match>
+          <For each={TOKEN_TABS}>
+            {(protocol) => (
+              <Match keyed when={activeTab() === protocol && props.data[protocol]}>
+                {(summary) => (
+                  <TokenPlatformCompact
+                    data={summary}
+                    metrics={props.data.platformMetrics?.[protocol]}
+                    expanded={expanded()}
+                    selected={selected()[protocol] ?? 0}
+                    onSelect={(i) => selectAccount(protocol, i)}
+                    onToggle={toggleExpanded}
+                    onClose={() => setExpanded(false)}
+                  />
+                )}
+              </Match>
+            )}
+          </For>
+          <For each={ACCOUNT_TABS}>
+            {(protocol) => (
+              <Match keyed when={activeTab() === protocol && props.data[protocol]}>
+                {(summary) => (
+                  <AccountPlatformCompact
+                    data={summary}
+                    metrics={props.data.platformMetrics?.[protocol]}
+                    period={period(protocol)}
+                    onSelectPeriod={(p) => selectPeriod(protocol, p)}
+                    expanded={expanded()}
+                    selected={selected()[protocol] ?? 0}
+                    onSelect={(i) => selectAccount(protocol, i)}
+                    onToggle={toggleExpanded}
+                    onClose={() => setExpanded(false)}
+                  />
+                )}
+              </Match>
+            )}
+          </For>
+          <Match
+            keyed
+            when={
+              activeTab() !== 'x' &&
+              !props.data[activeTab() as SignalProtocol] &&
+              props.data.platformMetrics?.[activeTab() as SignalProtocol]
+            }
+          >
+            {(metrics) => (
+              <MetricsOnlyCompact protocol={activeTab() as SignalProtocol} metrics={metrics} />
+            )}
+          </Match>
         </Switch>
+      </div>
+      <div class="signal-uinfo__footer">
+        <span class="signal-uinfo__logo">{kaitoLockup()}</span>
       </div>
     </>
   );

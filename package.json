@@ -1,6 +1,6 @@
 {
   "name": "kaito-extension",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Kaito Pulse Chrome extension for zkTLS verification and X signals",
   "license": "SEE LICENSE IN LICENSE",
@@ -45,16 +45,16 @@
     "clean": "rm -rf dist .wxt .output"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.11",
-    "@types/chrome": "^0.2.7",
+    "@biomejs/biome": "2.5.13",
+    "@types/chrome": "^0.2.9",
     "@wxt-dev/auto-icons": "^1.1.2",
     "@wxt-dev/module-solid": "^1.1.4",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.3.0",
     "wxt": "^0.20.27"
   },
   "dependencies": {
-    "@zumer/snapdom": "^2.24.15",
+    "@zumer/snapdom": "^2.24.18",
     "echarts": "6.1.0",
     "json-formatter-js": "^2.5.23",
     "solid-js": "^1.9.15"

@@ -91,6 +91,16 @@ export type IncludedAccount = {
   nativeAmount: string | null;
 
   publicOnX?: boolean;
+
+  referral?: { users: number | null; volume: number | null };
+
+  referralVerifiable?: boolean;
+
+  points?: { total: number | null; tier: string | null };
+
+  allPoints?: { total: number | null; tier: { name: string; pointsRate: number } | null };
+
+  linked?: boolean;
 };
 
 export type PlatformGroup = {
@@ -99,8 +109,11 @@ export type PlatformGroup = {
   brandColor: string;
   accounts: IncludedAccount[];
 
+  accountCount: number;
+
   value: number | null;
   pnl: number | null;
+  pnlCoverage?: string | null;
 
   fxApproximate?: boolean;
 
@@ -112,6 +125,12 @@ export type PlatformGroup = {
   timestampLabel: string | null;
 
   publicCount: number | null;
+
+  referral?: { users: number | null; volume: number | null };
+
+  referralVerifiable?: boolean;
+
+  points?: { total: number | null; tier: string | null };
 };
 
 export type TimeSpent = {

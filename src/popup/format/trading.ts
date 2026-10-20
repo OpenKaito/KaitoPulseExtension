@@ -9,6 +9,10 @@ export function pnlLabelFor(account: Pick<TradingAccount, 'pnlBasis' | 'pnlCover
       const from = shortDateOf(account.pnlCoversFrom);
       return from ? `P&L · Since ${from}` : 'P&L · Latest';
     }
+    case 'longest_window': {
+      const from = shortDateOf(account.pnlCoversFrom);
+      return from ? `P&L · Since ${from}` : 'P&L';
+    }
     case 'accrued_since_verify':
       return 'P&L · Since verification';
     case 'open_positions_only':
@@ -20,14 +24,14 @@ export function pnlLabelFor(account: Pick<TradingAccount, 'pnlBasis' | 'pnlCover
 export function timestampLabelFor(
   account: Pick<TradingAccount, 'source' | 'dataAsOf' | 'verifiedAt'>,
 ): string | null {
-  if (account.source === 'attestation') return formatVerifiedOn(account.verifiedAt);
+  if (account.source === 'attestation')
+    return formatVerifiedOn(account.dataAsOf ?? account.verifiedAt);
   return formatUpdated(account.dataAsOf) ?? formatVerifiedOn(account.verifiedAt);
 }
 
 export function freshnessSourceOf(
   account: Pick<TradingAccount, 'source' | 'dataAsOf' | 'verifiedAt'>,
 ): string | null {
-  if (account.source === 'attestation') return account.verifiedAt;
   return account.dataAsOf ?? account.verifiedAt;
 }
 

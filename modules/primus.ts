@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { resolve, relative, join } from 'node:path';
 import { optionalProofTargetPatterns } from '../src/shared/proof-targets';
+import { removePrimusInstallSideEffects } from '../scripts/primus-privacy';
 
 const VENDOR_BUILD_DIR = resolve('vendor/primus-core/build');
 const VENDOR_SRC_DIR = resolve('vendor/primus-core');
@@ -106,7 +107,7 @@ function patchPrimusPageDecodeTabCreation(source: string): string {
 }
 
 function patchPrimusRuntimeEntrypoints(text: string): string {
-  let patched = text
+  let patched = removePrimusInstallSideEffects(text)
     .split('files:["pageDecode.bundle.js"]')
     .join(`files:["${RUNTIME_GUARD_SCRIPT}","pageDecode.bundle.js"]`)
     .split("files: ['pageDecode.bundle.js']")
@@ -171,6 +172,64 @@ function listFiles(dir: string): string[] {
   return out;
 }
 
+const VENDOR_RUNTIME_FILES: readonly string[] = [
+  'background.bundle.js',
+  'offscreen.html',
+  'offscreen.js',
+  'client_plugin.js',
+  'client_plugin.wasm',
+  'client_plugin.worker.js',
+  'pageDecode.bundle.js',
+  'static/css/pageDecode.css',
+  'catchFavicon.bundle.js',
+  'padoZKAttestationJSSDK.bundle.js',
+  'primus.js',
+];
+
+const VENDOR_ASSET_REFERENCE =
+  /static\/imgs\/[a-f0-9]+\.(?:svg|png|gif)|runtime\.getURL\("([^"]+\.(?:svg|png|gif))"\)/g;
+
+function vendorRuntimeFiles(): Set<string> {
+  const missing = VENDOR_RUNTIME_FILES.filter((f) => !existsSync(join(VENDOR_BUILD_DIR, f)));
+  if (missing.length > 0) {
+    throw new Error(
+      `[primus] vendor/primus-core/build/ lacks runtime file(s): ${missing.join(', ')}. ` +
+        'Either the vendor build is stale (run `pnpm build:vendor`) or the fork renamed an ' +
+        'entry point — update VENDOR_RUNTIME_FILES in modules/primus.ts deliberately.',
+    );
+  }
+
+  const shipped = new Set<string>(VENDOR_RUNTIME_FILES);
+  for (const file of VENDOR_RUNTIME_FILES) {
+    if (!/\.(js|html|css)$/.test(file)) continue;
+    const text = readFileSync(join(VENDOR_BUILD_DIR, file), 'utf8');
+    for (const match of text.matchAll(VENDOR_ASSET_REFERENCE)) {
+      const asset = match[1] ?? match[0];
+      if (existsSync(join(VENDOR_BUILD_DIR, asset))) shipped.add(asset);
+    }
+  }
+  return shipped;
+}
+
+const VENDOR_OVERRIDES_DIR = resolve('vendor/overrides');
+
+function vendorOverrides(shipped: Set<string>): Map<string, string> {
+  const overrides = new Map<string, string>();
+  if (!existsSync(VENDOR_OVERRIDES_DIR)) return overrides;
+  for (const filePath of listFiles(VENDOR_OVERRIDES_DIR)) {
+    const relativeDest = relative(VENDOR_OVERRIDES_DIR, filePath);
+    if (!shipped.has(relativeDest)) {
+      throw new Error(
+        `[primus] vendor/overrides/${relativeDest} has no shipped vendor counterpart. ` +
+          'The fork build probably renamed the hashed asset — regenerate the override from ' +
+          'the new file or delete it.',
+      );
+    }
+    overrides.set(relativeDest, filePath);
+  }
+  return overrides;
+}
+
 function unionStrings(...groups: Array<string[] | undefined>): string[] {
   return Array.from(new Set(groups.flatMap((g) => g || [])));
 }
@@ -211,11 +270,16 @@ function extensionReachableMatches(): string[] {
 
 function narrowVendorResourceMatches(
   entries: Array<{ resources: string[]; matches: string[] }> = [],
+  shipped: Set<string>,
 ): Array<{ resources: string[]; matches: string[] }> {
   const reachable = extensionReachableMatches();
-  return entries.map((entry) =>
-    entry.matches?.includes('<all_urls>') ? { ...entry, matches: reachable } : entry,
-  );
+  return entries
+    .map((entry) => ({
+      ...entry,
+      resources: entry.resources.filter((r) => shipped.has(r)),
+      matches: entry.matches?.includes('<all_urls>') ? reachable : entry.matches,
+    }))
+    .filter((entry) => entry.resources.length > 0);
 }
 
 function mergeWebAccessibleResources(
@@ -357,9 +421,17 @@ export default defineWxtModule({
           assets.push(asset);
         }
       }
-      for (const filePath of listFiles(VENDOR_BUILD_DIR)) {
-        const relativeDest = relative(VENDOR_BUILD_DIR, filePath);
+      const shipped = vendorRuntimeFiles();
+      const overrides = vendorOverrides(shipped);
+      let skipped = 0;
+      for (const vendorPath of listFiles(VENDOR_BUILD_DIR)) {
+        const relativeDest = relative(VENDOR_BUILD_DIR, vendorPath);
         if (relativeDest === 'manifest.json') continue;
+        if (!shipped.has(relativeDest)) {
+          skipped += 1;
+          continue;
+        }
+        const filePath = overrides.get(relativeDest) ?? vendorPath;
 
         const isText = /\.(js|html|css)$/.test(relativeDest);
         if (!isText) {
@@ -387,6 +459,9 @@ export default defineWxtModule({
       }
 
       assets.push({ relativeDest: RUNTIME_GUARD_SCRIPT, contents: RUNTIME_GUARD_SOURCE });
+      wxt.logger.info(
+        `[primus] shipping ${shipped.size} vendor files (${overrides.size} overridden), skipped ${skipped} unreachable Home/website files`,
+      );
     });
 
     wxt.hook('build:manifestGenerated', (_, manifest) => {
@@ -410,7 +485,7 @@ export default defineWxtModule({
       }
       manifest.web_accessible_resources = mergeWebAccessibleResources(
         manifest.web_accessible_resources as any,
-        narrowVendorResourceMatches(primus.web_accessible_resources),
+        narrowVendorResourceMatches(primus.web_accessible_resources, vendorRuntimeFiles()),
       );
 
       if (manifest.externally_connectable?.matches) {

@@ -97,7 +97,7 @@ export const PopupApp: Component = () => {
                         <Match when={tab() === 'Social'}>
                           <SocialTab />
                         </Match>
-                        <Match when={tab() === 'Trading'}>
+                        <Match when={tab() === 'Credentials'}>
                           <TradingTab onOpenPlatform={setOpenPlatform} />
                         </Match>
                         <Match when={tab() === 'X Analytics'}>

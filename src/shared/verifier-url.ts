@@ -60,6 +60,13 @@ export function verifierOriginMatches(candidateUrl: string | undefined, guideUrl
   }
 }
 
+export function navigationEndsProof(url: string, guideUrl: string, newDocument: boolean): boolean {
+  if (verifierUrlMatches(url, guideUrl)) {
+    return false;
+  }
+  return newDocument || !verifierOriginMatches(url, guideUrl);
+}
+
 export function verifierTabKey(guideUrl: string): string {
   try {
     const url = new URL(guideUrl);
@@ -67,4 +74,98 @@ export function verifierTabKey(guideUrl: string): string {
   } catch {
     return guideUrl;
   }
+}
+
+const KNOWN_ROUTE_SEGMENTS = new Set([
+  'i',
+  'flow',
+  'login',
+  'logout',
+  'signup',
+  'home',
+  'explore',
+  'search',
+  'notifications',
+  'messages',
+  'settings',
+  'account',
+  'access',
+  'account_analytics',
+  'premium',
+  'premium_sign_up',
+  'verified-choose',
+  'status',
+  'compose',
+  'intent',
+  'oauth',
+  'authorize',
+  'callback',
+  'my',
+  'wallet',
+  'dashboard',
+  'referral',
+  'portfolio',
+  'points',
+  'balance',
+  'overview',
+]);
+
+export function navigationTargetForLog(url: string, guideUrl?: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin === 'null') return parsed.protocol;
+    const guideSegments = new Set(guideUrl ? new URL(guideUrl).pathname.split('/') : []);
+    const path = parsed.pathname
+      .split('/')
+      .map((segment) =>
+        segment === '' || KNOWN_ROUTE_SEGMENTS.has(segment) || guideSegments.has(segment)
+          ? segment
+          : ':x',
+      )
+      .join('/');
+    return `${parsed.origin}${path}`;
+  } catch {
+    return 'unparseable';
+  }
+}
+
+const REDACTION_INPUT_LIMIT = 4000;
+
+const REDACTIONS: [RegExp, string][] = [
+  [/(https?:\/\/[^\s"'\\?#]{1,500})[?#][^\s"'\\]*/g, '$1'],
+  [/\b(bearer|basic)\s+[\w\-.~+/]+=*/gi, '$1 [redacted]'],
+  [
+    /((?:authori[sz]ation|cookie|set-cookie|csrf[\w-]*|[\w-]*token|password|passphrase|secret|session[\w-]*|signature|api[_-]?key|private[_-]?key|mnemonic|seed)\\?"?\s*[:=]\s*)(\\?"[^"\\]*\\?"|[^\s,;}&]+)/gi,
+    '$1[redacted]',
+  ],
+  [/[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}/g, '[email]'],
+  [/\b[A-Za-z0-9_-]{32,}\b/g, '[redacted]'],
+];
+
+export function redactFailureMessage(message: string): string {
+  return REDACTIONS.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    message.slice(0, REDACTION_INPUT_LIMIT),
+  );
+}
+
+export type MainFrameOutcome = { error?: string; status?: number; at: number };
+
+export function formatPageState(input: {
+  url?: string;
+  loadStatus?: string;
+  guideUrl?: string;
+  mainFrame?: MainFrameOutcome;
+  since?: number;
+}): string {
+  const parts = [
+    `page=${input.url ? navigationTargetForLog(input.url, input.guideUrl) : 'unknown'}`,
+  ];
+  if (input.loadStatus) parts.push(`load=${input.loadStatus.replace(/\W/g, '').slice(0, 12)}`);
+  const frame = input.mainFrame;
+  if (frame && frame.at >= (input.since ?? 0)) {
+    if (frame.error) parts.push(`net=${frame.error.replace(/[^\w:.-]/g, '').slice(0, 48)}`);
+    else if (typeof frame.status === 'number') parts.push(`http=${frame.status}`);
+  }
+  return parts.join(' ');
 }

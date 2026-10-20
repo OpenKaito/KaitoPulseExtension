@@ -1,29 +1,59 @@
 import type { JSX } from 'solid-js';
 import { For, Show } from 'solid-js';
-import type { PopoverTotals } from './types';
+import type { PopoverTotals, ReferralTotalFigure } from './types';
 import { AccountSizeDots } from '@/shared/AccountSizeDots';
 import { buildPlatformCluster } from '@/shared/platform-cluster';
 import { triangle } from './shared/icons';
-import { TOTAL_ACCOUNT_VALUE_LABEL, TOTAL_ALL_TIME_PNL_LABEL } from './shared/stat-labels';
-
-const MAX_MARKS = 5;
+import {
+  TOTAL_ACCOUNT_VALUE_LABEL,
+  TOTAL_ALL_TIME_PNL_LABEL,
+  TOTAL_REFERRAL_VOLUME_LABEL,
+} from './shared/stat-labels';
 
 function TotalPlatformIcons(props: { platforms: string[] }): JSX.Element {
-  const cluster = () => buildPlatformCluster(props.platforms, MAX_MARKS);
+  const cluster = () => buildPlatformCluster(props.platforms);
   return (
     <Show when={cluster().icons.length > 0}>
       <div class="signal-popover__total-marks" aria-hidden="true">
-        <For each={cluster().icons}>{(icon) => <img src={icon.src} alt="" />}</For>
-        <Show when={cluster().overflow > 0}>
-          <span class="signal-popover__total-more">+{cluster().overflow}</span>
+        <Show
+          when={cluster().collapsed}
+          fallback={
+            <For each={cluster().icons}>
+              {(icon) => <img src={icon.src} data-platform={icon.platform} alt="" />}
+            </For>
+          }
+        >
+          <span class="signal-popover__total-more">{cluster().icons.length}</span>
+          <span class="signal-popover__total-tip">
+            <For each={cluster().icons}>
+              {(icon) => <img src={icon.src} data-platform={icon.platform} alt="" />}
+            </For>
+          </span>
         </Show>
       </div>
     </Show>
   );
 }
 
-export function PopoverTotalsRow(props: { totals: PopoverTotals }): JSX.Element {
-  const direction = () => props.totals.allTimePnl?.direction;
+function ReferralTotalTile(props: { label: string; figure: ReferralTotalFigure }): JSX.Element {
+  return (
+    <div class="signal-popover__total">
+      <div class="signal-popover__total-head">
+        <div class="signal-popover__total-label">{props.label}</div>
+        <TotalPlatformIcons platforms={props.figure.platforms} />
+      </div>
+      <div class="signal-popover__total-figure">
+        <div class="signal-popover__total-value signal-popover__num">{props.figure.text}</div>
+      </div>
+    </div>
+  );
+}
+
+export function PopoverTotalsRow(props: {
+  totals?: PopoverTotals;
+  referredVolume?: ReferralTotalFigure;
+}): JSX.Element {
+  const direction = () => props.totals?.allTimePnl?.direction;
 
   const arrow = () =>
     direction() === 'loss'
@@ -33,7 +63,7 @@ export function PopoverTotalsRow(props: { totals: PopoverTotals }): JSX.Element 
         : undefined;
   return (
     <div class="signal-popover__totals">
-      <Show when={props.totals.accountValue}>
+      <Show when={props.totals?.accountValue}>
         {(accountValue) => (
           <div class="signal-popover__total">
             <div class="signal-popover__total-head">
@@ -49,7 +79,7 @@ export function PopoverTotalsRow(props: { totals: PopoverTotals }): JSX.Element 
           </div>
         )}
       </Show>
-      <Show when={props.totals.allTimePnl}>
+      <Show when={props.totals?.allTimePnl}>
         {(allTimePnl) => (
           <div class="signal-popover__total">
             <div class="signal-popover__total-head">
@@ -73,6 +103,9 @@ export function PopoverTotalsRow(props: { totals: PopoverTotals }): JSX.Element 
             </div>
           </div>
         )}
+      </Show>
+      <Show when={props.referredVolume}>
+        {(figure) => <ReferralTotalTile label={TOTAL_REFERRAL_VOLUME_LABEL} figure={figure()} />}
       </Show>
     </div>
   );

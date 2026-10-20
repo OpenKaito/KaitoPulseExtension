@@ -1,4 +1,5 @@
 import type { AuraSummaryResponse } from '@/shared/aura-summary';
+import type { ReferralSummaryResponse } from '@/shared/referral-summary';
 import type { TradingSummaryResponse } from '@/shared/trading-summary';
 import { ENV, logDev } from './env';
 import { buildClientHeaders } from './client-headers';
@@ -16,6 +17,7 @@ import {
   type ListProofsResponse,
   type UnbindPlatformResponse,
   type SignResponse,
+  type PublicReadVerifyResponse,
   type SubmitProofResponse,
 } from '@/shared/contracts';
 import type { AdFlagQueryResponse, AdFlagWriteResult } from '@/shared/ad-flag';
@@ -217,14 +219,23 @@ export const api = {
       sessionToken,
     });
   },
+  verifyHyperliquidReferral(sessionToken: string): Promise<PublicReadVerifyResponse> {
+    return request<PublicReadVerifyResponse>('/api/v1/extension/referral/hyperliquid', {
+      method: 'POST',
+      sessionToken,
+    });
+  },
   submitProof(
     sessionToken: string,
     requestId: string,
     attestation: Attestation,
+    expectedPlatformUserId?: string,
   ): Promise<SubmitProofResponse> {
     return request<SubmitProofResponse>('/api/v1/extension/proof/submit', {
       method: 'POST',
-      body: { requestId, attestation },
+      body: expectedPlatformUserId
+        ? { requestId, attestation, expectedPlatformUserId }
+        : { requestId, attestation },
       sessionToken,
     });
   },
@@ -338,6 +349,10 @@ export const api = {
 
   getTradingSummary(sessionToken: string): Promise<TradingSummaryResponse> {
     return request<TradingSummaryResponse>('/api/v1/extension/trading/summary', { sessionToken });
+  },
+
+  getReferralSummary(sessionToken: string): Promise<ReferralSummaryResponse> {
+    return request<ReferralSummaryResponse>('/api/v1/extension/referral/summary', { sessionToken });
   },
 
   postFollowAction(sessionToken: string, report: FollowActionReport): Promise<{ ok: boolean }> {

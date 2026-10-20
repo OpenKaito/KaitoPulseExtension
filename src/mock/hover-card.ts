@@ -1,4 +1,8 @@
 import type {
+  FomoBlock,
+  FomoPnlPeriod,
+  FomoWirePosition,
+  FomoWireProfile,
   BadgeItem,
   HoverCardCategory,
   HoverCardPlatformTotal,
@@ -8,6 +12,10 @@ import type {
   HoverCardWallet,
   HyperliquidBlock,
   HyperliquidPnlPeriod,
+  PumpfunBlock,
+  PumpfunWireHolding,
+  PumpfunWireProfile,
+  PumpfunWireWindowPnl,
   HyperliquidPosition,
   PolymarketBlock,
   PolymarketMarket,
@@ -169,6 +177,131 @@ const PM_SERIES: Record<
   '1y': { points: 24, stepMs: 15 * 24 * 60 * 60 * 1000, end: 11_308.5, swing: 6_400 },
   ytd: { points: 32, stepMs: 7 * 24 * 60 * 60 * 1000, end: 9_770.3, swing: 5_200 },
   all: { points: 36, stepMs: 30 * 24 * 60 * 60 * 1000, end: PM_PNL_ALL_TIME, swing: 9_000 },
+};
+
+const PUMPFUN_VALUE_USD = 21_408.9;
+const PUMPFUN_ACCOUNTS = 3;
+
+const PUMPFUN_ADDRESSES = [
+  '7xKXtg2CW3xJmQrPfLDqVnG4sBkTrEo9aZbNcHuY1pRs',
+  'BQ9mT4vXeLpAz2RdKfYw8NcGh3JsUuVoW5xErTyPqZ1k',
+  'Ed4nWpRqL7yUvBz3TgXmKsFh9JcAa2DoN6xYtEuQ8rMv',
+];
+
+const PUMPFUN_PROFILE: PumpfunWireProfile = {
+  name: 'PoorGoat',
+  twitterHandle: 'PoorGoat_',
+  avatar: 'https://pbs.twimg.com/profile_images/1878000000000000002/pump-fixture_400x400.jpg',
+  bio: 'Main Alpha On Runnr, Find Me On X. The Horns Stay On 🐐',
+};
+
+const PUMPFUN_HOLDINGS: PumpfunWireHolding[] = [
+  {
+    tokenAddress: 'ANSEmYt4pGqvLxRw9KcUdZ3NbFhJs7TaVo1XyEuQ2rBd',
+    symbol: 'ANSEM',
+    amount: 3_800_000,
+    value: 64_856.73,
+    costBasis: 3_002.12,
+    currentMarketCap: 41_200_000,
+    unrealizedPnl: 61_854.61,
+  },
+  {
+    tokenAddress: 'RETrDq8WvNzXm2LpKfYc5BhGa3JsUoTeR7xAd1QyEu9k',
+    symbol: 'RETARD',
+    amount: 21_500_000,
+    value: 18_053.48,
+    costBasis: 133_888.4,
+    currentMarketCap: 8_900_000,
+    unrealizedPnl: -115_834.92,
+  },
+  {
+    tokenAddress: 'CHAnCe5TvWqLmY2XpRdKfBz9NcGh4JsUo8xAtEuQ1rYv',
+    symbol: 'CHANCE',
+    amount: 8_000_000,
+    value: 15_293.43,
+    costBasis: 4_722.31,
+    currentMarketCap: 6_400_000,
+    unrealizedPnl: 10_571.12,
+  },
+];
+
+const PUMPFUN_WINDOWS: PumpfunWireWindowPnl[] = [
+  {
+    window: '1d',
+    profit: 812.44,
+    realizedPnl: 120.5,
+    unrealizedPnl: 691.94,
+    profitPct: 3.94,
+    totalBuyVolume: 20_596.46,
+  },
+  {
+    window: '1w',
+    profit: -2_310.88,
+    realizedPnl: -980.2,
+    unrealizedPnl: -1_330.68,
+    profitPct: -9.74,
+    totalBuyVolume: 23_719.78,
+  },
+  {
+    window: '1m',
+    profit: 6_204.19,
+    realizedPnl: 2_118.6,
+    unrealizedPnl: 4_085.59,
+    profitPct: 40.83,
+    totalBuyVolume: 15_204.71,
+  },
+];
+
+const FOMO_EQUITY = 48_215.67;
+const FOMO_PNL_ALL_TIME = 12_904.55;
+const FOMO_TRADES = 1_284;
+const FOMO_POSITIONS_TOTAL = 9;
+
+const FOMO_PROFILE: FomoWireProfile = {
+  name: 'sol maxi',
+  handle: 'solmaxi',
+  twitterHandle: 'solmaxi',
+  avatar: 'https://pbs.twimg.com/profile_images/1878000000000000001/fomo-fixture_400x400.jpg',
+  bio: 'Spot only. Size matters.',
+};
+
+const FOMO_POSITIONS: FomoWirePosition[] = [
+  {
+    symbol: 'WIF',
+    amount: 42_500,
+    avgEntryPrice: 0.8124,
+    avgTransferInPrice: null,
+    costBasis: 34_527,
+    value: 41_012.5,
+    unrealizedPnl: 6_485.5,
+  },
+  {
+    symbol: 'BONK',
+    amount: 180_000_000,
+    avgEntryPrice: null,
+    avgTransferInPrice: null,
+    costBasis: 3_852,
+    value: 5_103.17,
+    unrealizedPnl: 1_251.17,
+  },
+  {
+    symbol: 'PNUT',
+    amount: 6_240,
+    avgEntryPrice: 0.3711,
+    avgTransferInPrice: null,
+    costBasis: 2_315.66,
+    value: 2_100,
+    unrealizedPnl: -215.66,
+  },
+];
+
+const FOMO_SERIES: Record<
+  FomoPnlPeriod,
+  { points: number; stepMs: number; end: number; swing: number }
+> = {
+  '24H': { points: 24, stepMs: 60 * 60 * 1000, end: 812.4, swing: 540 },
+  '7D': { points: 28, stepMs: 6 * 60 * 60 * 1000, end: -1_240.8, swing: 1_900 },
+  '30D': { points: 30, stepMs: 24 * 60 * 60 * 1000, end: 7_521.01, swing: 4_600 },
 };
 
 const WALLET_ORDINALS = [1, 2, 5];
@@ -359,6 +492,117 @@ function syntheticPolymarketBlock(): PolymarketBlock {
     markets: PM_MARKETS,
     pnlSeries: polymarketSeries(Date.now()),
     selectedFrom: 1,
+  };
+}
+
+function fomoSeries(now: number): FomoBlock['pnlSeries'] {
+  return Object.fromEntries(
+    (Object.keys(FOMO_SERIES) as FomoPnlPeriod[]).map((period) => {
+      const { points, stepMs, end, swing } = FOMO_SERIES[period];
+      const last = points - 1;
+      return [
+        period,
+        Array.from({ length: points }, (_, i) => ({
+          t: now - (last - i) * stepMs,
+          v: end * (i / last) + swing * Math.sin(i * 0.8) * (1 - i / last),
+        })),
+      ];
+    }),
+  ) as FomoBlock['pnlSeries'];
+}
+
+function syntheticFomoBlock(): FomoBlock {
+  return {
+    profile: FOMO_PROFILE,
+    equity: FOMO_EQUITY,
+    trades: FOMO_TRADES,
+    positionsCount: FOMO_POSITIONS_TOTAL,
+
+    positions: FOMO_POSITIONS,
+    pnlSeries: fomoSeries(Date.now()),
+  };
+}
+
+function withFomoPlatformTotal(result: HoverCardResult): HoverCardPlatformTotal[] {
+  const served = result.tradingPlatformTotals ?? [];
+  if (served.some((t) => t.platform === 'fomo')) return served;
+  return [
+    ...served,
+    {
+      platform: 'fomo',
+      valueLabel: 'Account Value',
+      totalAccounts: 1,
+      publicAccounts: 1,
+      valueUsd: FOMO_EQUITY,
+      pnlUsd: FOMO_PNL_ALL_TIME,
+      upnlUsd: null,
+      predictionsCount: null,
+    },
+  ];
+}
+
+function pumpfunWallets(): HoverCardWallet[] {
+  return ['DumbCrayonEater', 'PoorGoat', 'DopamineFeenFr1'].map((name, i) => ({
+    platform: 'pumpfun',
+    address: PUMPFUN_ADDRESSES[i],
+    ordinal: i + 1,
+    addressRevealed: true,
+    hasPositions: i < 2,
+    displayName: name,
+    scraped: true,
+  }));
+}
+
+function syntheticPumpfunBlock(): PumpfunBlock {
+  return {
+    address: PUMPFUN_ADDRESSES[1],
+    profile: PUMPFUN_PROFILE,
+    accountValue: 9_113.22,
+    positionsCount: 10,
+    positionsScope: 'top10_by_current_position_value',
+    positions: PUMPFUN_HOLDINGS,
+    pnlWindows: PUMPFUN_WINDOWS,
+  };
+}
+
+function applyPumpfunMock(config: MockConfig, result: HoverCardResult): HoverCardResult {
+  const mode = config.hoverCardPumpfun;
+  if (mode === 'off') return result;
+
+  const served = result.tradingPlatformTotals ?? [];
+  if (mode === 'fill' && served.some((t) => t.platform === 'pumpfun')) return result;
+
+  return {
+    ...result,
+    pumpfun: syntheticPumpfunBlock(),
+    tradingWallets: [...(result.tradingWallets ?? []), ...pumpfunWallets()],
+    tradingPlatformTotals: [
+      ...served.filter((t) => t.platform !== 'pumpfun'),
+      {
+        platform: 'pumpfun',
+        valueLabel: 'Account Value',
+        totalAccounts: PUMPFUN_ACCOUNTS,
+        publicAccounts: PUMPFUN_ACCOUNTS,
+        valueUsd: PUMPFUN_VALUE_USD,
+        pnlUsd: null,
+        upnlUsd: null,
+        predictionsCount: null,
+      },
+    ],
+    tradingPlatforms: [...new Set([...(result.tradingPlatforms ?? []), 'pumpfun'])],
+  };
+}
+
+function applyFomoMock(config: MockConfig, result: HoverCardResult): HoverCardResult {
+  const mode = config.hoverCardFomo;
+  if (mode === 'off') return result;
+  if (mode === 'fill' && result.fomo) return result;
+
+  return {
+    ...result,
+    fomo: syntheticFomoBlock(),
+    tradingPlatformTotals: withFomoPlatformTotal(result),
+    tradingPlatforms: [...new Set([...(result.tradingPlatforms ?? []), 'fomo'])],
   };
 }
 
@@ -750,9 +994,18 @@ export async function applyHoverCardMock(
     config,
     applyWalletVisibilityMock(
       config,
-      applyPolymarketMock(
+      applyPumpfunMock(
         config,
-        applyHyperliquidMock(config, applyFollowersMock(config, applyTotalsMock(config, result))),
+        applyFomoMock(
+          config,
+          applyPolymarketMock(
+            config,
+            applyHyperliquidMock(
+              config,
+              applyFollowersMock(config, applyTotalsMock(config, result)),
+            ),
+          ),
+        ),
       ),
     ),
   );
@@ -777,7 +1030,8 @@ export async function applyBadgesPlatformMock(
   const config = mockConfig();
   const hl = config.hoverCardHyperliquid;
   const pm = config.hoverCardPolymarket;
-  if (hl === 'off' && pm === 'off') return items;
+  const fomo = config.hoverCardFomo;
+  if (hl === 'off' && pm === 'off' && fomo === 'off') return items;
 
   const next = { ...items };
   for (const id of requestedIds) {
@@ -795,6 +1049,10 @@ export async function applyBadgesPlatformMock(
     if (pm === 'force' || (pm === 'fill' && !real?.platforms.pm)) {
       marks.pm = true;
       marks.pmPositions = PM_POSITIONS_TOTAL;
+    }
+    if (fomo === 'force' || (fomo === 'fill' && !real?.platforms.fomo)) {
+      marks.fomo = true;
+      marks.fomoPositions = FOMO_POSITIONS_TOTAL;
     }
     next[id] = { ...base, platforms: marks };
   }

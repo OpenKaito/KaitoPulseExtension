@@ -1,5 +1,5 @@
 import { Show, type Component } from 'solid-js';
-import auraArtwork from '../assets/aura-artwork.png';
+import auraArtwork from '../assets/aura-artwork.webp';
 import { AccountSizeDots } from '@/shared/AccountSizeDots';
 import { clampTier, formatAccountSize } from '@/shared/account-size';
 import { PlatformIconCluster } from '../components/PlatformIconCluster';
@@ -45,7 +45,6 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
   const profile = () => popupData().profile;
   const overview = () => popupData().tradingOverview;
   const groups = () => popupData().platformGroups;
-  const coverage = () => popupData().tradingCoverage;
   const pnl = () => profile().allTimePnlUsd;
   const tone = () => pnlTone(pnl());
 
@@ -77,9 +76,10 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
         {}
         <section class="pv-tsum">
           <div class="pv-tsum__head">
-            <p class="pv-tsum__title">Trading summary</p>
+            <p class="pv-tsum__title">Summary</p>
             <p class="pv-tsum__helper">
-              Totals across every supported platform for your public wallet.
+              Totals from your public accounts on all supported platforms. Referral stats and points
+              are shown for each account below.
             </p>
           </div>
 
@@ -131,16 +131,7 @@ export const TradingTab: Component<{ onOpenPlatform: (platform: string) => void 
                 </div>
                 <Show when={!tradeLoading()}>
                   {}
-                  <p class="pv-tcard__note">
-                    From platforms that report all-time history
-                    <Show when={coverage()} keyed>
-                      {(cov) => (
-                        <Show when={cov.total > 0 && cov.covered < cov.total}>
-                          {` · ${cov.covered} of ${cov.total} verified accounts`}
-                        </Show>
-                      )}
-                    </Show>
-                  </p>
+                  <p class="pv-tcard__note">Includes only platforms that report all-time PnL</p>
                 </Show>
               </div>
             </div>

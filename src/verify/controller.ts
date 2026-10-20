@@ -45,17 +45,29 @@ export function errorHeadline(code: ProofErrorCode | undefined): string {
       return 'Session expired';
     case 'third_party_login_required':
       return 'Platform login required';
+    case 'permission_required':
+      return 'Site access required';
     case 'timeout':
       return 'Verification Timed Out';
     case 'page_closed':
     case 'page_interrupted':
       return 'Verification canceled';
     case 'duplicate_proof':
-      return 'Duplicate proof';
+      return 'Already in your list';
     case 'platform_account_already_claimed':
       return 'Account already linked';
     case 'platform_account_id_missing':
       return 'Account could not be identified';
+    case 'wallet_binding_required':
+      return 'Verify your wallet first';
+    case 'platform_unreadable':
+      return 'Could not read your stats';
+    case 'account_mismatch':
+      return 'Wrong account signed in';
+    case 'update_account_mismatch':
+      return 'Different account verified';
+    case 'account_not_linked':
+      return 'Link your account first';
     case 'security_check_failed':
       return 'Security check failed';
     case 'network_error':
@@ -89,10 +101,32 @@ export function errorDescription(
   reason?: string,
 ): string {
   switch (code) {
+    case 'proof_initialization_failed':
+      return 'Could not initialize the verification service. Please try again.';
     case 'platform_account_already_claimed':
       return `This ${platformName} account is already linked to another Kaito account. Unlink it there first, or verify with a different ${platformName} account.`;
+    case 'duplicate_proof':
+      return reason?.includes('duplicate_taskid')
+        ? 'This proof was already submitted. Start a new verification to try again.'
+        : `This ${platformName} account is already in your Kaito list. Re-verify it from its row on the Kaito site, or verify a different ${platformName} account.`;
     case 'platform_account_id_missing':
       return `We couldn't read an account identifier from ${platformName}, so this verification can't be linked to your Kaito account. This is on our side — please report it.`;
+    case 'wallet_binding_required':
+      return `Your referral stats are read for the ${platformName} address you trade with, so that wallet has to be verified first. Verify it in Kaito's wallet settings, then retry.`;
+    case 'platform_unreadable':
+      return `${platformName} did not return a reading we could use, so nothing was recorded. Try again in a moment.`;
+    case 'account_mismatch':
+      return `You're signed in to ${platformName} as a different account than the one linked to your Kaito login. Verification must use the linked account — switch accounts on ${platformName}, then retry.`;
+    case 'update_account_mismatch':
+      return `You're signed in to ${platformName} as a different account than the one you chose to update, so nothing was changed. Switch to that account on ${platformName}, then retry.`;
+    case 'account_not_linked':
+      return reason?.includes('x_identity_unavailable')
+        ? `Your linked ${platformName} account hasn't synced to Kaito yet. Wait a moment, then retry.`
+        : `Your Kaito login has no linked ${platformName} account. Link it under Linked Accounts on the Kaito site first, then verify that same account.`;
+    case 'permission_required':
+      return `Kaito Pulse needs your permission to read ${platformName}. Click Try Again and choose Allow when Chrome asks.`;
+    case 'insufficient_activity':
+      return `${platformName} only publishes the account data we need after you reach 50 followers.`;
     case 'unsupported_account_type':
       return reason?.includes('x_analytics_requires_premium')
         ? `X Premium is required to verify account analytics — X only exposes this data to Premium accounts. Subscribe on X, then retry.`
@@ -102,8 +136,18 @@ export function errorDescription(
   }
 }
 
+export function isAcknowledgeOnly(code: ProofErrorCode | undefined): boolean {
+  return code === 'insufficient_activity';
+}
+
 export function isRetryPointless(code: ProofErrorCode | undefined): boolean {
-  return code === 'platform_account_already_claimed' || code === 'platform_account_id_missing';
+  return (
+    code === 'platform_account_already_claimed' ||
+    code === 'platform_account_id_missing' ||
+    code === 'wallet_binding_required' ||
+    code === 'account_mismatch' ||
+    code === 'account_not_linked'
+  );
 }
 
 const PLATFORM_PLACEHOLDER_PREFIX = 'platform:';
@@ -322,6 +366,7 @@ export function createVerifyController(
     }
     const task = taskById(taskId);
     if (!task?.verifier || busy()) return;
+    setBootError('');
     setBusy(true);
     canceling = false;
     canceledVerifierId = undefined;

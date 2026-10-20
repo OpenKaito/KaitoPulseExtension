@@ -19,6 +19,7 @@ import { toSocialCardData, type SocialCardData } from '../social-card/view-model
 import { bundleFromSummaryCardData } from '../social-card/from-summary';
 import { SOCIAL_CARD_ENABLED } from '../social-card/enabled';
 import { ensureCardFonts } from '../social-card/fonts';
+import type { ReferralSummaryResponse } from '@/shared/referral-summary';
 import type { TradingSummaryResponse } from '@/shared/trading-summary';
 import type { FollowRecommendationResponse } from '@/shared/recommend-follow';
 import { EMPTY_DATA } from './empty';
@@ -108,6 +109,10 @@ const [tradingSummary, setTradingSummary] = createSignal<TradingSummaryResponse 
 );
 export { tradingSummary };
 
+const [referralSummary, setReferralSummary] = createSignal<ReferralSummaryResponse | undefined>(
+  undefined,
+);
+
 const [socialCardRaw, setSocialCard] = createSignal<SocialCardData | undefined>(undefined);
 
 export const socialCard = (): SocialCardData | undefined =>
@@ -171,6 +176,7 @@ export async function signOut(): Promise<void> {
   setAuraSummary(undefined);
   setHoverCard(undefined);
   setTradingSummary(undefined);
+  setReferralSummary(undefined);
   setTradingTotalsPublic(undefined);
   setAccountValuePublic(undefined);
   setAllTimePnlPublic(undefined);
@@ -222,7 +228,7 @@ function recompute(): void {
 
   next = withSocialFollowers(next, socialFollowers());
 
-  next = withTradingSummary(next, tradingSummary(), card);
+  next = withTradingSummary(next, tradingSummary(), card, referralSummary());
   setData(withAuraSummary(next, auraSummary(), auraOnboarded()));
 }
 
@@ -378,6 +384,18 @@ export async function initPopupData(): Promise<void> {
         } catch {
         } finally {
           setTradeLoading(false);
+          recompute();
+        }
+      })(),
+      (async () => {
+        try {
+          const referral = await sendKaitoMessage({
+            target: 'kaitoExtension',
+            action: 'getReferralSummary',
+          });
+          if (referral.result) setReferralSummary(referral.result);
+        } catch {
+        } finally {
           recompute();
         }
       })(),

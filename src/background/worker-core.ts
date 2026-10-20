@@ -1,6 +1,9 @@
+import { latestProofByVerifier } from '@/shared/latest-proof';
+import { clearExpectedAccount, expectedAccountFor } from './expected-account';
 import { api } from '@/lib/api';
 import { checkProofTargetUrl } from '@/shared/proof-targets';
 import { logDev } from '@/lib/env';
+import { ensurePrimusIdentity } from './primus-identity';
 import {
   clearLastResult,
   clearStoredSession,
@@ -27,6 +30,7 @@ import {
   type ExtensionVerifier,
   type ListPlatformBindingsResponse,
   type PrimusTemplateMetadata,
+  type SubmitProofResponse,
   type UnbindPlatformResponse,
 } from '@/shared/contracts';
 import type { ProofErrorCode, ProofRunSummary, ProofStage, WorkerState } from '@/shared/messages';
@@ -48,7 +52,21 @@ import {
   openToolbarPopup,
 } from '@/background/popup-window';
 import { verifierLandingUrl } from '@/shared/verifier-landing';
-import { verifierUrlMatches } from '@/shared/verifier-url';
+import { describeTabForLog, installMainFrameTracker } from './page-state-tracker';
+import { describeCaptureTrace } from './capture-trace-recorder';
+import { joinForFallback } from '@/shared/capture-trace';
+import {
+  environmentTag,
+  formatPrefetchDiagnostics,
+  prefetchOperationsFor,
+  PREFETCH_DIAGNOSTICS_STORAGE_KEY,
+} from '@/verify/x-graphql-prefetch-diagnostics';
+import {
+  navigationEndsProof,
+  navigationTargetForLog,
+  redactFailureMessage,
+  verifierUrlMatches,
+} from '@/shared/verifier-url';
 import { runVerifierPreflight, VerifierPreflightError } from './verifier-preflight';
 import { isSupportedVerifyPlatform } from '@/verify/catalog';
 import { refreshRemoteConfig } from './attention/remote-config';
@@ -66,11 +84,6 @@ const PROOF_LOCK_NAME = 'kaito-extension-proof-flow';
 const AUTO_PROOF_ENABLED = false;
 const AUTO_PROOF_DEBOUNCE_MS = 5 * 60 * 1000;
 const AUTO_PROOF_KEEPALIVE_MS = 12 * 60 * 1000;
-// MV3 kills the service worker after ~30s idle, and every wake re-runs
-// bootstrap. Within this window bootstrap hydrates from the persisted
-// me-cache + verify snapshot instead of re-fetching the trio; every mutating
-// flow (sign-in, proof submit, unbind, terms accept) refreshes through the
-// same caches, and the verify hub's 'init' message forces a network pass.
 const BOOTSTRAP_FRESH_TTL_MS = 10 * 60 * 1000;
 const LAST_RESULT_TOAST_KEY_STORAGE = 'kaito.lastResultToastKey';
 
@@ -105,6 +118,7 @@ let activeProofSession:
       verifierId: string;
       guideUrl?: string;
       targetTabId?: number;
+      documentCheckPending?: boolean;
       ownerWindowId?: number;
       interruptedError?: Error;
 
@@ -115,6 +129,7 @@ let activeProofSession:
 if (AUTO_PROOF_ENABLED) {
   ensureAutoProofListener();
 }
+installMainFrameTracker();
 
 function setStatus(status: WorkerState['status'], lastError?: string) {
   state.status = status;
@@ -188,6 +203,8 @@ function updateProofTargetTab(
   }
   activeProofSession.targetTabId = tabId;
   activeProofSession.guideUrl = guideUrl;
+  activeProofSession.documentCheckPending = false;
+  void markProofDocument(tabId);
   if (state.proofProgress?.verifierId === verifierId) {
     setProofProgress(verifierId, state.proofProgress.stage, state.proofProgress.message, {
       targetTabId: tabId,
@@ -224,22 +241,90 @@ function finishProofTabGuard(
   }
 }
 
-function reportProofFailureToBackend(summary: ProofRunSummary, stage?: ProofStage): void {
+const PREFETCH_DIAGNOSTICS_READ_TIMEOUT_MS = 1_500;
+
+async function readPrefetchDiagnostics(
+  tabId: number,
+  since: number,
+  operations: readonly string[],
+): Promise<string | undefined> {
+  if (operations.length === 0) return undefined;
+  const read = chrome.scripting
+    .executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      args: [PREFETCH_DIAGNOSTICS_STORAGE_KEY],
+      func: (key: string) => {
+        try {
+          return JSON.parse(sessionStorage.getItem(key) ?? 'null');
+        } catch {
+          return undefined;
+        }
+      },
+    })
+    .then((results) => formatPrefetchDiagnostics(results?.[0]?.result, since, operations));
+  const timeout = new Promise<undefined>((resolve) =>
+    setTimeout(() => resolve(undefined), PREFETCH_DIAGNOSTICS_READ_TIMEOUT_MS),
+  );
+  return Promise.race([read, timeout]).catch(() => undefined);
+}
+
+async function failureReportPrefix(
+  verifierId: string,
+  tabId: number | undefined,
+  since: number,
+  guideUrl: string | undefined,
+): Promise<string> {
+  const environment = environmentTag(
+    globalThis.navigator?.userAgent ?? '',
+    chrome.runtime?.getManifest?.().version ?? '?',
+  );
+  const capture = describeCaptureTrace(since);
+  if (typeof tabId !== 'number') return [environment, capture].filter(Boolean).join(' | ');
+  const [page, prefetch] = await Promise.all([
+    describeTabForLog(tabId, guideUrl, since).catch(() => undefined),
+    readPrefetchDiagnostics(tabId, since, prefetchOperationsFor(verifierId)),
+  ]);
+  return [environment, page, prefetch, capture].filter(Boolean).join(' | ');
+}
+
+function reportProofFailureToBackend(
+  summary: ProofRunSummary,
+  stage?: ProofStage,
+  tabId?: number,
+  since = 0,
+  guideUrl?: string,
+): void {
   const error = summary.error;
   if (!error || !summary.requestId) return;
   const requestId = summary.requestId;
-  void authedCall((token) =>
-    api.reportProofFailure(token, {
-      requestId,
-      code: error.code ?? 'unknown_error',
-      reason: error.reason,
+  const original = error.message ? redactFailureMessage(error.message) : '';
+  void failureReportPrefix(summary.verifierId, tabId, since, guideUrl)
+    .catch(() => '')
+    .then((prefix) => {
+      const redactedPrefix = redactFailureMessage(prefix);
+      const full = redactFailureMessage([prefix, error.message].filter(Boolean).join(' | '));
+      const send = (message: string) =>
+        authedCall((token) =>
+          api.reportProofFailure(token, {
+            requestId,
+            code: error.code ?? 'unknown_error',
+            reason: error.reason,
 
-      message: error.message?.slice(0, 256),
-      stage,
-    }),
-  ).catch((error) => {
-    logDev('proof failure report failed', error);
-  });
+            message: message || undefined,
+            stage,
+          }),
+        );
+      return send(full.slice(0, 2000)).catch((failure) => {
+        if (failure instanceof ApiError && failure.status === 400 && full.length > 256) {
+          return send(joinForFallback(redactedPrefix, original, 256));
+        }
+        throw failure;
+      });
+    })
+    .catch((failure) => {
+      logDev('proof failure report failed', failure);
+    });
 }
 
 function expireStaleProofProgress(message?: string): boolean {
@@ -274,7 +359,13 @@ function expireStaleProofProgress(message?: string): boolean {
   summary.finishedAt = Date.now();
   state.lastResult = summary;
   setStatus('error', errorMessage);
-  reportProofFailureToBackend(summary, progress.stage);
+  reportProofFailureToBackend(
+    summary,
+    progress.stage,
+    progress.targetTabId,
+    progress.startedAt,
+    progress.guideUrl,
+  );
   clearProofProgress(progress.verifierId);
   void setLastResult(summary).catch((error) => {
     logDev('persist stale proof failure failed', error);
@@ -364,6 +455,41 @@ async function notifyStoredProofError(): Promise<void> {
   });
 }
 
+const PROOF_DOCUMENT_MARKER = '__kaitoProofDocument';
+
+async function markProofDocument(tabId: number): Promise<void> {
+  await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      args: [PROOF_DOCUMENT_MARKER],
+      func: (key: string) => {
+        (globalThis as Record<string, unknown>)[key] = true;
+      },
+    })
+    .catch(() => undefined);
+}
+
+async function proofDocumentSurvived(tabId: number): Promise<boolean | undefined> {
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [PROOF_DOCUMENT_MARKER],
+      func: (key: string) => (globalThis as Record<string, unknown>)[key] === true,
+    });
+    return result?.result === true;
+  } catch {
+    return undefined;
+  }
+}
+
+function interruptForNavigation(url: string, guideUrl: string): void {
+  markProofInterrupted(
+    new Error(
+      `verification_interrupted: verifier tab navigated away to ${navigationTargetForLog(url, guideUrl)}`,
+    ),
+  );
+}
+
 function ensureProofTabGuardListener(): void {
   if (proofTabGuardRegistered) {
     return;
@@ -376,20 +502,45 @@ function ensureProofTabGuardListener(): void {
     }
   });
 
-  chrome.tabs?.onUpdated.addListener((tabId, changeInfo) => {
-    if (!activeProofSession || activeProofSession.targetTabId !== tabId || !changeInfo.url) {
+  chrome.tabs?.onUpdated.addListener((tabId, changeInfo, tab) => {
+    const session = activeProofSession;
+    if (!session || session.targetTabId !== tabId || !session.guideUrl) {
       return;
     }
-    if (
-      activeProofSession.guideUrl &&
-      !verifierUrlMatches(changeInfo.url, activeProofSession.guideUrl)
-    ) {
-      markProofInterrupted(new Error('verification_interrupted: verifier tab navigated away'));
+    const guideUrl = session.guideUrl;
+    if (changeInfo.url) {
+      if (navigationEndsProof(changeInfo.url, guideUrl, false)) {
+        interruptForNavigation(changeInfo.url, guideUrl);
+        return;
+      }
+      if (!verifierUrlMatches(changeInfo.url, guideUrl)) {
+        session.documentCheckPending = true;
+      }
+    }
+    if (changeInfo.status !== 'complete') {
+      return;
+    }
+    if (session.documentCheckPending) {
+      session.documentCheckPending = false;
+      void proofDocumentSurvived(tabId).then((survived) => {
+        if (activeProofSession !== session || survived !== false) {
+          return;
+        }
+        const url = tab.url || guideUrl;
+        if (navigationEndsProof(url, guideUrl, true)) {
+          interruptForNavigation(url, guideUrl);
+        }
+      });
+    } else if (verifierUrlMatches(tab.url, guideUrl)) {
+      void markProofDocument(tabId);
     }
   });
 
   chrome.windows?.onRemoved.addListener((windowId) => {
     if (!activeProofSession || activeProofSession.ownerWindowId !== windowId) {
+      return;
+    }
+    if (activeProofSession.pastPointOfNoReturn) {
       return;
     }
     interruptActiveProof('verification window was closed');
@@ -705,11 +856,7 @@ export async function refreshVerifiers(): Promise<ExtensionVerifier[]> {
 
 export async function refreshProofs(): Promise<Record<string, ExtensionProof>> {
   const response = await authedCall((token) => api.getProofs(token));
-  const map: Record<string, ExtensionProof> = {};
-  for (const proof of response.proofs) {
-    const seen = map[proof.verifierId];
-    if (!seen || proof.verifiedAt < seen.verifiedAt) map[proof.verifierId] = proof;
-  }
+  const map = latestProofByVerifier(response.proofs);
   state.verifications = map;
   persistVerifySnapshot();
   return map;
@@ -747,7 +894,6 @@ export async function bootstrap(options: { force?: boolean } = {}): Promise<Work
   if (!options.force && cached) {
     const [freshAt, snapshot] = await Promise.all([getBootstrapFreshAt(), getVerifySnapshot()]);
     const now = Date.now();
-    // now < freshAt means the clock moved backwards; treat as stale.
     const fresh =
       typeof freshAt === 'number' && now >= freshAt && now - freshAt < BOOTSTRAP_FRESH_TTL_MS;
     if (fresh && snapshot) {
@@ -818,6 +964,10 @@ export function startBootstrap(): Promise<WorkerState> {
   return initialBootstrapPromise;
 }
 
+export function isStartupBootstrapPending(): boolean {
+  return Boolean(initialBootstrapPromise) && !initialBootstrapSettled;
+}
+
 export async function ensureStartupBootstrap(): Promise<void> {
   if (!initialBootstrapPromise || initialBootstrapSettled) return;
   logDev('state read waited for in-flight startup bootstrap');
@@ -883,10 +1033,15 @@ async function runProofFlowUnlocked(
   options: ProofFlowOptions,
 ): Promise<ProofRunSummary> {
   const summary: ProofRunSummary = { verifierId, requestId: '' };
+  const proofStartedAt = Date.now();
   let verifierRuntime: VerifierRuntime | undefined;
   activeProofVerifierIds.add(verifierId);
   beginProofTabGuard(verifierId, options.ownerWindowId);
   const source = options.source || 'manual';
+  const retryAfterFailure =
+    source === 'manual' &&
+    state.lastResult?.verifierId === verifierId &&
+    Boolean(state.lastResult.error);
 
   try {
     setStatus('attesting');
@@ -907,73 +1062,123 @@ async function runProofFlowUnlocked(
       throw new Error(`verifier_platform_not_supported:${verifier.platform}`);
     }
     await setLastAttestation(null);
-    const sign = await authedCall((token) => api.signRequest(token, verifierId));
-    throwIfProofInterrupted(verifierId);
-    summary.requestId = sign.requestId;
-    state.lastResult = { ...summary };
-    await setLastResult(state.lastResult);
-    const template = buildPrimusTemplate(sign.template, verifier);
-    const guideUrl = resolveGuideUrl(verifier, template);
-    if (!guideUrl) {
-      throw new Error(`proof_target_not_allowed:${verifierId}`);
-    }
-    setProofProgress(
-      verifierId,
-      state.proofProgress?.stage ?? 'preparing',
-      state.proofProgress?.message ?? 'Preparing verification request',
-      { guideUrl },
-    );
-    verifierRuntime = await activateVerifierRuntime(guideUrl);
-    throwIfProofInterrupted(verifierId);
 
-    if (source !== 'auto') {
-      setProofProgress(verifierId, 'reading_data', 'Checking account eligibility', { guideUrl });
-      await runVerifierPreflight(verifier, guideUrl, template, {
-        onTargetTab: async (tabId) => {
-          updateProofTargetTab(verifierId, tabId, guideUrl, verifier.name);
-          await verifierRuntime?.prepareTab(tabId);
-        },
-      });
+    const serverRead = verifier.routes?.includes('hyperliquid_public_read') ?? false;
+
+    let template: PrimusTemplateMetadata | undefined;
+    let guideUrl: string | null | undefined;
+
+    let result: SubmitProofResponse;
+    if (serverRead) {
+      setStatus('submitting');
+      setProofProgress(verifierId, 'submitting', 'Reading your referral stats');
+      if (activeProofSession?.verifierId === verifierId) {
+        activeProofSession.pastPointOfNoReturn = true;
+      }
+      const read = await authedCall((token) => api.verifyHyperliquidReferral(token));
       throwIfProofInterrupted(verifierId);
+      if (read.failed?.length) {
+        logDev('hyperliquid referral partial result', {
+          wallets: read.wallets,
+          recorded: read.results?.length ?? 1,
+          failed: read.failed,
+        });
+      }
+      result = {
+        proofId: read.proofId,
+        extractedValue: JSON.stringify(read.value),
+        verifiedAt: read.verifiedAt,
+      };
+    } else {
+      const sign = await authedCall((token) => api.signRequest(token, verifierId));
+      throwIfProofInterrupted(verifierId);
+      summary.requestId = sign.requestId;
+      await ensurePrimusIdentity();
+      throwIfProofInterrupted(verifierId);
+      state.lastResult = { ...summary };
+      await setLastResult(state.lastResult);
+      const attestedTemplate = buildPrimusTemplate(sign.template, verifier);
+      const attestedGuideUrl = resolveGuideUrl(verifier, attestedTemplate);
+      if (!attestedGuideUrl) {
+        throw new Error(`proof_target_not_allowed:${verifierId}`);
+      }
+      template = attestedTemplate;
+      guideUrl = attestedGuideUrl;
+      setProofProgress(
+        verifierId,
+        state.proofProgress?.stage ?? 'preparing',
+        state.proofProgress?.message ?? 'Preparing verification request',
+        { guideUrl: attestedGuideUrl },
+      );
+      verifierRuntime = await activateVerifierRuntime(attestedGuideUrl);
+      throwIfProofInterrupted(verifierId);
+
+      let preflightTabId: number | undefined;
+      if (source !== 'auto') {
+        setProofProgress(verifierId, 'reading_data', 'Checking account eligibility', {
+          guideUrl: attestedGuideUrl,
+        });
+        const linkedAccountId = await resolveLinkedAccountIdForPreflight(verifier);
+        await runVerifierPreflight(verifier, attestedGuideUrl, attestedTemplate, {
+          linkedAccountId,
+          windowId: options.ownerWindowId,
+          forceCreateTab: retryAfterFailure,
+          onTargetTab: async (tabId) => {
+            preflightTabId = tabId;
+            updateProofTargetTab(verifierId, tabId, attestedGuideUrl, verifier.name);
+            await verifierRuntime?.prepareTab(tabId);
+          },
+        });
+        throwIfProofInterrupted(verifierId);
+      }
+
+      const pageSignedCapture = Boolean(verifier.requiresPageSignedInitialTraffic);
+      const attachDuringNavigation =
+        pageSignedCapture || (source === 'auto' && options.trigger === 'page_loading');
+
+      const attestation = await runAttestation(
+        attestedGuideUrl,
+        sign.signedRequest,
+        attestedTemplate,
+        {
+          tabId: pageSignedCapture ? undefined : options.tabId,
+          windowId: options.ownerWindowId,
+          silent: source === 'auto',
+          allowCreateTab: source !== 'auto' || pageSignedCapture,
+          forceCreateTab: pageSignedCapture || (retryAfterFailure && preflightTabId === undefined),
+          attachDuringNavigation,
+          waitForTargetData: !attachDuringNavigation,
+          onProgress: (stage, message) => setProofProgress(verifierId, stage, message),
+          onTargetTab: async (tabId) => {
+            updateProofTargetTab(verifierId, tabId, attestedGuideUrl, verifier.name);
+            await verifierRuntime?.prepareTab(tabId);
+          },
+          isCanceled: () =>
+            activeProofSession?.verifierId === verifierId &&
+            Boolean(activeProofSession.interruptedError),
+        },
+      );
+      throwIfProofInterrupted(verifierId);
+      await setLastAttestation(attestation);
+
+      setStatus('submitting');
+      setProofProgress(verifierId, 'submitting', 'Submitting proof');
+      logDev(
+        'submitProof attestation keys',
+        attestation && typeof attestation === 'object'
+          ? Object.keys(attestation)
+          : `<not object: ${typeof attestation}>`,
+      );
+
+      if (activeProofSession?.verifierId === verifierId) {
+        activeProofSession.pastPointOfNoReturn = true;
+      }
+      const expectedAccountId = await expectedAccountFor(verifierId);
+      result = await authedCall((token) =>
+        api.submitProof(token, sign.requestId, attestation, expectedAccountId),
+      );
+      await clearExpectedAccount(verifierId);
     }
-
-    const pageSignedCapture = Boolean(verifier.requiresPageSignedInitialTraffic);
-    const attachDuringNavigation =
-      pageSignedCapture || (source === 'auto' && options.trigger === 'page_loading');
-
-    const attestation = await runAttestation(guideUrl, sign.signedRequest, template, {
-      tabId: pageSignedCapture ? undefined : options.tabId,
-      silent: source === 'auto',
-      allowCreateTab: source !== 'auto' || pageSignedCapture,
-      forceCreateTab: pageSignedCapture,
-      attachDuringNavigation,
-      waitForTargetData: !attachDuringNavigation,
-      onProgress: (stage, message) => setProofProgress(verifierId, stage, message),
-      onTargetTab: async (tabId) => {
-        updateProofTargetTab(verifierId, tabId, guideUrl, verifier.name);
-        await verifierRuntime?.prepareTab(tabId);
-      },
-      isCanceled: () =>
-        activeProofSession?.verifierId === verifierId &&
-        Boolean(activeProofSession.interruptedError),
-    });
-    throwIfProofInterrupted(verifierId);
-    summary.attestation = attestation;
-    await setLastAttestation(attestation);
-
-    setStatus('submitting');
-    setProofProgress(verifierId, 'submitting', 'Submitting proof');
-    logDev(
-      'submitProof attestation keys',
-      attestation && typeof attestation === 'object'
-        ? Object.keys(attestation)
-        : `<not object: ${typeof attestation}>`,
-    );
-
-    if (activeProofSession?.verifierId === verifierId) {
-      activeProofSession.pastPointOfNoReturn = true;
-    }
-    const result = await authedCall((token) => api.submitProof(token, sign.requestId, attestation));
     summary.proofId = result.proofId;
     summary.extractedValue = result.extractedValue;
     summary.unit = result.unit;
@@ -992,8 +1197,6 @@ async function runProofFlowUnlocked(
     };
 
     persistVerifySnapshot();
-    // The user will look for their own badge right after verifying; don't
-    // leave a stale (usually negative) cache entry in the way.
     if (state.me?.twitterId) {
       void invalidateBadge(state.me.twitterId).catch((error) => {
         logDev('invalidate own badge after proof failed', error);
@@ -1004,8 +1207,8 @@ async function runProofFlowUnlocked(
       title: 'Kaito verification complete',
       message: `${verifier.name} was verified successfully.`,
     });
-    if (source === 'manual') {
-      await enableAutoProof(verifier.id, template, guideUrl);
+    if (source === 'manual' && !serverRead) {
+      await enableAutoProof(verifier.id, template, guideUrl ?? undefined);
     }
     setStatus('idle');
     clearProofProgress(verifierId);
@@ -1016,7 +1219,13 @@ async function runProofFlowUnlocked(
         : undefined;
     summary.error = serializeError(interruption ?? error);
 
-    reportProofFailureToBackend(summary, state.proofProgress?.stage);
+    reportProofFailureToBackend(
+      summary,
+      state.proofProgress?.stage,
+      activeProofSession?.verifierId === verifierId ? activeProofSession.targetTabId : undefined,
+      proofStartedAt,
+      activeProofSession?.verifierId === verifierId ? activeProofSession.guideUrl : undefined,
+    );
     if (state.status !== 'uninitialized') {
       setStatus('error', summary.error.message);
     }
@@ -1094,7 +1303,7 @@ async function restoreAutoVerifications(): Promise<void> {
   if (!AUTO_PROOF_ENABLED) {
     return;
   }
-  let response;
+  let response: Awaited<ReturnType<typeof api.getAutoVerifications>>;
   try {
     response = await authedCall((token) => api.getAutoVerifications(token));
   } catch (error) {
@@ -1344,10 +1553,6 @@ function getPrimusTemplateDefaults(verifier: ExtensionVerifier): {
   };
 }
 
-/**
- * The backend catalog's guide URL is the product-owned landing page. The
- * immutable Primus template URL remains a fallback for older catalog entries.
- */
 function resolveGuideUrl(
   verifier: ExtensionVerifier,
   template: PrimusTemplateMetadata | undefined,
@@ -1369,9 +1574,7 @@ function resolveAllowedGuideUrl(
       if (typeof parsed.baseUrl === 'string' && parsed.baseUrl.length > 0) {
         return checkProofTargetUrl(parsed.baseUrl);
       }
-    } catch {
-      // Malformed template payload; there is no URL to fall back to.
-    }
+    } catch {}
   }
 
   return null;
@@ -1400,7 +1603,6 @@ export async function signInWithPrivySession(
 
   void refreshRemoteConfig({ force: true });
   applyMe(me);
-  // Ad-flag cache entries carry the previous viewer's my_reason.
   await clearEdgeCaches().catch((error) => {
     logDev('clear edge caches on sign-in failed', error);
   });
@@ -1614,12 +1816,40 @@ function serializeError(error: unknown): NonNullable<ProofRunSummary['error']> {
   };
 }
 
+async function resolveLinkedAccountIdForPreflight(
+  verifier: ExtensionVerifier,
+): Promise<string | null | undefined> {
+  if (verifier.platform !== 'x') return undefined;
+  try {
+    const me = await refreshMe();
+    return me.twitterId ?? null;
+  } catch (error) {
+    logDev('preflight: /me refresh failed; using cached linked X', error);
+    const cached = state.me?.twitterId;
+    return cached === undefined ? undefined : cached || null;
+  }
+}
+
 function proofErrorUserMessage(error: NonNullable<ProofRunSummary['error']>): string {
   switch (error.code) {
+    case 'account_mismatch':
+      return "You're signed in to X as a different account than the one linked to your Kaito login. Switch accounts on x.com, then retry.";
+    case 'update_account_mismatch':
+      return "You're signed in as a different account than the one you chose to update, so nothing was changed. Switch accounts, then retry.";
+    case 'account_not_linked':
+      return error.reason?.includes('x_identity_unavailable')
+        ? 'Your linked X account has not synced to Kaito yet. Wait a moment, then retry.'
+        : 'Link your X account to your Kaito login first, then verify that same account.';
     case 'wallet_not_connected':
       return 'Connect your wallet on this platform, then retry verification.';
+    case 'wallet_binding_required':
+      return 'Verify the wallet you trade with on Kaito first — these stats are read for that address.';
+    case 'platform_unreadable':
+      return 'The platform did not return a reading we could use. Nothing was recorded — please retry.';
     case 'third_party_login_required':
       return 'Sign in to this platform, then retry verification.';
+    case 'permission_required':
+      return 'Kaito Pulse needs access to this site. Retry and choose Allow when Chrome asks.';
     case 'unsupported_account_type':
       return error.message?.includes('x_analytics_requires_premium')
         ? 'X Premium is required to verify account analytics. This account does not have access to its analytics data.'
@@ -1655,6 +1885,7 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     return 'proof_quota_exhausted';
   }
   if (text.includes('sign_in_required')) return 'sign_in_required';
+  if (text.includes('primus_identity_initialization_failed')) return 'proof_initialization_failed';
   if (text.includes('wallet_not_connected')) return 'wallet_not_connected';
   if (
     status === 401 ||
@@ -1664,15 +1895,26 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     return 'session_invalid';
   }
   if (text.includes('verification_already_running')) return 'verification_already_running';
-  if (text.includes('duplicate_taskid')) return 'duplicate_proof';
+  if (text.includes('duplicate_taskid') || text.includes('duplicate_proof'))
+    return 'duplicate_proof';
 
+  if (text.includes('wallet_binding_required')) return 'wallet_binding_required';
+  if (text.includes('platform_unreadable')) return 'platform_unreadable';
   if (text.includes('platform_account_already_claimed')) return 'platform_account_already_claimed';
   if (text.includes('platform_user_id_missing')) return 'platform_account_id_missing';
+  if (text.includes('x_account_mismatch')) return 'account_mismatch';
+  if (text.includes('account_mismatch')) return 'update_account_mismatch';
+  if (text.includes('x_account_not_linked') || text.includes('x_identity_unavailable')) {
+    return 'account_not_linked';
+  }
+  if (text.includes('proof_host_permission_required')) return 'permission_required';
   if (text.includes('unsupported_account_type')) return 'unsupported_account_type';
   if (text.includes('missing_required_data')) return 'missing_required_data';
   if (text.includes('target_api_changed')) return 'target_api_changed';
   if (text.includes('target_page_not_ready')) return 'target_page_not_ready';
-  if (text.includes('insufficient_activity')) return 'insufficient_activity';
+  if (text.includes('insufficient_activity') || text.includes('overview_series_empty')) {
+    return 'insufficient_activity';
+  }
   if (text.includes('proof_capture_failed')) return 'proof_capture_failed';
   if (text.includes('proof_engine_stalled')) return 'proof_engine_stalled';
   if (text.includes('verification_interrupted')) return 'page_interrupted';
@@ -1717,12 +1959,14 @@ function classifyProofError(message: string, reason?: string, status?: number): 
 function isRetryableProofError(code: ProofErrorCode): boolean {
   return [
     'third_party_login_required',
+    'permission_required',
     'wallet_not_connected',
     'page_closed',
     'page_interrupted',
     'timeout',
     'target_data_missing',
     'proof_engine_stalled',
+    'proof_initialization_failed',
     'network_error',
     'unknown_error',
   ].includes(code);

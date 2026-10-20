@@ -2,6 +2,7 @@ export type ProofTarget = {
   domain: string;
   hostPattern: string;
   manifestRole: 'required' | 'optional';
+  guideDomain?: string;
 };
 
 export const PROOF_TARGETS: readonly ProofTarget[] = [
@@ -14,22 +15,42 @@ export const PROOF_TARGETS: readonly ProofTarget[] = [
   },
 
   { domain: 'x.com', hostPattern: 'https://*.x.com/*', manifestRole: 'required' },
+
+  {
+    domain: 'variational.io',
+    hostPattern: 'https://omni.variational.io/*',
+    manifestRole: 'optional',
+  },
+
+  { domain: 'lighter.xyz', hostPattern: 'https://app.lighter.xyz/*', manifestRole: 'optional' },
+  {
+    domain: 'zklighter.elliot.ai',
+    hostPattern: 'https://mainnet.zklighter.elliot.ai/*',
+    manifestRole: 'optional',
+    guideDomain: 'lighter.xyz',
+  },
 ];
 
 export function optionalProofTargetPatterns(): string[] {
   return PROOF_TARGETS.filter((t) => t.manifestRole === 'optional').map((t) => t.hostPattern);
 }
 
-export function optionalPatternForUrl(url: string): string | null {
+export function optionalPatternsForUrl(url: string): string[] {
   let host: string;
   try {
     host = normalizeHost(new URL(url).hostname);
   } catch {
-    return null;
+    return [];
   }
-  const target = PROOF_TARGETS.find(({ domain }) => host === domain || host.endsWith(`.${domain}`));
-  if (!target || target.manifestRole !== 'optional') return null;
-  return target.hostPattern;
+  return PROOF_TARGETS.filter((t) => {
+    if (t.manifestRole !== 'optional') return false;
+    const domain = t.guideDomain ?? t.domain;
+    return host === domain || host.endsWith(`.${domain}`);
+  }).map((t) => t.hostPattern);
+}
+
+export function optionalPatternForUrl(url: string): string | null {
+  return optionalPatternsForUrl(url)[0] ?? null;
 }
 
 function normalizeHost(hostname: string): string {

@@ -4,6 +4,28 @@ const MAX_ENTRIES = 100;
 const MAX_SERIALIZED_CHARS = 200_000;
 
 const entries: DebugRequestEntry[] = [];
+const SENSITIVE_KEY =
+  /token|authorization|cookie|password|secret|privatekey|attestation|fingerprint|^(fp|signature|signatures|behaviorEvents|serveEvents)$/i;
+const PRIVATE_ENDPOINT = /\/extension\/(sessions|sign|proof|proofs|attention)(\/|$)/;
+
+function sanitizeText(value: string): string {
+  return value.replace(/Bearer\s+[^\s"',}]+/gi, 'Bearer [redacted]');
+}
+
+function sanitizeUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    for (const key of [...url.searchParams.keys()]) {
+      if (SENSITIVE_KEY.test(key)) url.searchParams.set(key, '[redacted]');
+    }
+    url.username = '';
+    url.password = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return '[invalid URL]';
+  }
+}
 
 function createId(): string {
   const cryptoApi = globalThis.crypto as Crypto | undefined;
@@ -14,7 +36,10 @@ function createId(): string {
 function snapshotValue(value: unknown): unknown {
   if (value === undefined) return undefined;
   try {
-    const json = JSON.stringify(value);
+    const json = JSON.stringify(value, (key, item: unknown) => {
+      if (SENSITIVE_KEY.test(key)) return '[redacted]';
+      return typeof item === 'string' ? sanitizeText(item) : item;
+    });
     if (json.length > MAX_SERIALIZED_CHARS) {
       return {
         truncated: true,
@@ -24,7 +49,7 @@ function snapshotValue(value: unknown): unknown {
     }
     return JSON.parse(json) as unknown;
   } catch {
-    return String(value);
+    return '[unserializable]';
   }
 }
 
@@ -44,10 +69,12 @@ export function startDebugRequest(input: {
     id,
     source: input.source,
     method: input.method.toUpperCase(),
-    url: input.url,
-    path: input.path,
+    url: sanitizeUrl(input.url),
+    path: input.path?.split('?')[0],
     startedAt: Date.now(),
-    requestBody: snapshotValue(input.requestBody),
+    requestBody: PRIVATE_ENDPOINT.test(input.path ?? input.url)
+      ? undefined
+      : snapshotValue(input.requestBody),
   });
   trimEntries();
   return id;
@@ -69,8 +96,15 @@ export function finishDebugRequest(
   entry.durationMs = finishedAt - entry.startedAt;
   if (result.status !== undefined) entry.status = result.status;
   if (result.ok !== undefined) entry.ok = result.ok;
-  if (result.responseBody !== undefined) entry.responseBody = snapshotValue(result.responseBody);
-  if (result.error !== undefined) entry.error = result.error;
+  const privateEndpoint = PRIVATE_ENDPOINT.test(entry.path ?? entry.url);
+  if (result.responseBody !== undefined && !privateEndpoint) {
+    entry.responseBody = snapshotValue(result.responseBody);
+  }
+  if (result.error !== undefined) {
+    entry.error = privateEndpoint
+      ? 'Request failed (sensitive details omitted)'
+      : sanitizeText(result.error);
+  }
 }
 
 export function getDebugRequestSnapshot(): DebugRequestSnapshot {

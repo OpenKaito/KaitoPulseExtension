@@ -11,7 +11,8 @@ import {
   updateAvatarBadgeTier,
 } from './avatar-badge';
 import { getSmartFollowerTier } from './avatar-badge-tiers';
-import { createNameTagElement, setNameTagProtocols } from './name-tag';
+import { createNameTagElement, setNameTagProtocols, syncNameTagTheme } from './name-tag';
+import { isSignalProtocol } from './platforms';
 import { NameTagPopover, loadPopoverData } from './name-tag-popover';
 import { TokenChartPopover, loadTokenChart } from './token-chart/popover';
 import { invalidateTickerAnchor } from './token-chart/applied-state';
@@ -424,12 +425,21 @@ export class Orchestrator {
 
         const skeleton = Array.from(
           new Set([...entries.map((entry) => entry.protocol), ...(trading?.platforms ?? [])]),
-        ).filter((p): p is SignalProtocol => p === 'hyperliquid' || p === 'polymarket');
+        ).filter((p): p is SignalProtocol => isSignalProtocol(p) && p !== 'pumpfun');
         this.popover.updatePlatforms(tag, skeleton);
       });
 
       this.badgeSubs.add({ el: tag, unsub: unsubscribe, twitterId: null, partial: false });
     });
+  }
+
+  private lastThemeSyncAt = 0;
+
+  private syncHostTheme(): void {
+    const now = Date.now();
+    if (now - this.lastThemeSyncAt < 1000) return;
+    this.lastThemeSyncAt = now;
+    syncNameTagTheme(this.document, hostPrefersDark(this.document));
   }
 
   private markNameTagEmpty(tag: HTMLElement): void {
@@ -566,6 +576,7 @@ export class Orchestrator {
           this.injectHoverCardSignals();
         }, 'orchestrator.onHoverCard'),
         onMaintenance: guard(() => {
+          this.syncHostTheme();
           this.repokePartialBadges();
           this.checkSelectorHealth();
         }, 'orchestrator.onMaintenance'),

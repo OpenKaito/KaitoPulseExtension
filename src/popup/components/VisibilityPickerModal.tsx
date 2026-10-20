@@ -1,5 +1,5 @@
 import { Show, createSignal, type Component, type JSX } from 'solid-js';
-import previewArt from '../assets/trading-visibility-preview.png';
+import previewArt from '../assets/trading-visibility-preview.webp';
 
 const Radio: Component<{ checked: boolean }> = (props) => (
   <span class="pv-radio" classList={{ 'pv-radio--on': props.checked }} aria-hidden="true" />

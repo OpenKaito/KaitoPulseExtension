@@ -1,7 +1,11 @@
 export const DEFAULT_CONNECT_ORIGIN = 'https://kaito.ai';
 
 function parseEntries(connectOrigin: string | undefined): string[] {
-  return [connectOrigin || DEFAULT_CONNECT_ORIGIN];
+  const entries = (connectOrigin || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return entries.length > 0 ? entries : [DEFAULT_CONNECT_ORIGIN];
 }
 
 function normalizeOrigin(entry: string): string {
@@ -14,7 +18,7 @@ function normalizeOrigin(entry: string): string {
 }
 
 export function toOriginList(connectOrigin?: string): string[] {
-  return parseEntries(connectOrigin).map(normalizeOrigin);
+  return Array.from(new Set(parseEntries(connectOrigin).map(normalizeOrigin)));
 }
 
 export function toMatchPatterns(connectOrigin?: string): string[] {

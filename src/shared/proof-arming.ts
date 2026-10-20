@@ -2,7 +2,13 @@ export const PROOF_ARMED_SESSION_KEY = 'kaito.proofArmed';
 
 export const PROOF_ARMED_ATTR = 'data-kaito-proof-armed';
 
+export const PROOF_CAPTURED_ATTR = 'data-kaito-proof-captured';
+
 export const PROOF_RUNTIME_TEARDOWN_EVENT = 'kaito-proof-runtime-teardown-v1';
+
+export function isProofCaptured(): boolean {
+  return document.documentElement?.hasAttribute(PROOF_CAPTURED_ATTR) === true;
+}
 
 export function isProofArmed(): boolean {
   try {
@@ -39,4 +45,5 @@ export function clearProofArmed(doc: Document): void {
     doc.defaultView?.sessionStorage.removeItem(PROOF_ARMED_SESSION_KEY);
   } catch {}
   doc.documentElement?.removeAttribute(PROOF_ARMED_ATTR);
+  doc.documentElement?.removeAttribute(PROOF_CAPTURED_ATTR);
 }

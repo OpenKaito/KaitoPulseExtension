@@ -2,6 +2,12 @@ import { logDev } from '@/lib/env';
 import type { Attestation, PrimusTemplateMetadata } from '@/shared/contracts';
 import { verifierOriginMatches, verifierTabKey, verifierUrlMatches } from '@/shared/verifier-url';
 import { GRAPHQL_PREFETCH_REQUEST_MESSAGE } from '@/verify/x-graphql-prefetch-message';
+import { hasMainWorldPrefetch } from '@/background/verifier-runtime';
+import { describeTabForLog } from '@/background/page-state-tracker';
+import { startCaptureTrace, stopCaptureTrace } from '@/background/capture-trace-recorder';
+import { watchPrimusCaptureComplete } from '@/background/capture-signal';
+import { PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
+import { optionalPatternsForUrl } from '@/shared/proof-targets';
 
 const ATTEST_TIMEOUT_MS = 10 * 60 * 1000;
 const PRIMUS_RESPONSE_TIMEOUT_MS = 6 * 60 * 1000;
@@ -25,6 +31,10 @@ const PRIMUS_OFFLINE_STALL_TIMEOUT_MS = 4 * 60 * 1000;
 const RUNTIME_GUARD_SCRIPT = 'kaito-runtime-guard.js';
 const PRIMUS_BRIDGE_SCRIPT = 'padoZKAttestationJSSDK.bundle.js';
 const PRIMUS_MARKER_SCRIPT = 'primus.js';
+const PRIMUS_INIT_RESPONSE_TIMEOUT_MS = 20_000;
+const BRIDGE_GENERATION_SESSION_KEY = 'kaitoPrimusBridgeGeneration';
+const BRIDGE_GENERATION_PAGE_GLOBAL = '__kaitoPrimusBridgeGeneration';
+const BRIDGE_GENERATION_ISOLATED_GLOBAL = '__kaitoPrimusBridgeInstalledGeneration';
 const PRIMUS_ACTIVE_STATE_KEYS = [
   'padoZKAttestationJSSDKBeginAttest',
   'padoZKAttestationJSSDKWalletAddress',
@@ -38,6 +48,20 @@ const PRIMUS_DAPP_TAB_ID_KEY = 'padoZKAttestationJSSDKDappTabId';
 const PRIMUS_DISALLOW_TAB_CREATE_KEY = 'kaitoPrimusDisallowTabCreate';
 
 const tabsWithFreshBridge = new Set<number>();
+
+let bridgeGenerationPromise: Promise<string> | undefined;
+
+function bridgeGeneration(): Promise<string> {
+  bridgeGenerationPromise ??= (async () => {
+    const stored = await chrome.storage.session.get(BRIDGE_GENERATION_SESSION_KEY);
+    const existing = stored?.[BRIDGE_GENERATION_SESSION_KEY];
+    if (typeof existing === 'string' && existing) return existing;
+    const fresh = crypto.randomUUID();
+    await chrome.storage.session.set({ [BRIDGE_GENERATION_SESSION_KEY]: fresh });
+    return fresh;
+  })();
+  return bridgeGenerationPromise;
+}
 
 const extensionCreatedTabs = new Set<number>();
 const verifierTabsByKey = new Map<string, number>();
@@ -80,6 +104,7 @@ export type PrimusTemplateTarget = {
 };
 
 export type RunAttestationOptions = {
+  windowId?: number;
   tabId?: number;
   silent?: boolean;
   allowCreateTab?: boolean;
@@ -142,9 +167,17 @@ async function runAttestationAttempts(
       options.onProgress?.('opening_page', 'Opening the platform page');
       let tabId = await ensureVerifierTab(guideUrl, options);
       await options.onTargetTab?.(tabId);
+      traceTemplateCapture(tabId, template);
       if (shouldPrepareTargetDataBeforeAttestation(options)) {
         options.onProgress?.('reading_data', 'Waiting for account data');
-        tabId = await preferVerifierTabWithTargetData(guideUrl, tabId, template, options);
+        const preparedTabId = await preferVerifierTabWithTargetData(
+          guideUrl,
+          tabId,
+          template,
+          options,
+        );
+        if (preparedTabId !== tabId) traceTemplateCapture(preparedTabId, template);
+        tabId = preparedTabId;
         await options.onTargetTab?.(tabId);
         options.onProgress?.('reading_data', 'Reading account data');
         await waitForTargetDataReady(tabId, template, options.isCanceled);
@@ -162,6 +195,7 @@ async function runAttestationAttempts(
       });
       options.onProgress?.('generating_proof', 'Generating zk proof');
       const stopInterceptionWatch = watchPrimusInterceptionStart(tabId, template);
+      const stopCaptureWatch = watchPrimusCaptureComplete(tabId);
       try {
         return await withAttestationTimeout(executeAttestationWithTabCreatePolicy(tabId, payload), {
           onProgress: options.onProgress,
@@ -169,8 +203,11 @@ async function runAttestationAttempts(
         });
       } finally {
         stopInterceptionWatch();
+        stopCaptureWatch();
+        stopCaptureTrace();
       }
     } catch (error) {
+      stopCaptureTrace();
       lastError = error;
       if (
         options.isCanceled?.() ||
@@ -192,6 +229,15 @@ async function runAttestationAttempts(
   throw lastError instanceof Error
     ? lastError
     : new Error(String(lastError || 'attestation_failed'));
+}
+
+function traceTemplateCapture(tabId: number, template?: PrimusTemplateMetadata): void {
+  startCaptureTrace(
+    tabId,
+    getPrimusTemplateTargetUrls(template),
+    targetUrlMatches,
+    PRIMUS_PAGE_DECODE_DEBUG_KEY,
+  );
 }
 
 async function keepAttestationWorkerAlive(tabId: number): Promise<void> {
@@ -348,14 +394,7 @@ function elapsedSecondsFromStep(step: PrimusAlgorithmStepDebug, fallbackMs: numb
 
 export async function clearPrimusAttestationState(): Promise<void> {
   await chrome.storage.local
-    .remove([
-      ...PRIMUS_ACTIVE_STATE_KEYS,
-      PRIMUS_DISALLOW_TAB_CREATE_KEY,
-      'kaitoPrimusDebug',
-      'kaitoPrimusTargetDebug',
-      'kaitoPreAlgorithmDebug',
-      'kaitoLastAlgorithmParamsDebug',
-    ])
+    .remove([...PRIMUS_ACTIVE_STATE_KEYS, PRIMUS_DISALLOW_TAB_CREATE_KEY])
     .catch(() => undefined);
 }
 
@@ -404,6 +443,12 @@ export async function readJsonFromVerifierPage<T>(
         if (!ct0) {
           return { ok: true, status: 200, value: { reason: 'not_signed_in' } };
         }
+        const twid = document.cookie
+          .split('; ')
+          .find((entry) => entry.startsWith('twid='))
+          ?.slice(5);
+        const viewerMatch = twid ? /^u(?:=|%3D)(\d+)$/i.exec(twid) : null;
+        const viewerId = viewerMatch ? viewerMatch[1] : null;
 
         const BEARER =
           'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
@@ -452,6 +497,7 @@ export async function readJsonFromVerifierPage<T>(
           ok: true,
           status: 200,
           value: {
+            viewerId,
             overview: { ok: response.ok, status: response.status, errors },
             hasSeries: Array.isArray(
               parsed?.data?.viewer_v2?.user_results?.result?.current_time_series,
@@ -560,7 +606,7 @@ async function ensureVerifierTab(
   guideUrl: string,
   options: RunAttestationOptions = {},
 ): Promise<number> {
-  const tabKey = verifierTabKey(guideUrl);
+  const tabKey = `${verifierTabKey(guideUrl)}:${options.windowId ?? 'any'}`;
   if (options.tabId !== undefined) {
     return ensureSpecifiedVerifierTab(guideUrl, tabKey, options.tabId, options);
   }
@@ -606,38 +652,58 @@ async function ensureSpecifiedVerifierTab(
   return tabId;
 }
 
+async function activateTab(tab: chrome.tabs.Tab): Promise<boolean> {
+  if (tab.id === undefined) return false;
+  await chrome.tabs.update(tab.id, { active: true }).catch(() => undefined);
+  if (tab.windowId !== undefined) {
+    await chrome.windows.update(tab.windowId, { focused: true }).catch(() => undefined);
+  }
+  const current = await chrome.tabs.get(tab.id).catch(() => undefined);
+  return current?.active === true;
+}
+
 async function ensureVerifierTabOnce(
   guideUrl: string,
   tabKey: string,
   options: RunAttestationOptions,
 ): Promise<number> {
-  const existing = options.forceCreateTab ? undefined : await findVerifierTab(guideUrl, tabKey);
-  if (existing?.id !== undefined) {
-    verifierTabsByKey.set(tabKey, existing.id);
-    await options.onTargetTab?.(existing.id);
-    if (!options.silent) {
-      await chrome.tabs.update(existing.id, { active: true }).catch(() => undefined);
-      if (existing.windowId !== undefined) {
-        await chrome.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
-      }
-    }
-    await waitForTabReady(existing.id);
-    await waitForTabToSettle(existing.id);
-    await ensureFreshBridgeScripts(existing.id);
-    return existing.id;
+  const existing = options.forceCreateTab
+    ? undefined
+    : await findVerifierTab(guideUrl, tabKey, options.windowId);
+  const reusable =
+    existing?.id !== undefined && (options.silent || (await activateTab(existing)))
+      ? existing
+      : undefined;
+  if (reusable?.id !== undefined) {
+    verifierTabsByKey.set(tabKey, reusable.id);
+    await options.onTargetTab?.(reusable.id);
+    const existingId = reusable.id;
+    await waitForTabReady(existingId);
+    await waitForTabToSettle(existingId);
+    await ensureFreshBridgeScripts(existingId);
+    return existingId;
   }
 
   if (options.allowCreateTab === false) {
     throw new Error('auto_verifier_tab_missing');
   }
 
-  const created = await chrome.tabs.create({ url: guideUrl, active: !options.silent });
+  const replaced = options.forceCreateTab ? verifierTabsByKey.get(tabKey) : undefined;
+  const created = await chrome.tabs.create({
+    url: guideUrl,
+    active: !options.silent,
+    windowId: options.windowId,
+  });
   if (typeof created.id !== 'number') {
     throw new Error('verifier_tab_create_failed');
   }
   verifierTabsByKey.set(tabKey, created.id);
   extensionCreatedTabs.add(created.id);
   await options.onTargetTab?.(created.id);
+  if (replaced !== undefined && replaced !== created.id && extensionCreatedTabs.has(replaced)) {
+    extensionCreatedTabs.delete(replaced);
+    void chrome.tabs.remove(replaced).catch(() => undefined);
+  }
   if (options.attachDuringNavigation) {
     await ensureFreshBridgeScriptsDuringNavigation(created.id);
     return created.id;
@@ -659,7 +725,9 @@ async function preferVerifierTabWithTargetData(
     return currentTabId;
   }
 
-  const tabs = await chrome.tabs.query({}).catch(() => []);
+  const tabs = await chrome.tabs
+    .query(options.windowId === undefined ? {} : { windowId: options.windowId })
+    .catch(() => []);
   const matches = tabs.filter(
     (tab) => tab.id !== undefined && verifierUrlMatches(tab.url || tab.pendingUrl, guideUrl),
   );
@@ -675,7 +743,7 @@ async function preferVerifierTabWithTargetData(
     }
     const urls = await collectTargetFetchUrls(tab.id, template);
     if (urls.length >= targets.length) {
-      verifierTabsByKey.set(verifierTabKey(guideUrl), tab.id);
+      verifierTabsByKey.set(`${verifierTabKey(guideUrl)}:${options.windowId ?? 'any'}`, tab.id);
       if (!options.silent) {
         await chrome.tabs.update(tab.id, { active: true }).catch(() => undefined);
         if (tab.windowId !== undefined) {
@@ -714,8 +782,9 @@ chrome.tabs?.onUpdated.addListener((tabId, changeInfo) => {
 async function findVerifierTab(
   guideUrl: string,
   tabKey: string,
+  windowId?: number,
 ): Promise<chrome.tabs.Tab | undefined> {
-  const tabs = await chrome.tabs.query({});
+  const tabs = await chrome.tabs.query(windowId === undefined ? {} : { windowId });
   const matches = tabs.filter((tab) => verifierUrlMatches(tab.url || tab.pendingUrl, guideUrl));
   const activeMatch = matches.find((tab) => tab.active);
   if (activeMatch) {
@@ -724,7 +793,9 @@ async function findVerifierTab(
 
   const cachedTabId = verifierTabsByKey.get(tabKey);
   if (cachedTabId !== undefined) {
-    const cached = await chrome.tabs.get(cachedTabId).catch(() => undefined);
+    const candidate = await chrome.tabs.get(cachedTabId).catch(() => undefined);
+    const cached =
+      windowId === undefined || candidate?.windowId === windowId ? candidate : undefined;
     if (cached && verifierUrlMatches(cached.url || cached.pendingUrl, guideUrl)) {
       return cached;
     }
@@ -739,7 +810,9 @@ async function findVerifierTab(
         url: cached.url || cached.pendingUrl,
         guideUrl,
       });
-      return cached;
+      if (optionalPatternsForUrl(guideUrl).length === 0) return cached;
+      const back = await chrome.tabs.update(cachedTabId, { url: guideUrl }).catch(() => undefined);
+      if (back) return back;
     }
     verifierTabsByKey.delete(tabKey);
   }
@@ -747,28 +820,88 @@ async function findVerifierTab(
   return matches[0];
 }
 
+const X_DOCUMENT_READY_POLL_MS = 2_000;
+const X_INTERACTIVE_GRACE_MS = 10_000;
+
+async function xDocumentReady(tabId: number): Promise<boolean> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab || tab.pendingUrl || !isXUrl(tab.url)) return false;
+  const [result] = await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: () => ({
+        state: document.readyState,
+        href: location.href,
+        age: Date.now() - performance.timeOrigin,
+      }),
+    })
+    .catch(() => []);
+  const page = result?.result as { state?: string; href?: string; age?: number } | undefined;
+  if (!page || page.href !== tab.url) return false;
+  return (
+    page.state === 'complete' ||
+    (page.state === 'interactive' && (page.age ?? 0) >= X_INTERACTIVE_GRACE_MS)
+  );
+}
+
+function isXUrl(url: string | undefined): boolean {
+  try {
+    const host = new URL(url || '').hostname;
+    return host === 'x.com' || host.endsWith('.x.com');
+  } catch {
+    return false;
+  }
+}
+
 async function waitForTabReady(tabId: number): Promise<void> {
   const tab = await chrome.tabs.get(tabId);
-  if (tab.status === 'complete') {
+  if (tab.status === 'complete' && !tab.pendingUrl) {
     return;
   }
 
+  const waitStartedAt = Date.now();
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
+    let settled = false;
+    let poll: ReturnType<typeof setInterval> | undefined;
+    const finish = (outcome: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (poll !== undefined) clearInterval(poll);
       chrome.tabs.onUpdated.removeListener(onUpdated);
-      reject(new Error('verifier_tab_load_timeout'));
+      outcome();
+    };
+    const timer = setTimeout(() => {
+      void describeTabForLog(tabId, undefined, waitStartedAt)
+        .catch(() => 'page=unknown')
+        .then((page) => finish(() => reject(new Error(`verifier_tab_load_timeout ${page}`))));
     }, 30_000);
 
     const onUpdated = (updatedTabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
       if (updatedTabId !== tabId || changeInfo.status !== 'complete') {
         return;
       }
-      clearTimeout(timer);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      resolve();
+      void chrome.tabs
+        .get(tabId)
+        .then((current) => {
+          if (current.status === 'complete' && !current.pendingUrl) finish(resolve);
+        })
+        .catch(() => undefined);
     };
 
     chrome.tabs.onUpdated.addListener(onUpdated);
+    void chrome.tabs
+      .get(tabId)
+      .then((current) => {
+        if (current.status === 'complete' && !current.pendingUrl) finish(resolve);
+      })
+      .catch(() => undefined);
+    poll = setInterval(() => {
+      void xDocumentReady(tabId).then((ready) => {
+        if (ready) finish(resolve);
+      });
+    }, X_DOCUMENT_READY_POLL_MS);
   });
 }
 
@@ -782,7 +915,9 @@ async function waitForTabToSettle(tabId: number): Promise<void> {
     previousUrl = before.url || previousUrl;
     await delay(POST_NAVIGATION_SETTLE_MS);
     const after = await chrome.tabs.get(tabId);
-    if (after.status === 'complete' && after.url === previousUrl) {
+    const ready =
+      !after.pendingUrl && (after.status === 'complete' || (await xDocumentReady(tabId)));
+    if (ready && after.url === previousUrl) {
       return;
     }
     await delay(TAB_STABLE_POLL_MS);
@@ -837,8 +972,9 @@ async function ensurePrimusBridge(
 
 async function pollPrimusBridgeReady(tabId: number, waitMs: number): Promise<boolean> {
   const deadline = Date.now() + waitMs;
+  const generation = await bridgeGeneration();
   while (Date.now() < deadline) {
-    if (await probePrimusBridge(tabId)) {
+    if (await probePrimusBridge(tabId, generation)) {
       return true;
     }
     await delay(BRIDGE_READY_POLL_MS);
@@ -1124,12 +1260,16 @@ async function collectTargetFetchUrls(
           let expression = value.trim();
           expression = expression.replace(/\(\?:\\\?\.\*\)\?\$$/, '');
           expression = expression.replace(/\$$/, '');
-          expression = expression.replace(/\\\./g, '.');
-          expression = expression.replace(/\\\//g, '/');
-          if (!/^https?:\/\//.test(expression) || /[()[\]{}|+*?^$]/.test(expression)) {
+          if (!/^https?:\/\//.test(expression)) {
             return undefined;
           }
-          return expression;
+          if (/\\[dwsbDWSB]/.test(expression)) {
+            return undefined;
+          }
+          if (/(?<!\\)[()[\]{}|+*?^$]/.test(expression)) {
+            return undefined;
+          }
+          return expression.replace(/\\(.)/g, '$1');
         };
 
         const matches = (actualUrl: string, expectedUrl: string): boolean => {
@@ -1306,12 +1446,16 @@ async function probeTargetData(
           let expression = value.trim();
           expression = expression.replace(/\(\?:\\\?\.\*\)\?\$$/, '');
           expression = expression.replace(/\$$/, '');
-          expression = expression.replace(/\\\./g, '.');
-          expression = expression.replace(/\\\//g, '/');
-          if (!/^https?:\/\//.test(expression) || /[()[\]{}|+*?^$]/.test(expression)) {
+          if (!/^https?:\/\//.test(expression)) {
             return undefined;
           }
-          return expression;
+          if (/\\[dwsbDWSB]/.test(expression)) {
+            return undefined;
+          }
+          if (/(?<!\\)[()[\]{}|+*?^$]/.test(expression)) {
+            return undefined;
+          }
+          return expression.replace(/\\(.)/g, '$1');
         };
         const targetUrlMatches = (actualUrl: string, expectedUrl: string): boolean => {
           const exactUrl = exactUrlFromExpression(expectedUrl);
@@ -1480,7 +1624,8 @@ async function ensureFreshBridgeScripts(tabId: number): Promise<void> {
     return;
   }
 
-  if (await probePrimusBridge(tabId).catch(() => false)) {
+  const generation = await bridgeGeneration();
+  if (await probePrimusBridge(tabId, generation).catch(() => false)) {
     tabsWithFreshBridge.add(tabId);
     return;
   }
@@ -1489,16 +1634,41 @@ async function ensureFreshBridgeScripts(tabId: number): Promise<void> {
 }
 
 async function injectFreshBridgeScripts(tabId: number): Promise<void> {
-  await chrome.scripting.executeScript({
+  const generation = await bridgeGeneration();
+  const [installed] = await chrome.scripting.executeScript({
     target: { tabId },
-    files: [RUNTIME_GUARD_SCRIPT, PRIMUS_BRIDGE_SCRIPT],
+    args: [BRIDGE_GENERATION_ISOLATED_GLOBAL, generation],
+    func: (key: string, value: string) => {
+      const scope = globalThis as unknown as Record<string, unknown>;
+      if (scope[key] === value) return true;
+      scope[key] = value;
+      return false;
+    },
   });
+  if (!installed?.result) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [RUNTIME_GUARD_SCRIPT, PRIMUS_BRIDGE_SCRIPT],
+    });
+  }
   await chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
     files: [PRIMUS_MARKER_SCRIPT],
   });
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    args: [BRIDGE_GENERATION_PAGE_GLOBAL, generation],
+    func: (key: string, value: string) => {
+      (globalThis as unknown as Record<string, unknown>)[key] = value;
+    },
+  });
   tabsWithFreshBridge.add(tabId);
+}
+
+function invalidateBridge(tabId: number): void {
+  tabsWithFreshBridge.delete(tabId);
 }
 
 async function ensureFreshBridgeScriptsDuringNavigation(tabId: number): Promise<void> {
@@ -1521,14 +1691,19 @@ async function ensureFreshBridgeScriptsDuringNavigation(tabId: number): Promise<
   throw lastError instanceof Error ? lastError : new Error('primus_bridge_injection_timeout');
 }
 
-async function probePrimusBridge(tabId: number): Promise<boolean> {
+async function probePrimusBridge(tabId: number, generation: string): Promise<boolean> {
   try {
     const [result] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      args: [BRIDGE_CHECK_TIMEOUT_MS],
-      func: async (timeoutMs: number) =>
-        new Promise<boolean>((resolve) => {
+      args: [BRIDGE_CHECK_TIMEOUT_MS, BRIDGE_GENERATION_PAGE_GLOBAL, generation],
+      func: async (timeoutMs: number, generationKey: string, expectedGeneration: string) => {
+        if (
+          (globalThis as unknown as Record<string, unknown>)[generationKey] !== expectedGeneration
+        ) {
+          return false;
+        }
+        return new Promise<boolean>((resolve) => {
           let settled = false;
 
           const cleanup = (value: boolean) => {
@@ -1557,7 +1732,8 @@ async function probePrimusBridge(tabId: number): Promise<boolean> {
             },
             '*',
           );
-        }),
+        });
+      },
     });
 
     return Boolean(result?.result);
@@ -1577,6 +1753,7 @@ async function probePrimusBridge(tabId: number): Promise<boolean> {
 async function executeAttestation(
   tabId: number,
   payload: PrimusStartPayload,
+  allowBridgeRecovery = true,
 ): Promise<Attestation> {
   let result: ExecuteResult<AttestationBridgeWireResult> | undefined;
   const writeExecuteDebug = async (event: string, extra: Record<string, unknown> = {}) => {
@@ -1591,6 +1768,12 @@ async function executeAttestation(
       });
     } catch {}
   };
+  let sitePrefetchOwnsRequests = false;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const host = tab?.url ? new URL(tab.url).hostname : '';
+    sitePrefetchOwnsRequests = host ? hasMainWorldPrefetch(host) : false;
+  } catch {}
   for (let attempt = 0; attempt <= EXECUTE_ATTESTATION_RETRIES; attempt += 1) {
     try {
       await writeExecuteDebug('before_execute_script', { attempt });
@@ -1603,6 +1786,9 @@ async function executeAttestation(
           PRIMUS_RESPONSE_TIMEOUT_MS,
           PRIMUS_SDK_VERSION,
           PRIMUS_CLIENT_TYPE,
+          PRIMUS_INIT_RESPONSE_TIMEOUT_MS,
+          PROOF_RUNTIME_TEARDOWN_EVENT,
+          sitePrefetchOwnsRequests,
         ],
         func: async (
           attestationPayload: SignedRequestPayload,
@@ -1610,6 +1796,9 @@ async function executeAttestation(
           responseTimeoutMs: number,
           sdkVersion: string,
           clientType: string,
+          initResponseTimeoutMs: number,
+          teardownEvent: string,
+          sitePrefetchOwnsRequests: boolean,
         ) => {
           console.log('[kaito-attest] booting in MAIN world', {
             href: location.href,
@@ -1633,6 +1822,7 @@ async function executeAttestation(
             let pollingTimer: number | undefined;
             let timeoutTimer: number | undefined;
             let responseTimeoutTimer: number | undefined;
+            let triggerTimer: number | undefined;
             const pollingTimeoutMs =
               typeof attestationPayload?.attRequest?.timeout === 'number'
                 ? Math.min(attestationPayload.attRequest.timeout, responseTimeoutMs)
@@ -1650,12 +1840,79 @@ async function executeAttestation(
               if (responseTimeoutTimer !== undefined) {
                 clearTimeout(responseTimeoutTimer);
               }
+              if (triggerTimer !== undefined) clearTimeout(triggerTimer);
               window.removeEventListener('message', onMessage);
+              document.removeEventListener(teardownEvent, onTeardown);
             };
 
+            const ALGORITHM_NOT_READY_RETRY_MS = 3_000;
+            const ALGORITHM_NOT_READY_MAX_RETRIES = 10;
+            let algorithmNotReadyRetries = 0;
+            let algorithmRetryTimer: number | undefined;
+
             const fail = (error: string) => {
+              if (algorithmRetryTimer !== undefined) clearTimeout(algorithmRetryTimer);
               cleanup();
-              resolve(encodeResult({ ok: false, error }));
+              resolve(
+                encodeResult({
+                  ok: false,
+                  error:
+                    algorithmNotReadyRetries > 0
+                      ? `${error} (algorithm_not_ready_retries=${algorithmNotReadyRetries})`
+                      : error,
+                }),
+              );
+            };
+            const onTeardown = () => fail('verification_interrupted: proof runtime closed');
+
+            const postStartAttestation = () => {
+              appendTrace('adapter_post_startAttestation', {
+                hasAttRequest: Boolean(attestationPayload?.attRequest),
+                hasKaitoTemplate: Boolean(attestationPayload?.kaitoTemplate),
+                retry: algorithmNotReadyRetries,
+              });
+              window.postMessage(
+                {
+                  target: 'kaitoPadoExtension',
+                  origin: 'padoZKAttestationJSSDK',
+                  name: 'startAttestation',
+                  params: {
+                    ...attestationPayload,
+                    sdkVersion,
+                    clientType,
+                  },
+                },
+                '*',
+              );
+            };
+
+            const isAlgorithmNotReady = (errorData: unknown): boolean => {
+              try {
+                return JSON.stringify(errorData ?? '')
+                  .toLowerCase()
+                  .includes('has not been initialized');
+              } catch {
+                return false;
+              }
+            };
+
+            const retryWhenAlgorithmNotReady = (errorData: unknown): boolean => {
+              if (!isAlgorithmNotReady(errorData)) return false;
+              if (algorithmRetryTimer !== undefined) return true;
+              if (algorithmNotReadyRetries >= ALGORITHM_NOT_READY_MAX_RETRIES) {
+                fail('primus_algorithm_not_initialized');
+                return true;
+              }
+              algorithmNotReadyRetries += 1;
+              appendTrace('adapter_algorithm_not_ready_retry', {
+                attempt: algorithmNotReadyRetries,
+              });
+              algorithmRetryTimer = window.setTimeout(() => {
+                algorithmRetryTimer = undefined;
+                if (settled) return;
+                postStartAttestation();
+              }, ALGORITHM_NOT_READY_RETRY_MS);
+              return true;
             };
 
             const formatError = (fallback: string, errorData: unknown): string => {
@@ -1720,12 +1977,16 @@ async function executeAttestation(
               let expression = value.trim();
               expression = expression.replace(/\(\?:\\\?\.\*\)\?\$$/, '');
               expression = expression.replace(/\$$/, '');
-              expression = expression.replace(/\\\./g, '.');
-              expression = expression.replace(/\\\//g, '/');
-              if (!/^https?:\/\//.test(expression) || /[()[\]{}|+*?^$]/.test(expression)) {
+              if (!/^https?:\/\//.test(expression)) {
                 return undefined;
               }
-              return expression;
+              if (/\\[dwsbDWSB]/.test(expression)) {
+                return undefined;
+              }
+              if (/(?<!\\)[()[\]{}|+*?^$]/.test(expression)) {
+                return undefined;
+              }
+              return expression.replace(/\\(.)/g, '$1');
             };
 
             const targetUrlMatches = (actualUrl: string, expectedExpression: string): boolean => {
@@ -1743,7 +2004,8 @@ async function executeAttestation(
             };
 
             const triggerTemplateRequests = () => {
-              window.setTimeout(() => {
+              triggerTimer = window.setTimeout(() => {
+                if (settled) return;
                 void (async () => {
                   let parsed: unknown;
                   try {
@@ -1836,6 +2098,7 @@ async function executeAttestation(
                   });
 
                   const resolved = new Map<string, string>();
+                  const pageFetched = new Set<string>();
                   const unresolved: string[] = [];
                   for (const expression of getTemplates) {
                     const matchedUrl = [...resourceUrls]
@@ -1843,6 +2106,7 @@ async function executeAttestation(
                       .find((url) => targetUrlMatches(url, expression));
                     if (matchedUrl) {
                       resolved.set(expression, matchedUrl);
+                      pageFetched.add(matchedUrl);
                       continue;
                     }
                     const exactUrl = exactUrlFromExpression(expression);
@@ -1854,10 +2118,35 @@ async function executeAttestation(
                   }
 
                   if (unresolved.length > 0) {
+                    const bodyValues: string[] = [];
+                    const fetchImpl = cleanRealm.fetch ?? window.fetch.bind(window);
+                    const harvestVariant = (target: string) =>
+                      `${target}${target.includes('?') ? '&' : '?'}kaito_hv=1`;
+                    for (const url of new Set(resolved.values())) {
+                      try {
+                        const res = await fetchImpl(harvestVariant(url), {
+                          credentials: 'include',
+                          cache: 'no-store',
+                        });
+                        if (!res.ok) continue;
+                        const stack: unknown[] = [await res.json()];
+                        while (stack.length > 0 && bodyValues.length < 500) {
+                          const cur = stack.pop();
+                          if (typeof cur === 'string') {
+                            if (cur.length >= 8 && cur.length <= 200) bodyValues.push(cur);
+                          } else if (Array.isArray(cur)) {
+                            stack.push(...cur);
+                          } else if (cur && typeof cur === 'object') {
+                            stack.push(...Object.values(cur as Record<string, unknown>));
+                          }
+                        }
+                      } catch {}
+                    }
                     const candidateValues = [
                       ...document.cookie.split(/;\s*/).flatMap((part) => part.split('=')),
                       ...[...resolved.values()].flatMap((url) => url.split(/[/?#&=]/)),
                       ...resourceUrls.flatMap((url) => url.split(/[/?#&=]/)),
+                      ...bodyValues,
                     ]
                       .map((segment) => segment.trim())
                       .filter(Boolean)
@@ -1882,22 +2171,34 @@ async function executeAttestation(
                     if (!cleanRealm.fetch) {
                       return 'include';
                     }
+                    let everyAttemptThrew = true;
                     for (const credentials of ['include', 'omit'] as const) {
                       try {
                         const response = await cleanRealm.fetch(url, {
                           credentials,
                           cache: 'no-store',
                         });
+                        everyAttemptThrew = false;
                         if (response.ok) {
                           return credentials;
                         }
                       } catch {}
                     }
-                    return null;
+                    return everyAttemptThrew ? 'include' : null;
                   };
 
+                  if (sitePrefetchOwnsRequests) {
+                    return;
+                  }
+
                   for (const url of urls) {
+                    if (settled) break;
+                    if (pageFetched.has(url)) {
+                      console.log('[kaito-attest] skip trigger (page already fetched it)', url);
+                      continue;
+                    }
                     const credentials = await probeCredentials(url);
+                    if (settled) break;
                     if (!credentials) {
                       console.log(
                         '[kaito-attest] skip trigger (bare request not 2xx; rely on page traffic)',
@@ -1923,6 +2224,7 @@ async function executeAttestation(
             };
 
             const onMessage = (event: MessageEvent) => {
+              if (settled) return;
               const data = event.data;
               if (data?.target !== 'padoZKAttestationJSSDK') {
                 return;
@@ -1941,30 +2243,23 @@ async function executeAttestation(
                   return;
                 }
                 startRequested = true;
+                if (responseTimeoutTimer !== undefined) {
+                  clearTimeout(responseTimeoutTimer);
+                }
+                responseTimeoutTimer = window.setTimeout(() => {
+                  fail('primus_attestation_no_response');
+                }, responseTimeoutMs);
 
-                appendTrace('adapter_post_startAttestation', {
-                  hasAttRequest: Boolean(attestationPayload?.attRequest),
-                  hasKaitoTemplate: Boolean(attestationPayload?.kaitoTemplate),
-                });
-                window.postMessage(
-                  {
-                    target: 'kaitoPadoExtension',
-                    origin: 'padoZKAttestationJSSDK',
-                    name: 'startAttestation',
-                    params: {
-                      ...attestationPayload,
-                      sdkVersion,
-                      clientType,
-                    },
-                  },
-                  '*',
-                );
+                postStartAttestation();
                 triggerTemplateRequests();
                 return;
               }
 
               if (data.name === 'getAttestationRes') {
                 if (!data.params?.result) {
+                  if (retryWhenAlgorithmNotReady(data.params?.errorData)) {
+                    return;
+                  }
                   if (isTransientAlgorithmError(data.params?.errorData)) {
                     console.log(
                       '[kaito-attest] ignoring transient getAttestationRes error (concurrent run)',
@@ -2010,6 +2305,9 @@ async function executeAttestation(
               if (data.name === 'startAttestationRes') {
                 console.log('[kaito-attest] startAttestationRes received', data.params);
                 if (!data.params?.result) {
+                  if (retryWhenAlgorithmNotReady(data.params?.errorData)) {
+                    return;
+                  }
                   if (isTransientAlgorithmError(data.params?.errorData)) {
                     console.log(
                       '[kaito-attest] ignoring transient startAttestationRes error (concurrent run)',
@@ -2033,9 +2331,10 @@ async function executeAttestation(
             };
 
             window.addEventListener('message', onMessage);
+            document.addEventListener(teardownEvent, onTeardown);
             responseTimeoutTimer = window.setTimeout(() => {
               fail(startRequested ? 'primus_attestation_no_response' : 'primus_init_no_response');
-            }, responseTimeoutMs);
+            }, initResponseTimeoutMs);
             console.log('[kaito-attest] posting initAttestation');
             appendTrace('adapter_post_initAttestation');
             window.postMessage(
@@ -2105,6 +2404,12 @@ async function executeAttestation(
     keys: bridgeResult.ok ? bridgeResult.keys : undefined,
   });
   if (!bridgeResult.ok) {
+    if (bridgeResult.error === 'primus_init_no_response' && allowBridgeRecovery) {
+      logDev('bridge did not answer init; re-injecting and retrying once', { tabId });
+      invalidateBridge(tabId);
+      await injectFreshBridgeScripts(tabId);
+      return executeAttestation(tabId, payload, false);
+    }
     throw new Error(bridgeResult.error);
   }
   logDev('bridge attestation keys', bridgeResult.keys);
@@ -2123,9 +2428,17 @@ function isTransientFrameError(error: unknown): boolean {
   );
 }
 
+const RETRYABLE_ATTESTATION_ERRORS: readonly RegExp[] = [
+  /30004[\s\S]*ParseJsonError/,
+  /\b10003\b[\s\S]*PrimusServerNetworkError/,
+  /\b50003\b[\s\S]*PlainThreadException/,
+  /\b00014\b/,
+  /\b30001\b[\s\S]*status code error:\s*(429|5\d\d)\b/,
+];
+
 function isRetryableAttestationError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes('30004') && message.includes('ParseJsonError');
+  return RETRYABLE_ATTESTATION_ERRORS.some((pattern) => pattern.test(message));
 }
 
 function unwrapInjectionResult<T>(result: ExecuteResult<T> | undefined, fallback: string): T {

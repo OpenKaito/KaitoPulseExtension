@@ -13,6 +13,7 @@ import {
 import {
   armGraphqlPrefetch,
   captureGraphqlAuth,
+  restorePrefetchDiagnostics,
   forceGraphqlPrefetch,
 } from '@/verify/x-graphql-prefetch';
 import { isGraphqlPrefetchRequest } from '@/verify/x-graphql-prefetch-message';
@@ -109,6 +110,7 @@ function installInterceptor(): void {
 
   patchFetch();
   patchXhr();
+  restorePrefetchDiagnostics();
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') armGraphqlPrefetch(PAGE_WARMED_OPERATION);

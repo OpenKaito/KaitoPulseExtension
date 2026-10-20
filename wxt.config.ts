@@ -152,7 +152,10 @@ export default defineConfig({
       },
     },
 
-    permissions: ['storage', 'alarms', 'scripting', 'webRequest'],
+    cross_origin_embedder_policy: { value: 'credentialless' },
+    cross_origin_opener_policy: { value: 'same-origin' },
+    permissions: ['storage', 'alarms', 'scripting', 'webRequest', 'sidePanel'],
+    side_panel: { default_path: 'verify-window.html' },
     host_permissions: [...REQUIRED_HOST_PERMISSIONS, ...deriveConnectableMatches()],
     optional_host_permissions: OPTIONAL_VERIFIER_HOST_PERMISSIONS,
     externally_connectable: {

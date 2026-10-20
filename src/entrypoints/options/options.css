@@ -89,7 +89,6 @@ body {
   color: var(--text-strong);
 }
 
-/* No color of its own: the arrow has to brighten with the label on hover. */
 .nav-item__external-icon {
   margin-left: 4px;
   font-size: 12px;

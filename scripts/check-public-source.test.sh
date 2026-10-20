@@ -95,6 +95,8 @@ blocked 'design group address' a.ts '// matches Group 9:12'
 blocked 'internal process name' a.ts '// found during bug bash'
 blocked 'agent instruction file' a.ts '// the convention is documented in CLAUDE.md'
 blocked 'internal branch name'  a.ts '// landed on feat/wallet-visibility'
+blocked 'preview app host'      a.ts "const ORIGIN = 'https://abc123def456.amplifyapp.com';"
+blocked 'preview branch host'   .env.example '#   VITE_KAITO_CONNECT_URL=https://pr-12.wxyz9876abcd.amplifyapp.com'
 
 echo
 echo '▸ pass 2 — credentials'
@@ -119,6 +121,7 @@ allowed 'inlined woff2 font'   f.css \
   "@font-face{src:url(data:font/woff2;base64,d09GMgABAAAAA$(rep B 60))}"
 allowed 'product domain'       a.ts "const API = 'https://hub.kaito.ai';"
 allowed 'sign-in URL'          a.ts "const LOGIN = 'https://kaito.ai/login';"
+allowed 'placeholder preview'  a.ts "const ORIGIN = 'https://preview.example.com';"
 allowed 'version strings'      a.ts "const v = '1.0.2'; const min = '120';"
 allowed 'ordinary source'      a.ts "import { signalGate } from '../shared/session-gate';"
 

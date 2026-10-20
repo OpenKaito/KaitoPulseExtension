@@ -1,4 +1,9 @@
-import type { HyperliquidPosition, PolymarketMarket } from './social-card';
+import type {
+  HyperliquidPosition,
+  LighterWirePosition,
+  PolymarketMarket,
+  PumpfunWireHolding,
+} from './social-card';
 
 export interface WalletDetailRequest {
   platform: string;
@@ -32,7 +37,25 @@ export interface PolymarketWalletSummary {
   pnlSeries?: Record<string, Array<{ t: number; p: number }>>;
 }
 
-export type WalletDetailSummary = HyperliquidWalletSummary | PolymarketWalletSummary;
+export interface PumpfunWalletSummary {
+  accountValue: number | null;
+  positionsCount: number;
+  positionsScope?: string;
+}
+
+export interface LighterWalletSummary {
+  accountValue: number | null;
+  uPnl: number;
+  pnlAllTime: number | null;
+  positionsCount: number;
+  accountCount: number;
+}
+
+export type WalletDetailSummary =
+  | HyperliquidWalletSummary
+  | PolymarketWalletSummary
+  | PumpfunWalletSummary
+  | LighterWalletSummary;
 
 export interface WalletDetailResult {
   platform: string;
@@ -49,12 +72,14 @@ export interface WalletDetailResult {
 
   positions?: HyperliquidPosition[];
   markets?: PolymarketMarket[];
+  holdings?: PumpfunWireHolding[];
+  lighterPositions?: LighterWirePosition[];
 }
 
 export function isHyperliquidWalletSummary(
   summary: WalletDetailSummary,
 ): summary is HyperliquidWalletSummary {
-  return 'accountValue' in summary;
+  return 'uPnl' in summary && !('accountCount' in summary);
 }
 
 export type WalletDetailOutcome =

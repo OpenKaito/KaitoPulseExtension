@@ -26,6 +26,10 @@ export function openVerificationHub(): void {
 
 export const MY_SOCIALS_URL = buildSiteUrl('/my-socials');
 
+export function platformCredentialsUrl(platform: string): string {
+  return buildSiteUrl(`/my-credentials/${encodeURIComponent(platform)}`);
+}
+
 export function siteUrlFromWire(wireUrl: string | null | undefined, fallback: string): string {
   if (!wireUrl) return fallback;
   try {

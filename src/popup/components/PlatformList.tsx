@@ -1,20 +1,26 @@
+import { revealNoun } from '../format/platforms';
 import { For, Show, createSignal, type Component } from 'solid-js';
-import { ChevronDownIcon, EyeIcon, EyeOffIcon } from '@/verify/ui/icons';
+import { ArrowUpRightIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '@/verify/ui/icons';
 import { BrandChip } from './BrandChip';
 import type { IncludedAccount, PlatformGroup } from '../data/types';
 import {
   FX_APPROXIMATE_TITLE,
   approxFigure,
+  formatCompactUsd,
+  formatCount,
+  formatPoints,
   formatSignedUsdCents,
   formatUsd,
   pnlTone,
 } from '../format/numbers';
+import { platformCredentialsUrl } from '../links';
 
 const Metric: Component<{
   label: string;
   value: number | null;
   signed?: boolean;
   note?: string;
+  caption?: string | null;
   native?: string | null;
   approx?: boolean;
 }> = (props) => {
@@ -44,6 +50,9 @@ const Metric: Component<{
           {(amount) => amount()}
         </Show>
       </p>
+      <Show when={props.caption}>
+        {(caption) => <p class="pv-pmetric__caption">{caption()}</p>}
+      </Show>
     </div>
   );
 };
@@ -52,7 +61,8 @@ const SingleIdentity: Component<{ account: IncludedAccount }> = (props) => {
   const [revealed, setRevealed] = createSignal(false);
   const label = () => props.account.profile?.name ?? props.account.accountLabel;
   const canReveal = () => props.account.accountId !== label();
-  const revealLabel = () => (revealed() ? 'Hide full address' : 'Show full address');
+  const revealLabel = () =>
+    `${revealed() ? 'Hide' : 'Show'} full ${revealNoun(props.account.platform)}`;
 
   return (
     <div class="pv-pcard__identity">
@@ -89,7 +99,7 @@ const GroupIdentity: Component<{ group: PlatformGroup; onOpen: (platform: string
 ) => {
   const single = () => (props.group.accounts.length === 1 ? props.group.accounts[0] : undefined);
   const countLabel = (): string => {
-    const total = props.group.accounts.length;
+    const total = props.group.accountCount;
     return `${total} account${total === 1 ? '' : 's'}`;
   };
 
@@ -114,6 +124,58 @@ const GroupIdentity: Component<{ group: PlatformGroup; onOpen: (platform: string
     </Show>
   );
 };
+
+const Figure: Component<{ label: string; value: string; class?: string }> = (props) => (
+  <div class="pv-pmetric">
+    <p class="pv-pmetric__label">{props.label}</p>
+    <p class={`pv-pmetric__value ${props.class ?? ''}`}>{props.value}</p>
+  </div>
+);
+
+function tierClass(tier: string): string {
+  return `pv-tier pv-tier--${tier.toLowerCase().replace(/[^a-z]/g, '')}`;
+}
+
+export const MetricBlocks: Component<{
+  platform: string;
+  referral?: { users: number | null; volume: number | null };
+  referralVerifiable?: boolean;
+  points?: { total: number | null; tier: string | null };
+}> = (props) => (
+  <>
+    <Show when={props.referral}>
+      {(referral) => (
+        <div class="pv-pcard__metrics">
+          <Figure label="Referred Users" value={formatCount(referral().users)} />
+          <Figure label="Referred Volume" value={formatCompactUsd(referral().volume)} />
+        </div>
+      )}
+    </Show>
+    <Show when={props.points}>
+      {(points) => (
+        <div class="pv-pcard__metrics">
+          <Figure label="Total Points" value={formatPoints(points().total)} />
+          <Figure
+            label="Tier"
+            value={points().tier ?? '-'}
+            class={points().tier ? tierClass(points().tier as string) : undefined}
+          />
+        </div>
+      )}
+    </Show>
+    <Show when={props.referralVerifiable}>
+      <a
+        class="pv-pcard__verify"
+        href={platformCredentialsUrl(props.platform)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <span>Verify referral in Kaito</span>
+        <ArrowUpRightIcon size={12} />
+      </a>
+    </Show>
+  </>
+);
 
 const PlatformCardSkeleton: Component = () => (
   <div class="pv-pcard" aria-hidden="true">
@@ -145,6 +207,7 @@ const PlatformCard: Component<{ group: PlatformGroup; onOpen: (platform: string)
         {}
         <Metric
           label={props.group.pnlLabel}
+          caption={props.group.pnlCoverage ? `Covers ${props.group.pnlCoverage}` : null}
           value={pnl()}
           signed
           note={props.group.perpOnly ? 'perp only' : undefined}
@@ -153,7 +216,13 @@ const PlatformCard: Component<{ group: PlatformGroup; onOpen: (platform: string)
         />
       </div>
 
-      {}
+      <MetricBlocks
+        platform={props.group.platform}
+        referral={props.group.referral}
+        referralVerifiable={props.group.referralVerifiable}
+        points={props.group.points}
+      />
+
       <Show when={props.group.timestampLabel}>
         {(when) => <p class="pv-pcard__when">{when()}</p>}
       </Show>
@@ -169,9 +238,10 @@ export const PlatformList: Component<{
   <section class="pv-plist">
     {}
     <div class="pv-plist__head">
-      <p class="pv-plist__title">Trading accounts</p>
+      <p class="pv-plist__title">Accounts</p>
       <p class="pv-plist__subtitle">
-        Platforms are shown where this wallet has activity. Private wallets are excluded.
+        Each public wallet is shown under the platforms where it has activity. Private wallets
+        aren't included.
       </p>
     </div>
 

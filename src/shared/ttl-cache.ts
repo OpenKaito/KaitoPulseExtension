@@ -1,16 +1,5 @@
-/**
- * Pure TTL-cache bookkeeping shared by the background edge caches.
- *
- * The signal layer already has a per-tab in-memory SwrCache; these helpers
- * back the second, cross-tab layer persisted in `chrome.storage.session`
- * (see src/background/edge-cache.ts). Keeping the split/merge logic pure and
- * chrome-free lets test/ttl-cache.test.ts exercise it under node --test.
- */
-
 export interface TtlCacheEntry<T> {
-  /** Cached value; null = the server answered "no data for this key". */
   v: T | null;
-  /** Epoch ms the value was fetched (or written through). */
   t: number;
 }
 
@@ -18,10 +7,8 @@ export type TtlCacheMap<T> = Record<string, TtlCacheEntry<T>>;
 
 export interface TtlCachePolicy<T> {
   positiveTtlMs: number;
-  /** Applied to null values and to values `isComplete` rejects. */
   negativeTtlMs: number;
   maxEntries: number;
-  /** A value this rejects is cached, but only for negativeTtlMs. */
   isComplete?: (value: T) => boolean;
 }
 
@@ -32,7 +19,6 @@ function entryTtlMs<T>(entry: TtlCacheEntry<T>, policy: TtlCachePolicy<T>): numb
 }
 
 function isFresh<T>(entry: TtlCacheEntry<T>, now: number, policy: TtlCachePolicy<T>): boolean {
-  // A timestamp in the future means the clock moved backwards; treat as stale.
   return now >= entry.t && now - entry.t < entryTtlMs(entry, policy);
 }
 
@@ -60,10 +46,6 @@ export function splitFresh<T>(
   return { hits, misses };
 }
 
-/**
- * Returns a new map with `updates` stamped at `now`, expired entries dropped,
- * and the oldest entries evicted down to `policy.maxEntries`.
- */
 export function mergeEntries<T>(
   map: TtlCacheMap<T>,
   updates: Record<string, T | null>,

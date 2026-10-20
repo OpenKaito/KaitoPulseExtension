@@ -1,4 +1,9 @@
-import type { HyperliquidPosition, PolymarketMarket } from '@/shared/social-card';
+import type {
+  HyperliquidPosition,
+  LighterWirePosition,
+  PolymarketMarket,
+  PumpfunWireHolding,
+} from '@/shared/social-card';
 import type {
   WalletDetailPages,
   WalletDetailResult,
@@ -11,13 +16,15 @@ import { sendKaitoMessage } from './messaging';
 import { SwrCache } from './swr-cache';
 import { SIGNAL_CONFIG } from './config';
 
-export type WalletDetailPlatform = 'hyperliquid' | 'polymarket';
+export type WalletDetailPlatform = 'hyperliquid' | 'polymarket' | 'pumpfun' | 'lighter';
 
 export type WalletDetailData = {
   summary: WalletDetailSummary;
 
   positions: HyperliquidPosition[];
   markets: PolymarketMarket[];
+  holdings: PumpfunWireHolding[];
+  lighterPositions: LighterWirePosition[];
 
   total: number;
 
@@ -33,10 +40,13 @@ const MAX_PAGES = 4;
 
 const logger = createLogger('wallet-detail');
 
-type DetailRow = HyperliquidPosition | PolymarketMarket;
+type DetailRow = HyperliquidPosition | PolymarketMarket | PumpfunWireHolding | LighterWirePosition;
 
 function rowsOf(platform: WalletDetailPlatform, page: WalletDetailResult): DetailRow[] {
-  return (platform === 'hyperliquid' ? page.positions : page.markets) ?? [];
+  if (platform === 'hyperliquid') return page.positions ?? [];
+  if (platform === 'pumpfun') return page.holdings ?? [];
+  if (platform === 'lighter') return page.lighterPositions ?? [];
+  return page.markets ?? [];
 }
 
 async function requestPage(
@@ -109,6 +119,8 @@ function done(
       summary,
       positions: platform === 'hyperliquid' ? (pages.rows as HyperliquidPosition[]) : [],
       markets: platform === 'polymarket' ? (pages.rows as PolymarketMarket[]) : [],
+      holdings: platform === 'pumpfun' ? (pages.rows as PumpfunWireHolding[]) : [],
+      lighterPositions: platform === 'lighter' ? (pages.rows as LighterWirePosition[]) : [],
       total: pages.total,
       truncated: pages.hasMore,
     },

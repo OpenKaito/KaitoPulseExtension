@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { GetTradingSummaryResponse } from '@/shared/messages';
+import type { GetReferralSummaryResponse, GetTradingSummaryResponse } from '@/shared/messages';
 import { createLogger } from '@/signal/logger';
 import { toAuthedError } from './authed-error';
 import { authedCall } from './worker-core';
@@ -13,5 +13,15 @@ export async function handleGetTradingSummary(): Promise<GetTradingSummaryRespon
   } catch (error) {
     logger.error('getTradingSummary error', error);
     return toAuthedError(error, 'trading summary fetch failed');
+  }
+}
+
+export async function handleGetReferralSummary(): Promise<GetReferralSummaryResponse> {
+  try {
+    const result = await authedCall((token) => api.getReferralSummary(token));
+    return { result };
+  } catch (error) {
+    logger.error('getReferralSummary error', error);
+    return toAuthedError(error, 'referral summary fetch failed');
   }
 }

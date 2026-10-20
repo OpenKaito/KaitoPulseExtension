@@ -1,5 +1,6 @@
 import type { AccountSizeTier } from '@/shared/account-size';
 import type { ProfileCardMode } from '@/shared/social-card';
+import type { PlatformCategory } from './platforms';
 
 export interface AvatarSignalProfile {
   tweetId: string;
@@ -9,7 +10,20 @@ export interface AvatarSignalProfile {
   avatarSize?: 'regular' | 'compact' | 'large';
 }
 
-export type SignalProtocol = 'hyperliquid' | 'polymarket';
+export type SignalProtocol =
+  | 'hyperliquid'
+  | 'polymarket'
+  | 'fomo'
+  | 'pumpfun'
+  | 'binance'
+  | 'okx'
+  | 'bybit'
+  | 'variational'
+  | 'lighter';
+
+export type TokenProtocol = Extract<SignalProtocol, 'fomo' | 'pumpfun'>;
+
+export type AccountProtocol = Exclude<SignalProtocol, 'hyperliquid' | 'polymarket' | TokenProtocol>;
 
 export interface NameTagEntry {
   protocol: SignalProtocol;
@@ -53,6 +67,11 @@ export interface PerpPosition {
   funding: string;
 
   iconUrl?: string;
+
+  quantity?: string;
+  value?: string;
+  detail?: string;
+  entryMark?: string;
 }
 
 export interface ChartPoint {
@@ -90,6 +109,8 @@ export interface HyperliquidSummary {
   aggregate: boolean;
 
   accounts: HyperliquidAccount[];
+
+  accountCount: number;
 
   accountValue: string;
   profitLoss: string;
@@ -147,12 +168,77 @@ export interface PolymarketAccount {
   markets: PredictionMarket[];
 }
 
+export interface TokenPosition {
+  symbol: string;
+  iconUrl?: string;
+
+  supply: string;
+
+  value: string;
+
+  pnl: string;
+
+  changePct: string;
+  changeNegative: boolean;
+}
+
+export interface TokenAccount {
+  name: string;
+  address?: string;
+  avatarUrl?: string;
+
+  meta: string;
+  bio: string;
+
+  profileUrl?: string;
+
+  anonymous: boolean;
+  hasDetail: boolean;
+  hasPositions: boolean;
+
+  accountValue: string;
+  profitLoss: string;
+  profitLossNegative: boolean;
+  trades: string;
+
+  positionsTotal: number;
+
+  tokens: TokenPosition[];
+}
+
+export type PositionsFooterCopy = 'count' | 'slice' | 'affordance';
+
+export interface TokenPlatformSummary {
+  protocol: TokenProtocol;
+
+  heading: string;
+
+  aggregate: boolean;
+
+  accounts: TokenAccount[];
+
+  accountCount: number;
+
+  valueLabel: string;
+  accountValue: string;
+  profitLoss: string;
+  profitLossNegative: boolean;
+  countLabel: string;
+  trades: string;
+
+  positionsTotal: number;
+
+  positionsFooter: PositionsFooterCopy;
+}
+
 export interface PredictionSummary {
   heading: string;
 
   aggregate: boolean;
 
   accounts: PolymarketAccount[];
+
+  accountCount: number;
 
   positionsValue: string;
   profitLoss: string;
@@ -163,6 +249,46 @@ export interface PredictionSummary {
 
   positionsTotal: number;
 }
+export interface PlatformAccountChip {
+  label: string;
+
+  address: string | null;
+
+  anonymous: boolean;
+
+  hasPositions: boolean;
+
+  positions?: PerpPosition[];
+
+  tier?: string;
+}
+
+export interface AccountPlatformSummary {
+  protocol: AccountProtocol;
+
+  heading: string;
+
+  aggregate: boolean;
+
+  accounts: PlatformAccountChip[];
+
+  accountCount: number;
+
+  accountValue: string;
+  profitLoss: string;
+  profitLossNegative: boolean;
+  upnl: string;
+  upnlNegative: boolean;
+
+  charts: Record<string, ChartPoint[]>;
+
+  positionsCount: number | null;
+
+  points?: string;
+
+  dataAsOf?: string;
+}
+
 export interface AccountValueTotal {
   tier: AccountSizeTier;
 
@@ -179,6 +305,18 @@ export interface AllTimePnlTotal {
   platforms: string[];
 
   coverage?: { covered: number; total: number };
+}
+
+export interface ReferralTotalFigure {
+  text: string;
+
+  platforms: string[];
+}
+
+export interface ReferralTotals {
+  referredUsers?: ReferralTotalFigure;
+
+  referredVolume?: ReferralTotalFigure;
 }
 
 export interface PopoverTotals {
@@ -206,7 +344,26 @@ export interface SignalPopoverData {
   hyperliquid?: HyperliquidSummary;
   polymarket?: PredictionSummary;
 
+  fomo?: TokenPlatformSummary;
+  pumpfun?: TokenPlatformSummary;
+
+  binance?: AccountPlatformSummary;
+  okx?: AccountPlatformSummary;
+  bybit?: AccountPlatformSummary;
+  variational?: AccountPlatformSummary;
+  lighter?: AccountPlatformSummary;
+
+  platformCategories?: Partial<Record<SignalProtocol, PlatformCategory>>;
+  platformMetrics?: Partial<Record<SignalProtocol, PlatformMetrics>>;
   totals?: PopoverTotals;
+
+  referralTotals?: ReferralTotals;
+}
+
+export interface PlatformMetrics {
+  referredTraders?: string;
+  referredVolume?: string;
+  points?: string;
 }
 
 export interface SignalProfileSnapshot {

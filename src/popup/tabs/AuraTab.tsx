@@ -1,6 +1,6 @@
 import { Show, createSignal, type Component } from 'solid-js';
 import { ChevronDownIcon } from '@/verify/ui/icons';
-import auraArtwork from '../assets/aura-artwork.png';
+import auraArtwork from '../assets/aura-artwork.webp';
 import { StatCardGrid } from '../components/StatCard';
 import { UnlockState } from '../components/UnlockState';
 import { auraLoading, auraOnboarded, popupData } from '../data/store';

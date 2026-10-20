@@ -1,7 +1,31 @@
-import { createSignal, type Accessor, type Setter, Show, Switch, Match, type JSX } from 'solid-js';
+import {
+  createMemo,
+  createSignal,
+  type Accessor,
+  type Setter,
+  For,
+  Show,
+  Switch,
+  Match,
+  type JSX,
+} from 'solid-js';
 import { render } from 'solid-js/web';
 import type { SignalPopoverData, SignalProfileSnapshot, SignalProtocol } from './types';
-import { HyperliquidCard, PolymarketCard, UserHeader } from './shared/cards';
+import {
+  AccountPlatformCard,
+  PlatformMetricsCard,
+  HyperliquidCard,
+  PolymarketCard,
+  TokenPlatformCard,
+  UserHeader,
+} from './shared/cards';
+import {
+  boundPlatforms,
+  popoverLayout,
+  type CategoryTab,
+  type PlatformCategory,
+} from './platforms';
+import { platformMarkSrc } from '@/shared/platform-brand';
 import { createLogger } from './logger';
 import { hostPrefersDark } from './host-theme';
 import { hoverCardToPopoverData } from './social-card-map';
@@ -16,17 +40,19 @@ import popoverCss from './name-tag-popover.css?inline';
 import popoverV2Css from './name-tag-popover-v2.css?inline';
 import { createShadowHost } from './shared/shadow-host';
 
-type ExpandedCard = 'hyperliquid' | 'polymarket' | null;
+type ExpandedCard = SignalProtocol | null;
 type PopoverStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
-type SelectedAccounts = Record<'hyperliquid' | 'polymarket', number>;
+type SelectedAccounts = Partial<Record<SignalProtocol, number>>;
+type SelectedPeriods = Partial<Record<SignalProtocol, string>>;
 
-const FIRST_ACCOUNT_SELECTED: SelectedAccounts = { hyperliquid: 0, polymarket: 0 };
+const FIRST_ACCOUNT_SELECTED: SelectedAccounts = {};
+const DEFAULT_PERIOD = 'ALL';
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 200;
 
-const ALL_SIGNAL_PROTOCOLS: SignalProtocol[] = ['hyperliquid', 'polymarket'];
+const ALL_SIGNAL_PROTOCOLS: SignalProtocol[] = ['hyperliquid', 'polymarket', 'fomo', 'pumpfun'];
 
 export async function loadPopoverData(twitterId: string): Promise<SignalPopoverData> {
   const result = await getHoverCard(twitterId);
@@ -46,6 +72,129 @@ type PopoverEntry = {
   platforms?: SignalProtocol[];
 };
 
+function PlatformBlock(props: {
+  protocol: SignalProtocol;
+  data: SignalPopoverData;
+  expanded: Accessor<ExpandedCard>;
+  periods: Accessor<SelectedPeriods>;
+  selectedAccount: Accessor<SelectedAccounts>;
+  onToggle: (card: SignalProtocol) => void;
+  onSelectAccount: (card: SignalProtocol, index: number) => void;
+  onSelectPeriod: (card: SignalProtocol, period: string) => void;
+}): JSX.Element {
+  const p = props.protocol;
+  const period = () => props.periods()[p] ?? DEFAULT_PERIOD;
+  const expanded = () => props.expanded() === p;
+  const selected = () => props.selectedAccount()[p] ?? 0;
+  const onSelect = (index: number) => props.onSelectAccount(p, index);
+  const onToggle = () => props.onToggle(p);
+  const onSelectPeriod = (value: string) => props.onSelectPeriod(p, value);
+  return (
+    <Switch>
+      <Match keyed when={p === 'hyperliquid' && props.data.hyperliquid}>
+        {(hl) => (
+          <HyperliquidCard
+            metrics={props.data.platformMetrics?.[p]}
+            data={hl}
+            expanded={expanded()}
+            period={period()}
+            selected={selected()}
+            onSelect={onSelect}
+            onToggle={onToggle}
+            onSelectPeriod={onSelectPeriod}
+          />
+        )}
+      </Match>
+      <Match keyed when={p === 'polymarket' && props.data.polymarket}>
+        {(pm) => (
+          <PolymarketCard
+            metrics={props.data.platformMetrics?.[p]}
+            data={pm}
+            expanded={expanded()}
+            period={period()}
+            selected={selected()}
+            onSelect={onSelect}
+            onToggle={onToggle}
+            onSelectPeriod={onSelectPeriod}
+          />
+        )}
+      </Match>
+      <Match keyed when={(p === 'fomo' || p === 'pumpfun') && props.data[p]}>
+        {(summary) => (
+          <TokenPlatformCard
+            metrics={props.data.platformMetrics?.[p]}
+            data={summary}
+            expanded={expanded()}
+            selected={selected()}
+            onSelect={onSelect}
+            onToggle={onToggle}
+          />
+        )}
+      </Match>
+      <Match
+        keyed
+        when={
+          p !== 'hyperliquid' &&
+          p !== 'polymarket' &&
+          p !== 'fomo' &&
+          p !== 'pumpfun' &&
+          props.data[p]
+        }
+      >
+        {(summary) => (
+          <AccountPlatformCard
+            data={summary}
+            period={period()}
+            onSelectPeriod={onSelectPeriod}
+            metrics={props.data.platformMetrics?.[p]}
+            expanded={expanded()}
+            selected={selected()}
+            onSelect={onSelect}
+            onToggle={onToggle}
+          />
+        )}
+      </Match>
+      <Match keyed when={!props.data[p] && props.data.platformMetrics?.[p]}>
+        {(metrics) => <PlatformMetricsCard protocol={p} metrics={metrics} />}
+      </Match>
+    </Switch>
+  );
+}
+
+function CategoryTabs(props: {
+  tabs: CategoryTab[];
+  active: PlatformCategory;
+  onSelect: (category: PlatformCategory) => void;
+}): JSX.Element {
+  return (
+    <div class="signal-popover__cattabs" role="tablist">
+      <For each={props.tabs}>
+        {(tab) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab.category === props.active}
+            class={`signal-popover__cattab${tab.category === props.active ? ' signal-popover__cattab--active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onSelect(tab.category);
+            }}
+          >
+            <span>{tab.label}</span>
+            <span class="signal-popover__cattab-marks" aria-hidden="true">
+              <For each={tab.platforms}>
+                {(platform) => (
+                  <img src={platformMarkSrc(platform)} data-platform={platform} alt="" />
+                )}
+              </For>
+            </span>
+          </button>
+        )}
+      </For>
+    </div>
+  );
+}
+
 function PopoverPanel(props: {
   ref: (el: HTMLDivElement) => void;
   profile: Accessor<SignalProfileSnapshot | undefined>;
@@ -55,13 +204,31 @@ function PopoverPanel(props: {
   platforms: Accessor<SignalProtocol[]>;
   expanded: Accessor<ExpandedCard>;
 
-  hyperliquidPeriod: Accessor<string>;
-  selectedAccount: Accessor<Record<'hyperliquid' | 'polymarket', number>>;
-  onToggle: (card: 'hyperliquid' | 'polymarket') => void;
-  onSelectAccount: (card: 'hyperliquid' | 'polymarket', index: number) => void;
-  onSelectHyperliquidPeriod: (period: string) => void;
+  periods: Accessor<SelectedPeriods>;
+  selectedAccount: Accessor<SelectedAccounts>;
+  category: Accessor<PlatformCategory | null>;
+  onToggle: (card: SignalProtocol) => void;
+  onSelectAccount: (card: SignalProtocol, index: number) => void;
+  onSelectPeriod: (card: SignalProtocol, period: string) => void;
+  onSelectCategory: (category: PlatformCategory) => void;
   onRetry: () => void;
 }): JSX.Element {
+  const layout = createMemo(() => {
+    const data = props.data();
+    return data ? popoverLayout(boundPlatforms(data), data.platformCategories) : null;
+  });
+  const tabs = createMemo((): CategoryTab[] => {
+    const current = layout();
+    return current?.kind === 'tabs' ? current.tabs : [];
+  });
+  const activeTab = createMemo(
+    () => tabs().find((t) => t.category === props.category()) ?? tabs()[0],
+  );
+  const shown = (): SignalProtocol[] => {
+    const current = layout();
+    if (!current) return [];
+    return current.kind === 'flat' ? current.platforms : (activeTab()?.platforms ?? []);
+  };
   return (
     <div class="signal-popover" role="dialog" ref={props.ref}>
       <Show when={props.profile()}>
@@ -76,12 +243,14 @@ function PopoverPanel(props: {
       {}
       <Show
         when={
-          props.status() === 'loaded' && hasServedTotals(props.data()?.totals)
-            ? props.data()?.totals
-            : undefined
+          props.status() === 'loaded' &&
+          (hasServedTotals(props.data()?.totals) || props.data()?.referralTotals?.referredVolume)
         }
       >
-        {(totals) => <PopoverTotalsRow totals={totals()} />}
+        <PopoverTotalsRow
+          totals={props.data()?.totals}
+          referredVolume={props.data()?.referralTotals?.referredVolume}
+        />
       </Show>
       <div
         class="signal-popover__body"
@@ -94,31 +263,36 @@ function PopoverPanel(props: {
           <Match when={props.status() === 'error'}>
             <PopoverError onRetry={props.onRetry} />
           </Match>
-          <Match when={props.status() === 'loaded'}>
-            <Show when={props.data()?.hyperliquid}>
-              {(hl) => (
-                <HyperliquidCard
-                  data={hl()}
-                  expanded={props.expanded() === 'hyperliquid'}
-                  period={props.hyperliquidPeriod()}
-                  selected={props.selectedAccount().hyperliquid}
-                  onSelect={(index) => props.onSelectAccount('hyperliquid', index)}
-                  onToggle={() => props.onToggle('hyperliquid')}
-                  onSelectPeriod={props.onSelectHyperliquidPeriod}
-                />
-              )}
-            </Show>
-            <Show when={props.data()?.polymarket}>
-              {(pm) => (
-                <PolymarketCard
-                  data={pm()}
-                  expanded={props.expanded() === 'polymarket'}
-                  selected={props.selectedAccount().polymarket}
-                  onSelect={(index) => props.onSelectAccount('polymarket', index)}
-                  onToggle={() => props.onToggle('polymarket')}
-                />
-              )}
-            </Show>
+          <Match when={props.status() === 'loaded' && props.data()}>
+            {(data) => (
+              <>
+                <Show when={activeTab()}>
+                  {(tab) => (
+                    <CategoryTabs
+                      tabs={tabs()}
+                      active={tab().category}
+                      onSelect={props.onSelectCategory}
+                    />
+                  )}
+                </Show>
+                <div class="signal-popover__platforms">
+                  <For each={shown()}>
+                    {(protocol) => (
+                      <PlatformBlock
+                        protocol={protocol}
+                        data={data()}
+                        expanded={props.expanded}
+                        periods={props.periods}
+                        selectedAccount={props.selectedAccount}
+                        onToggle={props.onToggle}
+                        onSelectAccount={props.onSelectAccount}
+                        onSelectPeriod={props.onSelectPeriod}
+                      />
+                    )}
+                  </For>
+                </div>
+              </>
+            )}
           </Match>
         </Switch>
       </div>
@@ -145,8 +319,10 @@ export class NameTagPopover {
   private setPlatforms!: Setter<SignalProtocol[]>;
   private expanded!: Accessor<ExpandedCard>;
   private setExpanded!: Setter<ExpandedCard>;
-  private hyperliquidPeriod!: Accessor<string>;
-  private setHyperliquidPeriod!: Setter<string>;
+  private periods!: Accessor<SelectedPeriods>;
+  private setPeriods!: Setter<SelectedPeriods>;
+  private category!: Accessor<PlatformCategory | null>;
+  private setCategory!: Setter<PlatformCategory | null>;
   private selectedAccount!: Accessor<SelectedAccounts>;
   private setSelectedAccount!: Setter<SelectedAccounts>;
   private profile!: Accessor<SignalProfileSnapshot | undefined>;
@@ -168,7 +344,8 @@ export class NameTagPopover {
     [this.data, this.setData] = createSignal<SignalPopoverData | null>(null);
     [this.platforms, this.setPlatforms] = createSignal<SignalProtocol[]>(ALL_SIGNAL_PROTOCOLS);
     [this.expanded, this.setExpanded] = createSignal<ExpandedCard>(null);
-    [this.hyperliquidPeriod, this.setHyperliquidPeriod] = createSignal<string>('ALL');
+    [this.periods, this.setPeriods] = createSignal<SelectedPeriods>({});
+    [this.category, this.setCategory] = createSignal<PlatformCategory | null>(null);
     [this.selectedAccount, this.setSelectedAccount] =
       createSignal<SelectedAccounts>(FIRST_ACCOUNT_SELECTED);
     [this.profile, this.setProfile] = createSignal<SignalProfileSnapshot | undefined>(undefined);
@@ -258,7 +435,8 @@ export class NameTagPopover {
     try {
       this.ensureElement();
       this.currentTag = tag;
-      this.setHyperliquidPeriod('ALL');
+      this.setPeriods({});
+      this.setCategory(null);
       this.pointerInsidePopover = false;
 
       this.rootEl!.classList.toggle('signal-popover--dark', hostPrefersDark(this.document));
@@ -319,35 +497,39 @@ export class NameTagPopover {
     return this.rootEl?.classList.contains('signal-popover--open') ?? false;
   }
 
-  private toggle = (card: Exclude<ExpandedCard, null>): void => {
+  private toggle = (card: SignalProtocol): void => {
     this.setExpanded((prev) => (prev === card ? null : card));
     if (this.currentTag) this.position(this.currentTag.getBoundingClientRect());
   };
 
-  private selectAccount = (card: 'hyperliquid' | 'polymarket', index: number): void => {
+  private selectAccount = (card: SignalProtocol, index: number): void => {
     this.setSelectedAccount((prev) => ({ ...prev, [card]: index }));
     this.setExpanded(card);
 
     if (this.currentTag) this.position(this.currentTag.getBoundingClientRect());
   };
 
-  private selectPeriod = (period: string): void => {
-    this.setHyperliquidPeriod(period);
+  private selectPeriod = (card: SignalProtocol, period: string): void => {
+    this.setPeriods((prev) => (prev[card] === period ? prev : { ...prev, [card]: period }));
+  };
+
+  private selectCategory = (category: PlatformCategory): void => {
+    this.setCategory(category);
+    this.setExpanded(null);
+    const list = this.rootEl?.querySelector<HTMLElement>('.signal-popover__platforms');
+    if (list) list.scrollTop = 0;
+    if (this.currentTag) this.position(this.currentTag.getBoundingClientRect());
   };
 
   private scrollToExpandedCard(): void {
     const root = this.rootEl;
     if (!root) return;
+    const list = root.querySelector<HTMLElement>('.signal-popover__platforms');
     const card = this.expanded();
-    if (!card || card === 'hyperliquid') {
-      root.scrollTop = 0;
-      return;
-    }
-    const target = root.querySelector<HTMLElement>(`.signal-popover__card--${card}`);
-    const header = root.querySelector<HTMLElement>('.signal-popover__user');
-    if (!target) return;
-
-    root.scrollTop = Math.max(0, target.offsetTop - (header?.offsetHeight ?? 0));
+    root.scrollTop = 0;
+    if (!list) return;
+    const target = card ? list.querySelector<HTMLElement>(`.signal-popover__card--${card}`) : null;
+    list.scrollTop = target ? Math.max(0, target.offsetTop - list.offsetTop) : 0;
   }
 
   private retry = (): void => {
@@ -383,11 +565,13 @@ export class NameTagPopover {
           data={this.data}
           platforms={this.platforms}
           expanded={this.expanded}
-          hyperliquidPeriod={this.hyperliquidPeriod}
+          periods={this.periods}
           selectedAccount={this.selectedAccount}
+          category={this.category}
           onToggle={this.toggle}
           onSelectAccount={this.selectAccount}
-          onSelectHyperliquidPeriod={this.selectPeriod}
+          onSelectPeriod={this.selectPeriod}
+          onSelectCategory={this.selectCategory}
           onRetry={this.retry}
         />
       ),

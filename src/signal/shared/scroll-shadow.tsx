@@ -11,7 +11,7 @@ export function StickyShadowCard(props: { class?: string; children: JSX.Element 
   };
 
   onMount(() => {
-    ancestor = el.closest<HTMLElement>('.signal-popover');
+    ancestor = el.closest<HTMLElement>('.signal-popover__platforms, .signal-popover');
     ancestor?.addEventListener('scroll', check, { passive: true });
     const ro = new ResizeObserver(check);
     ro.observe(el);

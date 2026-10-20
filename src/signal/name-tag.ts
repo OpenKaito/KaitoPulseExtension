@@ -7,8 +7,9 @@ import {
   type AccountSizeTier,
 } from '@/shared/account-size';
 import type { NameTagEntry, NameTagProfile, SignalProtocol } from './types';
-import { PROTOCOL_ICON_DATA_URI } from './protocol-icons';
+import { platformMarkSrc } from '@/shared/platform-brand';
 import { PROTOCOL_LABEL } from './protocol-labels';
+import { SIGNAL_PROTOCOLS, isSignalProtocol } from './platforms';
 import {
   getCombinedNameTagPalette,
   getSingleNameTagPalette,
@@ -23,13 +24,33 @@ export function createNameTagElement(profile: NameTagProfile): HTMLElement {
   return root;
 }
 
+interface RenderedNameTag {
+  entries: NameTagEntry[];
+  isDark: boolean;
+  trading?: BadgeTrading;
+}
+
+const rendered = new WeakMap<HTMLElement, RenderedNameTag>();
+
 export function setNameTagProtocols(
   tag: HTMLElement,
   entries: NameTagEntry[],
   isDark: boolean,
   trading?: BadgeTrading,
 ): void {
+  rendered.set(tag, { entries, isDark, trading });
   renderEntries(tag, entries, isDark, trading);
+}
+
+export function syncNameTagTheme(scope: ParentNode, isDark: boolean): number {
+  let changed = 0;
+  for (const tag of scope.querySelectorAll<HTMLElement>('.signal-name-tag')) {
+    const last = rendered.get(tag);
+    if (!last || last.isDark === isDark) continue;
+    setNameTagProtocols(tag, last.entries, isDark, last.trading);
+    changed += 1;
+  }
+  return changed;
 }
 
 function renderEntries(
@@ -39,6 +60,7 @@ function renderEntries(
   trading?: BadgeTrading,
 ): void {
   root.replaceChildren();
+  root.classList.toggle('signal-name-tag--light', !isDark);
 
   const chip = trading ? buildTradingChip(trading) : null;
   if (chip) root.append(chip);
@@ -78,19 +100,16 @@ function mergeProtocols(entries: NameTagEntry[], trading?: BadgeTrading): NameTa
   const extra = trading.platforms
     .filter(isSignalProtocol)
     .filter((protocol) => !seen.has(protocol))
+    .sort((a, b) => SIGNAL_PROTOCOLS.indexOf(a) - SIGNAL_PROTOCOLS.indexOf(b))
     .map((protocol) => ({ protocol, positionsCount: null }));
   return extra.length ? [...entries, ...extra] : entries;
-}
-
-function isSignalProtocol(name: string): name is SignalProtocol {
-  return name === 'hyperliquid' || name === 'polymarket';
 }
 
 function createDotsGlyph(tier: AccountSizeTier): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('width', '14');
-  svg.setAttribute('height', '14');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
   svg.setAttribute('viewBox', '0 0 20 20');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('aria-hidden', 'true');
@@ -160,7 +179,7 @@ function createProtocolIcon(
 
   const img = document.createElement('img');
   img.className = 'signal-name-tag__img';
-  img.src = PROTOCOL_ICON_DATA_URI[protocol];
+  img.src = platformMarkSrc(protocol);
   img.alt = PROTOCOL_LABEL[protocol];
   img.decoding = 'async';
   img.draggable = false;
@@ -172,6 +191,6 @@ function createProtocolIcon(
 function createCountLabel(count: number): HTMLElement {
   const label = document.createElement('span');
   label.className = 'signal-name-tag__count';
-  label.textContent = `${count} positions`;
+  label.textContent = `${count} ${count === 1 ? 'position' : 'positions'}`;
   return label;
 }

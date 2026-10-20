@@ -21,8 +21,11 @@ import {
   toExternalLastResult,
 } from '@/shared/messages';
 import { followRecommendationCacheItem } from '@/shared/storage';
+import { cleanExpectedAccountId, setExpectedAccount } from './expected-account';
 import { openPopupWindow, openVerifyWindow } from './popup-window';
 import {
+  ensureStartupBootstrap,
+  isStartupBootstrapPending,
   getState,
   refreshMe,
   refreshProofs,
@@ -121,7 +124,11 @@ function routeExternalRequest(
 
     chrome.tabs.sendMessage(
       sender.tab.id,
-      { type: 'kaito:openVerifyPanel', taskId: verifier.id } satisfies TabMessage,
+      {
+        type: 'kaito:openVerifyPanel',
+        taskId: verifier.id,
+        expectedAccountId: cleanExpectedAccountId(message.expectedAccountId),
+      } satisfies TabMessage,
       (response: unknown) => {
         const opened = Boolean(
           response && typeof response === 'object' && (response as { ok?: unknown }).ok === true,
@@ -151,9 +158,16 @@ function routeExternalRequest(
         return false;
       }
 
-      void openVerifyWindow(verifier.id, sender.tab?.id);
-      respond({ ok: true, opened: true } satisfies ExternalOpenSurfaceResponse);
-      return false;
+      void setExpectedAccount(
+        verifier.id,
+        cleanExpectedAccountId(message.params?.expectedAccountId),
+      )
+        .then(() => openVerifyWindow(verifier.id, sender.tab?.id, sender.tab?.windowId))
+        .then(
+          () => respond({ ok: true, opened: true } satisfies ExternalOpenSurfaceResponse),
+          () => respond({ ok: false, reason: 'panel_unavailable' }),
+        );
+      return true;
     }
     if (surface === 'popup') {
       void openPopupWindow();
@@ -284,6 +298,12 @@ function routeExternalRequest(
   return false;
 }
 
+const STATE_READING_REQUESTS = new Set<string | undefined>([
+  'openSurface',
+  'openVerification',
+  'getVerifyStatus',
+]);
+
 export function registerSignInMessageHandler() {
   chrome.runtime.onMessageExternal.addListener((message: ExternalRequest, sender, sendResponse) => {
     logDev('external message', message?.type, sender.url);
@@ -291,6 +311,11 @@ export function registerSignInMessageHandler() {
     if (!isAllowedOrigin(sender.url, ENV.connectAllowedOrigins)) {
       sendResponse({ ok: false, reason: 'origin_not_allowed' } satisfies ExternalSignInResponse);
       return false;
+    }
+
+    if (STATE_READING_REQUESTS.has(message?.type) && isStartupBootstrapPending()) {
+      void ensureStartupBootstrap().then(() => routeExternalRequest(message, sender, sendResponse));
+      return true;
     }
 
     return routeExternalRequest(message, sender, sendResponse);

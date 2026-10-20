@@ -1,8 +1,8 @@
 import type { ExtensionProof, ExtensionVerifier } from '@/shared/contracts';
 
-export type VerifyCategory = 'ai' | 'crypto' | 'trading' | 'social';
+export type VerifyCategory = 'ai' | 'crypto' | 'trading' | 'social' | 'referral';
 
-export type VerifyKind = 'zktls' | 'wallet' | 'oauth';
+export type VerifyKind = 'zktls' | 'wallet' | 'oauth' | 'server_read';
 
 export type PayTier = 'high' | 'medium' | 'low';
 
@@ -21,6 +21,8 @@ export interface PlatformMeta {
 
   tile: { letter: string; bg: string; fg: string };
 
+  snapshot?: boolean;
+
   detail: {
     requirement: string;
 
@@ -33,8 +35,6 @@ export interface PlatformMeta {
     earn: string[];
 
     steps: string[];
-
-    footnote: string;
   };
 }
 
@@ -45,6 +45,8 @@ export type TaskStatus =
 export interface VerifyTask {
   id: string;
   meta: PlatformMeta;
+
+  category: VerifyCategory;
 
   verifier?: ExtensionVerifier;
   status: TaskStatus;

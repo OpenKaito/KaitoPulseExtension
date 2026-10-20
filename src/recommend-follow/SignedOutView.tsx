@@ -5,7 +5,7 @@ import { KaitoWordmark } from '@/verify/ui/icons';
 import starA from './assets/signedout-star-a.svg';
 import starB from './assets/signedout-star-b.svg';
 import iconMark from './assets/signedout-mark.svg';
-import floorGrid from './assets/signedout-floor.png';
+import floorGrid from './assets/signedout-floor.webp';
 
 export function SignedOutView(props: { onResume?: () => void } = {}): JSX.Element {
   const [busy, setBusy] = createSignal(false);
