@@ -493,6 +493,33 @@ export async function readJsonFromVerifierPage<T>(
         const errors: string[] = Array.isArray(parsed?.errors)
           ? parsed.errors.map((entry: { message?: unknown }) => String(entry?.message ?? ''))
           : [];
+
+        let creatorRewards: { status: number; jfTag?: string; body?: string } | null = null;
+        try {
+          const page = await fetch('https://x.com/i/jfapi/creators/original_content_rewards', {
+            credentials: 'include',
+            cache: 'no-store',
+            headers: {
+              authorization: BEARER,
+              'x-csrf-token': ct0,
+              'x-twitter-auth-type': 'OAuth2Session',
+              'x-twitter-active-user': 'yes',
+              'x-twitter-client-language': 'en',
+            },
+          });
+          creatorRewards = { status: page.status };
+          const bytes = new Uint8Array(await page.arrayBuffer());
+          if (page.ok && bytes.length > 0 && bytes.length <= 64 * 1024) {
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+            }
+            creatorRewards.body = btoa(binary);
+            const jfTag = page.headers.get('x-jf-tag');
+            if (jfTag) creatorRewards.jfTag = jfTag;
+          }
+        } catch {}
+
         return {
           ok: true,
           status: 200,
@@ -502,6 +529,7 @@ export async function readJsonFromVerifierPage<T>(
             hasSeries: Array.isArray(
               parsed?.data?.viewer_v2?.user_results?.result?.current_time_series,
             ),
+            creatorRewards,
           },
         };
       }

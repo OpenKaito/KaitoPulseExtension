@@ -22,6 +22,7 @@ import type {
 } from './extension-social';
 import type { SocialCardBundle, SocialCardScope } from './voices-social-card';
 import type { DebugRequestSnapshot } from './debug';
+import type { XCreatorRewardsOutcome } from './x-creator-rewards';
 import type { BehaviorEvent, BehaviorEventSnapshot } from './behavior';
 import type {
   AttentionBehaviorEvent,
@@ -268,6 +269,7 @@ export type ProofRunSummary = {
   verifiedAt?: number;
 
   finishedAt?: number;
+  creatorRewards?: XCreatorRewardsOutcome;
   error?: {
     message: string;
     status?: number;
@@ -383,6 +385,7 @@ export type ExternalLastResult = {
 
   finishedAt: number;
   error?: { message: string; reason?: string; code?: ProofErrorCode };
+  creatorRewards?: XCreatorRewardsOutcome;
 };
 
 export function toExternalLastResult(
@@ -396,6 +399,7 @@ export function toExternalLastResult(
     error: summary.error
       ? { message: summary.error.message, reason: summary.error.reason, code: summary.error.code }
       : undefined,
+    ...(summary.creatorRewards ? { creatorRewards: summary.creatorRewards } : {}),
   };
 }
 

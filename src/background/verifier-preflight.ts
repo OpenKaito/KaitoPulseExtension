@@ -1,6 +1,7 @@
 import { logDev } from '@/lib/env';
 import type { ExtensionVerifier, PrimusTemplateMetadata } from '@/shared/contracts';
 import type { ProofErrorCode } from '@/shared/messages';
+import type { XCreatorRewardsPagePayload } from '@/shared/x-creator-rewards';
 import { readJsonFromVerifierPage, type RunAttestationOptions } from './primus-adapter';
 
 type PreflightErrorCode = Extract<
@@ -17,6 +18,8 @@ export type VerifierPreflightOptions = Pick<
   'onTargetTab' | 'windowId' | 'forceCreateTab'
 > & {
   linkedAccountId?: string | null;
+  onXCreatorRewardsPage?: (page: XCreatorRewardsPagePayload) => void;
+  onXCreatorRewardsUnread?: (status: number | undefined) => void;
 };
 
 export class VerifierPreflightError extends Error {
@@ -58,6 +61,7 @@ async function preflightXAnalytics(
     overview?: { ok?: boolean; status?: number; errors?: string[] };
     viewerId?: string | null;
     reason?: string;
+    creatorRewards?: { status: number; jfTag?: string; body?: string } | null;
   }>(guideUrl, '__kaito_preflight_x_analytics__', options);
 
   if (!result.ok || !result.value || typeof result.value !== 'object') {
@@ -71,6 +75,7 @@ async function preflightXAnalytics(
     throw new VerifierPreflightError('third_party_login_required', 'x_login_required');
   }
   assertLinkedXAccount(value.viewerId, options.linkedAccountId);
+  handOffCreatorRewardsPage(value.viewerId, value.creatorRewards, options);
   const overview = value.overview;
   if (!overview) {
     logDev('x analytics preflight inconclusive; overview not read');
@@ -88,6 +93,23 @@ async function preflightXAnalytics(
   if (overview.ok !== true) {
     logDev('x analytics preflight inconclusive; overview non-ok', { status: overview.status });
   }
+}
+
+function handOffCreatorRewardsPage(
+  viewerId: string | null | undefined,
+  page: { status: number; jfTag?: string; body?: string } | null | undefined,
+  options: VerifierPreflightOptions,
+): void {
+  if (!viewerId || !page?.body) {
+    logDev('x creator rewards page not read during preflight', { status: page?.status });
+    options.onXCreatorRewardsUnread?.(page?.status);
+    return;
+  }
+  options.onXCreatorRewardsPage?.({
+    twitterId: viewerId,
+    ...(page.jfTag ? { jfTag: page.jfTag } : {}),
+    body: page.body,
+  });
 }
 
 function assertLinkedXAccount(

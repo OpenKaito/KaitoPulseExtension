@@ -48,6 +48,7 @@ export const PLATFORM_CATALOG: PlatformMeta[] = [
       requirement: 'X Premium account, signed in',
 
       verifies: 'Impressions · engagements · profile visits · followers · daily trend',
+      alsoReads: 'Creator Rewards eligibility progress',
       time: '~1 min',
       validity: 'Verified once, no expiry',
       earn: ['· Campaign reward eligibility (TBD)'],

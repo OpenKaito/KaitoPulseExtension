@@ -10,7 +10,13 @@ import {
 } from 'solid-js';
 import { expectedAccountFor, updatesExistingAccount } from '@/background/expected-account';
 import type { ProofErrorCode, ProofProgress, ProofRunSummary } from '@/shared/messages';
-import { CATEGORY_TABS, consentFields, isSnapshotUpdate, tasksInCategory } from '../catalog';
+import {
+  CATEGORY_TABS,
+  consentFields,
+  dataTypeLabels,
+  isSnapshotUpdate,
+  tasksInCategory,
+} from '../catalog';
 import type { ResultKind, VerifyCategory, VerifyTask } from '../types';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/shared/legal-links';
 import {
@@ -535,6 +541,21 @@ export const ConsentView: Component<{
               )}
             </For>
           </div>
+          <Show when={meta().detail.alsoReads}>
+            {(alsoReads) => (
+              <div class="kv-consent-group">
+                <div class="kv-consent-group-title">Also read (not proof-verified)</div>
+                <For each={dataTypeLabels(alsoReads())}>
+                  {(field) => (
+                    <div class="kv-consent-item">
+                      <CheckIcon size={16} />
+                      <span>{field}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            )}
+          </Show>
         </div>
 
         <div class="kv-consent-group">

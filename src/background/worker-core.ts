@@ -34,6 +34,7 @@ import {
   type UnbindPlatformResponse,
 } from '@/shared/contracts';
 import type { ProofErrorCode, ProofRunSummary, ProofStage, WorkerState } from '@/shared/messages';
+import type { XCreatorRewardsOutcome } from '@/shared/x-creator-rewards';
 import {
   activeProofProgressItem,
   attnOpenSpanSnapshotItem,
@@ -1034,6 +1035,7 @@ async function runProofFlowUnlocked(
 ): Promise<ProofRunSummary> {
   const summary: ProofRunSummary = { verifierId, requestId: '' };
   const proofStartedAt = Date.now();
+  let creatorRewardsOutcome: Promise<XCreatorRewardsOutcome> | undefined;
   let verifierRuntime: VerifierRuntime | undefined;
   activeProofVerifierIds.add(verifierId);
   beginProofTabGuard(verifierId, options.ownerWindowId);
@@ -1123,6 +1125,28 @@ async function runProofFlowUnlocked(
           linkedAccountId,
           windowId: options.ownerWindowId,
           forceCreateTab: retryAfterFailure,
+          onXCreatorRewardsPage: (page) => {
+            creatorRewardsOutcome = authedCall((token) =>
+              api.submitXCreatorRewardsSnapshot(token, page),
+            )
+              .then((result): XCreatorRewardsOutcome => {
+                logDev('x creator rewards snapshot submitted', {
+                  status: result.snapshot.status,
+                  parseReason: result.snapshot.parseReason,
+                });
+                return result.snapshot.status === 'ok' ? 'stored' : 'unparsed';
+              })
+              .catch((error): XCreatorRewardsOutcome => {
+                logDev(
+                  'x creator rewards snapshot submit failed',
+                  error instanceof Error ? error.message : String(error),
+                );
+                return 'submit_failed';
+              });
+          },
+          onXCreatorRewardsUnread: () => {
+            creatorRewardsOutcome = Promise.resolve('read_failed');
+          },
           onTargetTab: async (tabId) => {
             preflightTabId = tabId;
             updateProofTargetTab(verifierId, tabId, attestedGuideUrl, verifier.name);
@@ -1245,10 +1269,25 @@ async function runProofFlowUnlocked(
     }
   }
 
+  if (creatorRewardsOutcome) {
+    summary.creatorRewards = await settleCreatorRewardsOutcome(creatorRewardsOutcome);
+  }
   summary.finishedAt = Date.now();
   state.lastResult = summary;
   await setLastResult(summary);
   return summary;
+}
+
+const CREATOR_REWARDS_SETTLE_MS = 5_000;
+
+function settleCreatorRewardsOutcome(
+  outcome: Promise<XCreatorRewardsOutcome>,
+): Promise<XCreatorRewardsOutcome> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<XCreatorRewardsOutcome>((resolve) => {
+    timer = setTimeout(() => resolve('submit_failed'), CREATOR_REWARDS_SETTLE_MS);
+  });
+  return Promise.race([outcome, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function enableAutoProof(

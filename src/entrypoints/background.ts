@@ -1,4 +1,4 @@
-import { logDev } from '@/lib/env';
+import { IS_DEV_BUILD, logDev } from '@/lib/env';
 import type {
   ProofPanelStateResponse,
   RuntimeErrorResponse,
@@ -30,6 +30,7 @@ import {
   handleQueryAdFlags,
   handleRemoveAdFlag,
 } from '@/background/ad-flag-handlers';
+import { reportXCreatorRewardsFromConsole } from '@/background/x-creator-rewards-handlers';
 import {
   handleFollowFromRecommendation,
   handleGetFollowRecommendations,
@@ -174,6 +175,10 @@ export default defineBackground({
     console.log('[TIMING] main() start', performance.now());
 
     installSwRuntimeGuard();
+
+    if (IS_DEV_BUILD) {
+      Object.assign(globalThis, { kaitoReportXCreatorRewards: reportXCreatorRewardsFromConsole });
+    }
     registerExtensionUpdateListener(() => !getState().proofProgress);
 
     logDev('background worker booting');

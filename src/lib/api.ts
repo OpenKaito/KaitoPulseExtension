@@ -21,6 +21,10 @@ import {
   type SubmitProofResponse,
 } from '@/shared/contracts';
 import type { AdFlagQueryResponse, AdFlagWriteResult } from '@/shared/ad-flag';
+import type {
+  XCreatorRewardsPagePayload,
+  XCreatorRewardsSubmitResult,
+} from '@/shared/x-creator-rewards';
 import type { BadgesResponse, HoverCardResult } from '@/shared/social-card';
 import type { WalletDetailRequest, WalletDetailResult } from '@/shared/wallet-detail';
 import type {
@@ -411,6 +415,21 @@ export const api = {
         sessionToken,
       },
     );
+  },
+
+  submitXCreatorRewardsSnapshot(
+    sessionToken: string,
+    page: XCreatorRewardsPagePayload,
+  ): Promise<XCreatorRewardsSubmitResult> {
+    return request<XCreatorRewardsSubmitResult>('/api/v1/extension/x/creator-rewards/snapshots', {
+      method: 'POST',
+      body: {
+        twitter_id: page.twitterId,
+        ...(page.jfTag ? { jf_tag: page.jfTag } : {}),
+        body: page.body,
+      },
+      sessionToken,
+    });
   },
 
   queryAdFlags(tweetIds: string[], sessionToken?: string): Promise<AdFlagQueryResponse> {

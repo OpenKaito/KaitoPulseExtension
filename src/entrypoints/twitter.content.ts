@@ -4,10 +4,12 @@ import '@/signal/hovercard-stats.css';
 import '@/signal/ad-flag/button.css';
 import '@/signal/ad-flag/notice.css';
 import '@/signal/token-chart/cashtag-chip.css';
+import { IS_DEV_BUILD } from '@/lib/env';
 import { createLogger } from '@/signal/logger';
 import { Orchestrator } from '@/signal/orchestrator';
 import { twitterIdMap } from '@/signal/twitter-id-map';
 import { followRelay } from '@/signal/follow-relay';
+import { XCreatorRewardsRelay } from '@/signal/x-creator-rewards-relay';
 import { viewerIdentity } from '@/signal/viewer-identity';
 import '@/signal/profile/username-history.css';
 import { ProfileModulesController } from '@/signal/profile/profile-modules';
@@ -46,6 +48,7 @@ export default defineContentScript({
 
     let settings: SignalSettings = {};
     let selectorOverridesTimer: ReturnType<typeof setInterval> | undefined;
+    const xCreatorRewardsRelay = IS_DEV_BUILD ? new XCreatorRewardsRelay() : null;
 
     let flushOnUnload: (() => void) | null = null;
 
@@ -72,6 +75,8 @@ export default defineContentScript({
       twitterIdMap.start();
 
       followRelay.start();
+
+      xCreatorRewardsRelay?.start();
 
       viewerIdentity.start(document);
 
@@ -156,6 +161,7 @@ export default defineContentScript({
         behaviorTracker = null;
         twitterIdMap.stop();
         followRelay.stop();
+        xCreatorRewardsRelay?.stop();
         viewerIdentity.stop();
         if (selectorOverridesTimer !== undefined) {
           clearInterval(selectorOverridesTimer);

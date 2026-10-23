@@ -32,6 +32,11 @@ export const ENV = {
   buildCommit: RAW_BUILD_COMMIT,
 };
 
+export const IS_DEV_BUILD =
+  ((import.meta.env.VITE_KAITO_ENV as string | undefined) ||
+    (import.meta.env.MODE as string | undefined) ||
+    'dev') !== 'production';
+
 export function logDev(...args: unknown[]) {
   if (ENV.isDev) {
     console.log('[kaito-ext]', ...args);

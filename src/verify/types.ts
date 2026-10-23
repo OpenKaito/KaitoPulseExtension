@@ -28,6 +28,8 @@ export interface PlatformMeta {
 
     verifies: string;
 
+    alsoReads?: string;
+
     time: string;
 
     validity: string;
