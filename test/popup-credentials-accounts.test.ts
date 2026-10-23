@@ -31,7 +31,7 @@ type Subtotal = NonNullable<Summary['platforms']>[number];
 const account = (over: Partial<Account>): Account =>
   ({
     platform: 'variational',
-    accountId: '0xB381C6F56BB4842B725A34237946DBC6AA933518',
+    accountId: '0xABCDEF0000000000000000000000000000ABCDEF',
     source: 'attestation',
     valueLabel: 'Account Value',
     nativeValue: null,
@@ -78,7 +78,7 @@ test('referral rows join their account regardless of address case', () => {
   const [row] = included(
     [account({})],
     referral([
-      { accountId: '0xb381c6f56bb4842b725a34237946dbc6aa933518', referredUsers: 120, referredVolume: 3000 },
+      { accountId: '0xabcdef0000000000000000000000000000abcdef', referredUsers: 120, referredVolume: 3000 },
     ]),
   );
   assert.deepEqual(row.referral, { users: 120, volume: 3000 });
@@ -106,7 +106,7 @@ test('the legacy Referral switches no longer hide an account\'s referral', () =>
     [account({ referralPublic: false })],
     referral([
       {
-        accountId: '0xb381c6f56bb4842b725a34237946dbc6aa933518',
+        accountId: '0xabcdef0000000000000000000000000000abcdef',
         referredUsers: 5,
         referralPublic: false,
       },

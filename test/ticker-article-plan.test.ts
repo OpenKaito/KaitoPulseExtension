@@ -84,7 +84,7 @@ test("does not resolve the author for cashtag-free or already-swept articles", (
   let lookups = 0;
   const planner = new TickerArticlePlanner(async () => {
     lookups++;
-    return "781076955332354053";
+    return "1000000000000000001";
   }, DOM);
 
   const cashtagFree = new FakeArticle([new FakeTweetText([])]);
@@ -102,7 +102,7 @@ test("shares one author lookup across multiple anchors in an article", async () 
   let lookups = 0;
   const planner = new TickerArticlePlanner(async () => {
     lookups++;
-    return "781076955332354053";
+    return "1000000000000000001";
   }, DOM);
   const article = new FakeArticle([
     new FakeTweetText([
@@ -119,7 +119,7 @@ test("shares one author lookup across multiple anchors in an article", async () 
     ["MON", "BTC"],
   );
   assert.equal(lookups, 1);
-  assert.equal(await plan.authorId, "781076955332354053");
+  assert.equal(await plan.authorId, "1000000000000000001");
 });
 
 test("reuses the article author lookup when a later scan finds a new anchor", () => {

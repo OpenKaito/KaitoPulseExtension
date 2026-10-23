@@ -16,7 +16,7 @@ test("cache identity changes when any entity evidence changes", () => {
     toOccurrenceCacheKey(base),
     toOccurrenceCacheKey({ ...base, entityHint: "monad:native" }),
     toOccurrenceCacheKey({ ...base, authorHandle: "Pixelmon" }),
-    toOccurrenceCacheKey({ ...base, authorId: "781076955332354053" }),
+    toOccurrenceCacheKey({ ...base, authorId: "1000000000000000001" }),
   ]);
 
   assert.equal(keys.size, 4);

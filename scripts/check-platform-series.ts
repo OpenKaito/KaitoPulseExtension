@@ -47,7 +47,7 @@ function hl(wallet: string): HyperliquidBlock {
 
 function pm(): PolymarketBlock {
   return {
-    profile: { name: 'Pranjal' },
+    profile: { name: 'Marlowe' },
     positionsValue: 9_113.22,
     pnlAllTime: 14_023.09,
     predictions: 590,

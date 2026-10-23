@@ -64,12 +64,12 @@ test('dataAsOfLabel reads ISO strings and epoch seconds, ignores junk', () => {
 test('an exchange account is named by the masked id KEBS serves, the ordinal only as a fallback', () => {
   const block = mapAccountPlatform(
     'binance',
-    [chip({ platform: 'binance', ordinal: 1, maskedAccountId: '1263****2333' })],
+    [chip({ platform: 'binance', ordinal: 1, maskedAccountId: '1234****7890' })],
     total({ platform: 'binance', valueUsd: 7.84 }),
   );
   assert.ok(block);
-  assert.equal(block.heading, '1263****2333');
-  assert.equal(block.accounts[0].label, '1263****2333');
+  assert.equal(block.heading, '1234****7890');
+  assert.equal(block.accounts[0].label, '1234****7890');
 });
 
 test('a new platform total maps to a block, missing values as dash', () => {
@@ -179,7 +179,7 @@ test('every published pump.fun chip carries its address, so it can load its own 
   const data = hoverCardToPopoverData({
     ...baseResult,
     tradingWallets: [
-      chip({ platform: 'pumpfun', address: '4Be9CvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAha7t', scraped: true }),
+      chip({ platform: 'pumpfun', address: 'FxPumpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', scraped: true }),
       chip({ platform: 'pumpfun', address: 'DaumenBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', scraped: true }),
     ],
     tradingPlatformTotals: [total({ platform: 'pumpfun', totalAccounts: 2, positionsCount: 9522 })],
@@ -188,7 +188,7 @@ test('every published pump.fun chip carries its address, so it can load its own 
   assert.ok(pump);
   assert.deepEqual(
     pump.accounts.map((a) => a.address),
-    ['4Be9CvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAha7t', 'DaumenBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'],
+    ['FxPumpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'DaumenBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'],
   );
 });
 
@@ -437,7 +437,7 @@ test('a Variational chip carries its tier label and the position funding', () =>
       chip({
         platform: 'variational',
         ordinal: 1,
-        maskedAccountId: '1211****2da7',
+        maskedAccountId: '0000****abcd',
         tier: { name: 'Gold', pointsRate: 1.02 },
         positions: [
           {

@@ -137,13 +137,13 @@ check(
 );
 
 const pmCard = hoverCardToPopoverData(
-  card({ polymarket: [pm('Pranjal', 9_000, 14_000, 500, 3), pm('Alt', 113.22, 23.09, 90, 0)] }),
+  card({ polymarket: [pm('Marlowe', 9_000, 14_000, 500, 3), pm('Alt', 113.22, 23.09, 90, 0)] }),
 );
 check('pm -> 2 accounts', pmCard.polymarket?.accounts.length, 2);
 check('pm summed positions value', pmCard.polymarket?.positionsValue, '$9,113.22');
 check('pm summed pnl', pmCard.polymarket?.profitLoss, '$14,023.09');
 check('pm summed predictions', pmCard.polymarket?.predictions, '590');
-check('pm primary name is accounts[0]', pmCard.polymarket?.name, 'Pranjal');
+check('pm primary name is accounts[0]', pmCard.polymarket?.name, 'Marlowe');
 
 check('null wire -> null group', normalizeHyperliquidWire(null), null);
 check('empty accounts -> null group', normalizeHyperliquidWire({ accounts: [] }), null);

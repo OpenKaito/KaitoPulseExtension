@@ -45,7 +45,7 @@ export function xId(purpose: string, index: number): string {
   const to = Date.UTC(2024, 11, 31);
   const createdMs = from + Math.floor(next() * (to - from));
 
-  const low = BigInt(Math.floor(next() * 4_194_304));
+  const low = BigInt(Math.floor(next() * 2 ** 22));
   const id = ((BigInt(createdMs - TWITTER_EPOCH_MS) << 22n) | low).toString();
   return check(id, X_ID_SPEC, 'x id');
 }

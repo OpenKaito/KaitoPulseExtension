@@ -98,7 +98,7 @@ check(
   'Predictions comes from the platform total',
   hoverCardToPopoverData(
     card({
-      polymarket: pm('Pranjal', 3),
+      polymarket: pm('Marlowe', 3),
       tradingPlatformTotals: [total({ predictionsCount: 590 })],
     }),
   ).polymarket?.predictions,
@@ -109,7 +109,7 @@ check(
   'no predictions figure renders as no-total, not zero predictions',
   hoverCardToPopoverData(
     card({
-      polymarket: pm('Pranjal', 3),
+      polymarket: pm('Marlowe', 3),
       tradingPlatformTotals: [total({ predictionsCount: null })],
     }),
   ).polymarket?.predictions,
@@ -118,17 +118,17 @@ check(
 
 check(
   'an older backend falls back to the summed count',
-  hoverCardToPopoverData(card({ polymarket: pm('Pranjal', 3), tradingPlatformTotals: [total({})] }))
+  hoverCardToPopoverData(card({ polymarket: pm('Marlowe', 3), tradingPlatformTotals: [total({})] }))
     .polymarket?.predictions,
   '3',
 );
 
 const chips = hoverCardToPopoverData(
   card({
-    polymarket: pm('Pranjal', 3),
+    polymarket: pm('Marlowe', 3),
     tradingWallets: [
-      wallet({ address: ADDRESS, ordinal: 1, addressRevealed: true, displayName: 'Pranjal' }),
-      wallet({ ordinal: 2, addressRevealed: false, hasPositions: true, displayName: 'Ripchill' }),
+      wallet({ address: ADDRESS, ordinal: 1, addressRevealed: true, displayName: 'Marlowe' }),
+      wallet({ ordinal: 2, addressRevealed: false, hasPositions: true, displayName: 'Quillon' }),
       wallet({
         ordinal: 5,
         addressRevealed: false,
@@ -140,7 +140,7 @@ const chips = hoverCardToPopoverData(
 ).polymarket?.accounts;
 
 check('the three published wallets keep the backend order', chips?.slice(0, 3).length, 3);
-check('a revealed wallet shows the name Polymarket has for it', chips?.[0].name, 'Pranjal');
+check('a revealed wallet shows the name Polymarket has for it', chips?.[0].name, 'Marlowe');
 check('an anonymous wallet keeps its ordinal, never the served name', chips?.[1].name, 'Address 2');
 check('an anonymous wallet gets no avatar either', chips?.[2].avatarUrl, undefined);
 check('the ordinal gap is preserved', chips?.[2].name, 'Address 5');
@@ -149,32 +149,28 @@ check('a Polymarket block no wallet can claim still takes a chip of its own', ch
 
 const unserved = hoverCardToPopoverData(
   card({
-    polymarket: pm('Pranjal', 3),
+    polymarket: pm('Marlowe', 3),
     tradingWallets: [
-      wallet({ address: ADDRESS, ordinal: 1, addressRevealed: true, displayName: 'Pranjal' }),
+      wallet({ address: ADDRESS, ordinal: 1, addressRevealed: true, displayName: 'Marlowe' }),
       wallet({
         address: '0x1111000000000000000000000000000000002222',
         ordinal: 2,
         addressRevealed: true,
-        displayName: 'Ripchill',
+        displayName: 'Quillon',
         avatarUrl: 'https://example.test/a.png',
       }),
     ],
   }),
 ).polymarket?.accounts;
 
-check(
-  'a revealed wallet with no served block still shows its name',
-  unserved?.[1].name,
-  'Ripchill',
-);
+check('a revealed wallet with no served block still shows its name', unserved?.[1].name, 'Quillon');
 check('… and its avatar', unserved?.[1].avatarUrl, 'https://example.test/a.png');
 check('… while its figures stay unknown rather than zero', unserved?.[1].positionsValue, '-');
 check('… and it is marked as having no detail yet', unserved?.[1].hasDetail, false);
 
 const nameless = hoverCardToPopoverData(
   card({
-    polymarket: pm('Pranjal', 3),
+    polymarket: pm('Marlowe', 3),
     tradingWallets: [
       wallet({ address: ADDRESS, ordinal: 1, addressRevealed: true }),
       wallet({

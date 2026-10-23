@@ -121,8 +121,8 @@ const PM_AVATAR_URL =
   'https://pbs.twimg.com/profile_images/1878000000000000000/kaito-fixture_400x400.jpg';
 
 const PM_PROFILE: PolymarketProfile = {
-  name: 'Pranjal',
-  pseudonym: 'Pranjal',
+  name: 'Marlowe',
+  pseudonym: 'Marlowe',
   avatar: PM_AVATAR_URL,
   bio: 'Trading elections and rate decisions. Not financial advice.',
   joinedAt: '2024-03-11T00:00:00.000Z',
@@ -189,8 +189,8 @@ const PUMPFUN_ADDRESSES = [
 ];
 
 const PUMPFUN_PROFILE: PumpfunWireProfile = {
-  name: 'PoorGoat',
-  twitterHandle: 'PoorGoat_',
+  name: 'Bramblegoat',
+  twitterHandle: 'fx_bramblegoat',
   avatar: 'https://pbs.twimg.com/profile_images/1878000000000000002/pump-fixture_400x400.jpg',
   bio: 'Main Alpha On Runnr, Find Me On X. The Horns Stay On 🐐',
 };
@@ -258,9 +258,9 @@ const FOMO_TRADES = 1_284;
 const FOMO_POSITIONS_TOTAL = 9;
 
 const FOMO_PROFILE: FomoWireProfile = {
-  name: 'sol maxi',
-  handle: 'solmaxi',
-  twitterHandle: 'solmaxi',
+  name: 'sol fixture',
+  handle: 'fx_solfixture',
+  twitterHandle: 'fx_solfixture',
   avatar: 'https://pbs.twimg.com/profile_images/1878000000000000001/fomo-fixture_400x400.jpg',
   bio: 'Spot only. Size matters.',
 };
@@ -314,7 +314,7 @@ const SECOND_WALLET_ADDRESS: Record<string, string> = {
 const HL_TOTAL_ACCOUNTS = 6;
 const PM_TOTAL_ACCOUNTS = 4;
 
-const WALLET_PM_NAMES = ['Pranjal', 'Ripchill', 'Yagai'];
+const WALLET_PM_NAMES = ['Marlowe', 'Quillon', 'Tessaly'];
 
 const WALLET_PM_AVATARS: Array<string | null> = [PM_AVATAR_URL, '', null];
 
@@ -542,7 +542,7 @@ function withFomoPlatformTotal(result: HoverCardResult): HoverCardPlatformTotal[
 }
 
 function pumpfunWallets(): HoverCardWallet[] {
-  return ['DumbCrayonEater', 'PoorGoat', 'DopamineFeenFr1'].map((name, i) => ({
+  return ['CrayonComet', 'Bramblegoat', 'DopamineDrift'].map((name, i) => ({
     platform: 'pumpfun',
     address: PUMPFUN_ADDRESSES[i],
     ordinal: i + 1,
