@@ -45,6 +45,8 @@ export function errorHeadline(code: ProofErrorCode | undefined): string {
       return 'Session expired';
     case 'third_party_login_required':
       return 'Platform login required';
+    case 'platform_account_not_found':
+      return 'No account for this wallet';
     case 'permission_required':
       return 'Site access required';
     case 'timeout':
@@ -123,6 +125,8 @@ export function errorDescription(
       return reason?.includes('x_identity_unavailable')
         ? `Your linked ${platformName} account hasn't synced to Kaito yet. Wait a moment, then retry.`
         : `Your Kaito login has no linked ${platformName} account. Link it under Linked Accounts on the Kaito site first, then verify that same account.`;
+    case 'platform_account_not_found':
+      return `The wallet connected on ${platformName} has no ${platformName} account. Connect the wallet you trade with on ${platformName}, then retry.`;
     case 'permission_required':
       return `Kaito Pulse needs your permission to read ${platformName}. Click Try Again and choose Allow when Chrome asks.`;
     case 'insufficient_activity':

@@ -2,6 +2,7 @@ import type { CircleProofAccount, FollowRecommendationResponse } from '@/shared/
 import type { IncludedAccount, PlatformGroup, PopupData, SmartFollower } from '@/popup/data/types';
 import type { ExtensionSocialCard } from '@/shared/extension-social';
 import type { SocialCardData } from '@/popup/social-card/view-model';
+import type { ActivityFeedItem, ActivityFeedPage } from '@/shared/activity-feed';
 import {
   assertFixtureShapes,
   daysBefore,
@@ -565,7 +566,7 @@ export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse = {
     {
       rank: 3,
       twitterId: xId('recommendation', 3),
-      handle: 'fx_chaincommunity',
+      handle: 'fx_chaincomm',
       displayName: 'Chain Community',
       avatarUrl: avatar(266),
       followersCount: 288_000,
@@ -645,4 +646,169 @@ export function validateFixtures(): void {
 
     epochs: [FIXTURE_RECOMMENDATIONS.computedAt, FIXTURE_SOCIAL_CARD_LINKS.updatedAtMs],
   });
+}
+
+type ActivityFixture = {
+  handle: string;
+  hue: number;
+  minutesAgo: number;
+  platform: 'hyperliquid' | 'polymarket';
+  side: 'buy' | 'sell';
+  market: ActivityFeedItem['market'];
+  quantity: number;
+  notional: number;
+};
+
+const ACTIVITY_FIXTURES: ActivityFixture[][] = [
+  [
+    {
+      handle: 'fx_alexonchain',
+      hue: 200,
+      minutesAgo: 2,
+      platform: 'hyperliquid',
+      side: 'buy',
+      market: { id: 'BTC', label: 'BTC', icon: '' },
+      quantity: 0.25,
+      notional: 17_020,
+    },
+    {
+      handle: 'fx_marketmaven',
+      hue: 32,
+      minutesAgo: 40,
+      platform: 'hyperliquid',
+      side: 'buy',
+      market: { id: '@107', label: 'HYPE', icon: '' },
+      quantity: 120,
+      notional: 3_180,
+    },
+    {
+      handle: 'fx_basisdesk',
+      hue: 140,
+      minutesAgo: 75,
+      platform: 'hyperliquid',
+      side: 'sell',
+      market: { id: 'ETH', label: 'ETH', icon: '' },
+      quantity: 9.98,
+      notional: 24_700,
+    },
+    {
+      handle: 'fx_oddsmaker',
+      hue: 280,
+      minutesAgo: 130,
+      platform: 'polymarket',
+      side: 'buy',
+      market: {
+        id: '1001',
+        label: 'Will the Fed cut rates in December?',
+        icon: '',
+        outcome: 'Yes',
+      },
+      quantity: 4_200,
+      notional: 1_890,
+    },
+    {
+      handle: 'fx_alexonchain',
+      hue: 200,
+      minutesAgo: 190,
+      platform: 'hyperliquid',
+      side: 'sell',
+      market: { id: 'SOL', label: 'SOL', icon: '' },
+      quantity: 89.85,
+      notional: 9_900,
+    },
+    {
+      handle: 'fx_degenpm',
+      hue: 330,
+      minutesAgo: 260,
+      platform: 'polymarket',
+      side: 'sell',
+      market: { id: '1002', label: 'LoL Worlds: Gen.G vs T1', icon: '', outcome: 'Gen.G' },
+      quantity: 900,
+      notional: 540,
+    },
+    {
+      handle: 'fx_basisdesk',
+      hue: 140,
+      minutesAgo: 420,
+      platform: 'hyperliquid',
+      side: 'buy',
+      market: { id: 'xyz:NVDA', label: 'xyz:NVDA', icon: '' },
+      quantity: 40,
+      notional: 7_600,
+    },
+    {
+      handle: 'fx_marketmaven',
+      hue: 32,
+      minutesAgo: 610,
+      platform: 'hyperliquid',
+      side: 'sell',
+      market: { id: 'PURR/USDC', label: 'PURR', icon: '' },
+      quantity: 52_000,
+      notional: 1_240,
+    },
+  ],
+  [
+    {
+      handle: 'fx_oddsmaker',
+      hue: 280,
+      minutesAgo: 1_500,
+      platform: 'polymarket',
+      side: 'buy',
+      market: { id: '1003', label: 'Bitcoin Up or Down - 15m', icon: '', outcome: 'Up' },
+      quantity: 300,
+      notional: 156,
+    },
+    {
+      handle: 'fx_alexonchain',
+      hue: 200,
+      minutesAgo: 1_620,
+      platform: 'hyperliquid',
+      side: 'buy',
+      market: { id: 'BTC', label: 'BTC', icon: '' },
+      quantity: 1.2,
+      notional: 81_500,
+    },
+    {
+      handle: 'fx_basisdesk',
+      hue: 140,
+      minutesAgo: 2_900,
+      platform: 'hyperliquid',
+      side: 'buy',
+      market: { id: 'HYPE', label: 'HYPE', icon: '' },
+      quantity: 825.14,
+      notional: 69_500,
+    },
+    {
+      handle: 'fx_degenpm',
+      hue: 330,
+      minutesAgo: 4_300,
+      platform: 'polymarket',
+      side: 'buy',
+      market: { id: '1004', label: '1004', icon: '', outcome: 'No' },
+      quantity: 1_000,
+      notional: 410,
+    },
+  ],
+];
+
+export function fixtureActivityPages(now: number = Date.now()): ActivityFeedPage[] {
+  return ACTIVITY_FIXTURES.map((rows, index) => ({
+    items: rows.map((row, i) => ({
+      eventId: `fx-activity-${index}-${i}`,
+      platform: row.platform,
+      actor: {
+        twitterId: xId('activity', index * 100 + i),
+        handle: row.handle,
+        avatarUrl: avatar(row.hue),
+      },
+      market: row.market,
+      side: row.side,
+      price: String(row.notional / row.quantity),
+      quantity: String(row.quantity),
+      notional: String(row.notional),
+      eventTime: new Date(now - row.minutesAgo * 60_000).toISOString(),
+    })),
+    nextBefore: index + 1 < ACTIVITY_FIXTURES.length ? `fixture:${index + 1}` : null,
+    generatedAt: new Date(now).toISOString(),
+  }));
 }

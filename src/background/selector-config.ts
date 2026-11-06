@@ -1,5 +1,5 @@
-import { SIGNAL_CONFIG } from '@/signal/config';
-import { backgroundFetch } from '@/signal/api/client';
+import { api } from '@/lib/api';
+import { getStoredSession } from '@/lib/client-storage';
 import { createLogger } from '@/signal/logger';
 import { selectorOverridesItem } from '@/shared/storage';
 import {
@@ -58,11 +58,11 @@ function validatePayload(raw: unknown): SelectorOverridePayload | null {
 }
 
 export async function fetchSelectorConfigPayload(): Promise<SelectorOverridePayload | null> {
-  const url = SIGNAL_CONFIG.selectorConfigUrl;
-  if (!url) return null;
+  const stored = await getStoredSession();
+  if (!stored?.sessionToken) return null;
 
   try {
-    const raw = await backgroundFetch<unknown>(url, { redirect: 'manual' });
+    const raw = await api.getSelectorConfig(stored.sessionToken);
     const validated = validatePayload(raw);
     if (!validated) {
       logger.warn('selector config payload rejected: invalid shape');
@@ -103,11 +103,6 @@ export async function handleForceRefreshSelectorOverrides(): Promise<ForceRefres
 }
 
 export function startSelectorConfigAlarm(): void {
-  if (!SIGNAL_CONFIG.selectorConfigUrl) {
-    void chrome.alarms.clear(ALARM_NAME);
-    return;
-  }
-
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === ALARM_NAME) {
       void refreshSelectorOverrides().catch((error) => {
@@ -116,6 +111,10 @@ export function startSelectorConfigAlarm(): void {
     }
   });
   chrome.alarms.get(ALARM_NAME, (existing) => {
-    if (!existing) chrome.alarms.create(ALARM_NAME, { periodInMinutes: ALARM_PERIOD_MINUTES });
+    if (!existing)
+      chrome.alarms.create(ALARM_NAME, {
+        delayInMinutes: 1,
+        periodInMinutes: ALARM_PERIOD_MINUTES,
+      });
   });
 }

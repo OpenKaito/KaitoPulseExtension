@@ -32,6 +32,7 @@ function clip(value: unknown, max: number): string {
 
 const PREFETCH_OPERATIONS_BY_VERIFIER: Record<string, readonly string[]> = {
   x_analytics_overview: ['Viewer', 'accountOverviewDailyQuery'],
+  x_creator_rewards_zktls: ['originalContentRewards'],
   axis_account: ['axisMe'],
 };
 

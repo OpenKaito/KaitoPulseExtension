@@ -1,4 +1,9 @@
-import { createCaptureTrace, type CaptureTrace } from '@/shared/capture-trace';
+import {
+  createCaptureTrace,
+  TARGET_CHECK_DEBUG_KEY,
+  type CapturedTarget,
+  type CaptureTrace,
+} from '@/shared/capture-trace';
 
 let active: { stop: () => void } | undefined;
 let last: { startedAt: number; trace: CaptureTrace } | undefined;
@@ -11,6 +16,7 @@ export function startCaptureTrace(
 ): void {
   stopCaptureTrace();
   last = undefined;
+  void chrome.storage?.local?.remove(TARGET_CHECK_DEBUG_KEY).catch(() => undefined);
   if (targets.length === 0 || !globalThis.chrome?.webRequest?.onCompleted) return;
   const trace = createCaptureTrace(targets, matches);
   const filter: chrome.webRequest.RequestFilter = {
@@ -56,4 +62,14 @@ export function stopCaptureTrace(): void {
 export function describeCaptureTrace(since = 0): string | undefined {
   if (!last || last.startedAt < since) return undefined;
   return last.trace.describe();
+}
+
+export function captureTraceOutcomes(since = 0): CapturedTarget[] {
+  if (!last || last.startedAt < since) return [];
+  return last.trace.outcomes();
+}
+
+export async function readTargetCheck(): Promise<unknown> {
+  const stored = await chrome.storage?.local?.get(TARGET_CHECK_DEBUG_KEY).catch(() => undefined);
+  return stored?.[TARGET_CHECK_DEBUG_KEY];
 }

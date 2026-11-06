@@ -1,3 +1,4 @@
+import type { ActivityFeedConfig, ActivityFeedPage, ActivityFeedPostsPage } from './activity-feed';
 import type { AuraSummaryResponse } from './aura-summary';
 import type { ReferralSummaryResponse } from './referral-summary';
 import type { TradingSummaryResponse } from './trading-summary';
@@ -103,6 +104,10 @@ export type KaitoMessageContract = {
   getSocialSummary: { payload: NoPayload; response: GetSocialSummaryResponse };
 
   getSocialCardActivity: { payload: NoPayload; response: GetSocialCardActivityResponse };
+
+  getActivityFeedConfig: { payload: NoPayload; response: GetActivityFeedConfigResponse };
+  getActivityFeed: { payload: { before?: string }; response: GetActivityFeedResponse };
+  getActivityFeedPosts: { payload: { before?: string }; response: GetActivityFeedPostsResponse };
 
   getSocialCard: {
     payload: { twitterId: string; candidates?: SocialCardScope[] };
@@ -270,6 +275,7 @@ export type ProofRunSummary = {
 
   finishedAt?: number;
   creatorRewards?: XCreatorRewardsOutcome;
+  companion?: ProofRunSummary;
   error?: {
     message: string;
     status?: number;
@@ -291,6 +297,7 @@ export type ProofErrorCode =
   | 'sign_in_required'
   | 'session_invalid'
   | 'third_party_login_required'
+  | 'platform_account_not_found'
   | 'permission_required'
   | 'wallet_not_connected'
   | 'page_closed'
@@ -317,6 +324,8 @@ export type ProofErrorCode =
   | 'network_error'
   | 'proof_quota_exhausted'
   | 'unknown_error';
+
+export const OPENING_PAGE_SLOW_MESSAGE = 'Opening the platform page (slow)';
 
 export type ProofProgress = {
   verifierId: string;
@@ -469,6 +478,24 @@ export type GetSocialCardResponse = { bundle?: SocialCardBundle | null; error?: 
 
 export type GetSocialSummaryResponse = {
   result?: ExtensionSocialSummary;
+  error?: string;
+  status?: number;
+};
+
+export type GetActivityFeedConfigResponse = {
+  result?: ActivityFeedConfig;
+  error?: string;
+  status?: number;
+};
+
+export type GetActivityFeedResponse = {
+  result?: ActivityFeedPage;
+  error?: string;
+  status?: number;
+};
+
+export type GetActivityFeedPostsResponse = {
+  result?: ActivityFeedPostsPage;
   error?: string;
   status?: number;
 };

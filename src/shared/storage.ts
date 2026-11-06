@@ -15,6 +15,10 @@ import type { FollowRecommendationResponse, LocallyFollowedMap } from '@/shared/
 
 export const sessionItem = storage.defineItem<{ signedInAt: number } | null>('local:kaito.session');
 
+export const signedOutByUserItem = storage.defineItem<boolean>('local:kaito.signedOutByUser', {
+  fallback: false,
+});
+
 export const meCacheItem = storage.defineItem<ExtensionMeResponse | null>('local:kaito.me');
 
 export const lastResultItem = storage.defineItem<ProofRunSummary | null>('local:kaito.lastResult');

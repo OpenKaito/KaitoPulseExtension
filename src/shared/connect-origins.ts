@@ -34,3 +34,17 @@ export function toMatchPatterns(connectOrigin?: string): string[] {
   }
   return Array.from(matches);
 }
+
+export const ACCOUNT_CHOICE_PARAM = 'prompt';
+export const ACCOUNT_CHOICE_VALUE = 'select_account';
+
+export function withAccountChoice(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname !== '/login' || !parsed.searchParams.has('extensionId')) return url;
+    parsed.searchParams.set(ACCOUNT_CHOICE_PARAM, ACCOUNT_CHOICE_VALUE);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}

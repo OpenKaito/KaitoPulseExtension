@@ -13,6 +13,7 @@ import { XCreatorRewardsRelay } from '@/signal/x-creator-rewards-relay';
 import { viewerIdentity } from '@/signal/viewer-identity';
 import '@/signal/profile/username-history.css';
 import { ProfileModulesController } from '@/signal/profile/profile-modules';
+import { ActivitySidebarController } from '@/signal/activity-sidebar/controller';
 import { ensureSignalFonts } from '@/signal/load-fonts';
 import { loadSettings, subscribe, type SignalSettings } from '@/signal/settings';
 import { gateSettings, readSignedIn, readTermsOk, termsOkFromMe } from '@/signal/session-gate';
@@ -21,7 +22,6 @@ import { readActivityConsent, watchActivityConsent } from '@/shared/activity-con
 import { BehaviorTracker } from '@/behavior/tracker';
 import { guard, logLocalError } from '@/lib/guard';
 import { applySelectorOverrides } from '@/signal/dom/selectors';
-import { SIGNAL_CONFIG } from '@/signal/config';
 import { sendKaitoMessage } from '@/signal/messaging';
 
 const logger = createLogger('content');
@@ -67,10 +67,8 @@ export default defineContentScript({
       if (teardown) return;
       logger.log('initializing');
 
-      if (SIGNAL_CONFIG.selectorConfigUrl) {
-        pullSelectorOverrides();
-        selectorOverridesTimer = setInterval(pullSelectorOverrides, SELECTOR_OVERRIDES_POLL_MS);
-      }
+      pullSelectorOverrides();
+      selectorOverridesTimer = setInterval(pullSelectorOverrides, SELECTOR_OVERRIDES_POLL_MS);
 
       twitterIdMap.start();
 
@@ -105,10 +103,14 @@ export default defineContentScript({
       const profileModules = new ProfileModulesController(document, settings);
       profileModules.observe(document);
 
+      const activitySidebar = new ActivitySidebarController(document, settings);
+      activitySidebar.observe(document);
+
       const applyEffective = guard(() => {
         settings = gateSettings(storedSettings, signedIn && termsOk);
         orchestrator.applySettings(settings);
         profileModules.applySettings(settings);
+        activitySidebar.applySettings(settings);
       }, 'settings.apply');
 
       const unsubscribe = subscribe(
@@ -156,6 +158,7 @@ export default defineContentScript({
         unsubscribeConsent();
         orchestrator.cleanup();
         profileModules.cleanup();
+        activitySidebar.cleanup();
 
         behaviorTracker?.stop();
         behaviorTracker = null;

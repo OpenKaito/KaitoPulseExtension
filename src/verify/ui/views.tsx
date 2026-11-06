@@ -9,7 +9,12 @@ import {
   type Component,
 } from 'solid-js';
 import { expectedAccountFor, updatesExistingAccount } from '@/background/expected-account';
-import type { ProofErrorCode, ProofProgress, ProofRunSummary } from '@/shared/messages';
+import {
+  OPENING_PAGE_SLOW_MESSAGE,
+  type ProofErrorCode,
+  type ProofProgress,
+  type ProofRunSummary,
+} from '@/shared/messages';
 import {
   CATEGORY_TABS,
   consentFields,
@@ -706,6 +711,11 @@ function progressStepSub(
   return undefined;
 }
 
+const OPENING_SLOW_HEAD = {
+  title: 'Still connecting...',
+  sub: 'The page is loading slowly. On a slow connection this can take up to a minute. Keep it open.',
+};
+
 const CANCEL_REFUSED_HEAD = {
   title: 'Finishing up...',
   sub: 'Your proof is already with Kaito — this can no longer be canceled',
@@ -725,7 +735,9 @@ export const ProgressView: Component<{
   const head = () =>
     props.cancelRefused
       ? CANCEL_REFUSED_HEAD
-      : (serverRead() ? SERVER_READ_HEAD_TEXT : PROGRESS_HEAD_TEXT)[activeStep()];
+      : stage() === 'opening_page' && props.progress?.message === OPENING_PAGE_SLOW_MESSAGE
+        ? OPENING_SLOW_HEAD
+        : (serverRead() ? SERVER_READ_HEAD_TEXT : PROGRESS_HEAD_TEXT)[activeStep()];
 
   const steps = (): VerifyStep[] => {
     const current = VERIFY_STEP_IDS.indexOf(activeStep());
@@ -809,6 +821,7 @@ const RESULT_TONE: Record<ResultKind, ResultTone> = {
 const STEP_FOR_ERROR: Partial<Record<ProofErrorCode, VerifyStepId>> = {
   proof_initialization_failed: 'connect',
   third_party_login_required: 'read',
+  platform_account_not_found: 'read',
   target_page_not_ready: 'read',
   target_data_missing: 'read',
   wallet_not_connected: 'read',

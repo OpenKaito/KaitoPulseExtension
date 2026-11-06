@@ -1,12 +1,16 @@
 import { logDev } from '@/lib/env';
 import type { Attestation, PrimusTemplateMetadata } from '@/shared/contracts';
 import { verifierOriginMatches, verifierTabKey, verifierUrlMatches } from '@/shared/verifier-url';
-import { GRAPHQL_PREFETCH_REQUEST_MESSAGE } from '@/verify/x-graphql-prefetch-message';
+import {
+  GRAPHQL_PREFETCH_REQUEST_MESSAGE,
+  X_PREFETCH_OPERATION_NAMES,
+} from '@/verify/x-graphql-prefetch-message';
 import { hasMainWorldPrefetch } from '@/background/verifier-runtime';
 import { describeTabForLog } from '@/background/page-state-tracker';
 import { startCaptureTrace, stopCaptureTrace } from '@/background/capture-trace-recorder';
 import { watchPrimusCaptureComplete } from '@/background/capture-signal';
 import { PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
+import { OPENING_PAGE_SLOW_MESSAGE } from '@/shared/messages';
 import { optionalPatternsForUrl } from '@/shared/proof-targets';
 
 const ATTEST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -22,6 +26,9 @@ const PRIMUS_CLIENT_TYPE = '@primuslabs/zktls-js-sdk';
 const RUN_ATTESTATION_RETRIES = 3;
 const EXECUTE_ATTESTATION_RETRIES = 4;
 const POST_NAVIGATION_SETTLE_MS = 1500;
+const TAB_OPEN_TIMEOUT_MS = 60_000;
+const TAB_OPEN_SLOW_AFTER_MS = 20_000;
+const TAB_SETTLE_MAX_MS = 10_000;
 const TAB_STABLE_POLL_MS = 250;
 const TARGET_DATA_READY_TIMEOUT_MS = 5 * 60 * 1000;
 const TARGET_DATA_READY_POLL_MS = 3_000;
@@ -251,19 +258,29 @@ async function keepAttestationWorkerAlive(tabId: number): Promise<void> {
           [key]?: {
             port: chrome.runtime.Port;
             timer: number;
+            ping: number;
           };
         };
         const existing = global[key];
         if (existing) {
           clearTimeout(existing.timer);
+          clearInterval(existing.ping);
           existing.port.disconnect();
         }
 
         const port = chrome.runtime.connect({ name: 'kaitoAttestationKeepAlive' });
+        const ping = window.setInterval(() => {
+          try {
+            port.postMessage({ type: 'keepalive' });
+          } catch {
+            window.clearInterval(ping);
+          }
+        }, 20_000);
         const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
-        global[key] = { port, timer };
+        global[key] = { port, timer, ping };
         port.onDisconnect.addListener(() => {
           clearTimeout(timer);
+          clearInterval(ping);
           if (global[key]?.port === port) {
             delete global[key];
           }
@@ -634,6 +651,15 @@ async function ensureVerifierTab(
   guideUrl: string,
   options: RunAttestationOptions = {},
 ): Promise<number> {
+  const tabId = await ensureVerifierTabUnprotected(guideUrl, options);
+  await keepAttestationWorkerAlive(tabId);
+  return tabId;
+}
+
+async function ensureVerifierTabUnprotected(
+  guideUrl: string,
+  options: RunAttestationOptions = {},
+): Promise<number> {
   const tabKey = `${verifierTabKey(guideUrl)}:${options.windowId ?? 'any'}`;
   if (options.tabId !== undefined) {
     return ensureSpecifiedVerifierTab(guideUrl, tabKey, options.tabId, options);
@@ -674,8 +700,9 @@ async function ensureSpecifiedVerifierTab(
     return tabId;
   }
 
-  await waitForTabReady(tabId);
-  await waitForTabToSettle(tabId);
+  await waitForTabToOpen(tabId, () =>
+    options.onProgress?.('opening_page', OPENING_PAGE_SLOW_MESSAGE),
+  );
   await ensureFreshBridgeScripts(tabId);
   return tabId;
 }
@@ -706,8 +733,9 @@ async function ensureVerifierTabOnce(
     verifierTabsByKey.set(tabKey, reusable.id);
     await options.onTargetTab?.(reusable.id);
     const existingId = reusable.id;
-    await waitForTabReady(existingId);
-    await waitForTabToSettle(existingId);
+    await waitForTabToOpen(existingId, () =>
+      options.onProgress?.('opening_page', OPENING_PAGE_SLOW_MESSAGE),
+    );
     await ensureFreshBridgeScripts(existingId);
     return existingId;
   }
@@ -720,7 +748,7 @@ async function ensureVerifierTabOnce(
   const created = await chrome.tabs.create({
     url: guideUrl,
     active: !options.silent,
-    windowId: options.windowId,
+    windowId: await liveWindowId(options.windowId),
   });
   if (typeof created.id !== 'number') {
     throw new Error('verifier_tab_create_failed');
@@ -736,8 +764,9 @@ async function ensureVerifierTabOnce(
     await ensureFreshBridgeScriptsDuringNavigation(created.id);
     return created.id;
   }
-  await waitForTabReady(created.id);
-  await waitForTabToSettle(created.id);
+  await waitForTabToOpen(created.id, () =>
+    options.onProgress?.('opening_page', OPENING_PAGE_SLOW_MESSAGE),
+  );
   await ensureFreshBridgeScripts(created.id);
   return created.id;
 }
@@ -848,12 +877,18 @@ async function findVerifierTab(
   return matches[0];
 }
 
-const X_DOCUMENT_READY_POLL_MS = 2_000;
+async function liveWindowId(windowId: number | undefined): Promise<number | undefined> {
+  if (windowId === undefined) return undefined;
+  const window = await chrome.windows.get(windowId).catch(() => undefined);
+  return window?.id;
+}
+
+const DOCUMENT_READY_POLL_MS = 2_000;
 const X_INTERACTIVE_GRACE_MS = 10_000;
 
-async function xDocumentReady(tabId: number): Promise<boolean> {
+async function documentReady(tabId: number): Promise<boolean> {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
-  if (!tab || tab.pendingUrl || !isXUrl(tab.url)) return false;
+  if (!tab || tab.pendingUrl || !isHttpUrl(tab.url)) return false;
   const [result] = await chrome.scripting
     .executeScript({
       target: { tabId },
@@ -869,8 +904,12 @@ async function xDocumentReady(tabId: number): Promise<boolean> {
   if (!page || page.href !== tab.url) return false;
   return (
     page.state === 'complete' ||
-    (page.state === 'interactive' && (page.age ?? 0) >= X_INTERACTIVE_GRACE_MS)
+    (isXUrl(tab.url) && page.state === 'interactive' && (page.age ?? 0) >= X_INTERACTIVE_GRACE_MS)
   );
+}
+
+function isHttpUrl(url: string | undefined): boolean {
+  return /^https?:\/\//.test(url ?? '');
 }
 
 function isXUrl(url: string | undefined): boolean {
@@ -882,7 +921,25 @@ function isXUrl(url: string | undefined): boolean {
   }
 }
 
-async function waitForTabReady(tabId: number): Promise<void> {
+async function waitForTabToOpen(
+  tabId: number,
+  onSlow?: () => void,
+  budget = { openMs: TAB_OPEN_TIMEOUT_MS, slowAfterMs: TAB_OPEN_SLOW_AFTER_MS },
+): Promise<void> {
+  const deadline = Date.now() + budget.openMs;
+  const slowTimer = onSlow ? setTimeout(onSlow, budget.slowAfterMs) : undefined;
+  try {
+    await waitForTabReady(tabId, deadline);
+    await waitForTabToSettle(tabId, deadline);
+  } finally {
+    clearTimeout(slowTimer);
+  }
+}
+
+async function waitForTabReady(
+  tabId: number,
+  deadline = Date.now() + TAB_OPEN_TIMEOUT_MS,
+): Promise<void> {
   const tab = await chrome.tabs.get(tabId);
   if (tab.status === 'complete' && !tab.pendingUrl) {
     return;
@@ -900,11 +957,14 @@ async function waitForTabReady(tabId: number): Promise<void> {
       chrome.tabs.onUpdated.removeListener(onUpdated);
       outcome();
     };
-    const timer = setTimeout(() => {
-      void describeTabForLog(tabId, undefined, waitStartedAt)
-        .catch(() => 'page=unknown')
-        .then((page) => finish(() => reject(new Error(`verifier_tab_load_timeout ${page}`))));
-    }, 30_000);
+    const timer = setTimeout(
+      () => {
+        void describeTabForLog(tabId, undefined, waitStartedAt)
+          .catch(() => 'page=unknown')
+          .then((page) => finish(() => reject(new Error(`verifier_tab_load_timeout ${page}`))));
+      },
+      Math.max(0, deadline - Date.now()),
+    );
 
     const onUpdated = (updatedTabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
       if (updatedTabId !== tabId || changeInfo.status !== 'complete') {
@@ -926,25 +986,28 @@ async function waitForTabReady(tabId: number): Promise<void> {
       })
       .catch(() => undefined);
     poll = setInterval(() => {
-      void xDocumentReady(tabId).then((ready) => {
+      void documentReady(tabId).then((ready) => {
         if (ready) finish(resolve);
       });
-    }, X_DOCUMENT_READY_POLL_MS);
+    }, DOCUMENT_READY_POLL_MS);
   });
 }
 
-async function waitForTabToSettle(tabId: number): Promise<void> {
+async function waitForTabToSettle(tabId: number, openDeadline?: number): Promise<void> {
   let previousUrl = '';
-  const deadline = Date.now() + 10_000;
+  const deadline = Math.min(
+    Date.now() + TAB_SETTLE_MAX_MS,
+    openDeadline ?? Number.POSITIVE_INFINITY,
+  );
 
   while (Date.now() < deadline) {
-    await waitForTabReady(tabId);
+    await waitForTabReady(tabId, openDeadline);
     const before = await chrome.tabs.get(tabId);
     previousUrl = before.url || previousUrl;
     await delay(POST_NAVIGATION_SETTLE_MS);
     const after = await chrome.tabs.get(tabId);
     const ready =
-      !after.pendingUrl && (after.status === 'complete' || (await xDocumentReady(tabId)));
+      !after.pendingUrl && (after.status === 'complete' || (await documentReady(tabId)));
     if (ready && after.url === previousUrl) {
       return;
     }
@@ -1170,13 +1233,36 @@ function forgetObservedTargetUrls(tabId: number): void {
 
 const GRAPHQL_PREFETCH_DATA_SOURCE = 'x';
 
+const X_PREFETCH_FIXED_PATHS: Record<string, string> = {
+  '/i/jfapi/creators/original_content_rewards': 'originalContentRewards',
+};
+
+function xPrefetchOperation(expression: string): string | undefined {
+  const match = /\/graphql\/[^/]*\/([A-Za-z0-9_]+)/.exec(expression);
+  if (match) return match[1];
+  return Object.entries(X_PREFETCH_FIXED_PATHS).find(([path]) => expression.includes(path))?.[1];
+}
+
 function graphqlPrefetchOperations(template?: PrimusTemplateMetadata): string[] {
   const names = new Set<string>();
   for (const entry of getTargetEntries(template)) {
-    const match = /\/graphql\/[^/]*\/([A-Za-z0-9_]+)/.exec(entry.expression);
-    if (match) names.add(match[1]);
+    const operation = xPrefetchOperation(entry.expression);
+    if (operation) names.add(operation);
   }
   return [...names];
+}
+
+function xPrefetchOwnedExpressions(template?: PrimusTemplateMetadata): string[] {
+  if (getTemplateDataSource(template) !== GRAPHQL_PREFETCH_DATA_SOURCE) return [];
+  return getTargetEntries(template)
+    .map((entry) => entry.expression)
+    .filter((expression) => {
+      const operation = xPrefetchOperation(expression);
+      return (
+        operation !== undefined &&
+        (X_PREFETCH_OPERATION_NAMES as readonly string[]).includes(operation)
+      );
+    });
 }
 
 const PRIMUS_PAGE_DECODE_DEBUG_KEY = 'kaitoPageDecodeInitDebug';
@@ -1797,6 +1883,7 @@ async function executeAttestation(
     } catch {}
   };
   let sitePrefetchOwnsRequests = false;
+  const prefetchOwnedExpressions = xPrefetchOwnedExpressions(payload.kaitoTemplate);
   try {
     const tab = await chrome.tabs.get(tabId);
     const host = tab?.url ? new URL(tab.url).hostname : '';
@@ -1817,6 +1904,7 @@ async function executeAttestation(
           PRIMUS_INIT_RESPONSE_TIMEOUT_MS,
           PROOF_RUNTIME_TEARDOWN_EVENT,
           sitePrefetchOwnsRequests,
+          prefetchOwnedExpressions,
         ],
         func: async (
           attestationPayload: SignedRequestPayload,
@@ -1827,6 +1915,7 @@ async function executeAttestation(
           initResponseTimeoutMs: number,
           teardownEvent: string,
           sitePrefetchOwnsRequests: boolean,
+          prefetchOwnedExpressions: string[],
         ) => {
           console.log('[kaito-attest] booting in MAIN world', {
             href: location.href,
@@ -2120,6 +2209,9 @@ async function executeAttestation(
                     }
                     const expression = entry?.requestTemplate?.targetUrlExpression;
                     if (typeof expression !== 'string' || expression.length === 0) {
+                      return [];
+                    }
+                    if (prefetchOwnedExpressions.includes(expression)) {
                       return [];
                     }
                     return [expression];

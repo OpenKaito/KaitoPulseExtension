@@ -328,7 +328,7 @@ export function getArticleTweetId(root: HTMLElement): string | null {
 }
 
 export function getArticleNoticeAnchor(article: HTMLElement): HTMLElement | null {
-  const tweetText = article.querySelector('[data-testid="tweetText"]');
+  const tweetText = article.querySelector(SELECTORS.TWEET_TEXT);
   const group = article.querySelector('[role="group"]');
   if (!tweetText || !group) return null;
 

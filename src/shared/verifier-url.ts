@@ -110,15 +110,28 @@ const KNOWN_ROUTE_SEGMENTS = new Set([
   'overview',
 ]);
 
+function isXHost(host: string): boolean {
+  return (
+    host === 'x.com' ||
+    host.endsWith('.x.com') ||
+    host === 'twitter.com' ||
+    host.endsWith('.twitter.com')
+  );
+}
+
 export function navigationTargetForLog(url: string, guideUrl?: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.origin === 'null') return parsed.protocol;
     const guideSegments = new Set(guideUrl ? new URL(guideUrl).pathname.split('/') : []);
-    const path = parsed.pathname
-      .split('/')
+    const segments = parsed.pathname.split('/');
+    const xFeaturePath = isXHost(parsed.hostname) && segments[1] === 'i';
+    const path = segments
       .map((segment) =>
-        segment === '' || KNOWN_ROUTE_SEGMENTS.has(segment) || guideSegments.has(segment)
+        segment === '' ||
+        KNOWN_ROUTE_SEGMENTS.has(segment) ||
+        guideSegments.has(segment) ||
+        (xFeaturePath && /^[a-z][a-z_-]{0,40}$/.test(segment))
           ? segment
           : ':x',
       )
@@ -131,7 +144,7 @@ export function navigationTargetForLog(url: string, guideUrl?: string): string {
 
 const REDACTION_INPUT_LIMIT = 4000;
 
-const REDACTIONS: [RegExp, string][] = [
+const REDACTIONS: [RegExp, string | ((match: string) => string)][] = [
   [/(https?:\/\/[^\s"'\\?#]{1,500})[?#][^\s"'\\]*/g, '$1'],
   [/\b(bearer|basic)\s+[\w\-.~+/]+=*/gi, '$1 [redacted]'],
   [
@@ -139,12 +152,18 @@ const REDACTIONS: [RegExp, string][] = [
     '$1[redacted]',
   ],
   [/[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}/g, '[email]'],
-  [/\b[A-Za-z0-9_-]{32,}\b/g, '[redacted]'],
+  [
+    /\b[A-Za-z0-9_-]{32,}\b/g,
+    (match) => (/^[a-z]+(?:_[a-z]+)+$/.test(match) ? match : '[redacted]'),
+  ],
 ];
 
 export function redactFailureMessage(message: string): string {
   return REDACTIONS.reduce(
-    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    (text, [pattern, replacement]) =>
+      typeof replacement === 'string'
+        ? text.replace(pattern, replacement)
+        : text.replace(pattern, replacement),
     message.slice(0, REDACTION_INPUT_LIMIT),
   );
 }

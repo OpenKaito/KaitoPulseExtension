@@ -5,6 +5,7 @@ import {
   DEFAULT_CONNECT_ORIGIN,
   toMatchPatterns,
   toOriginList,
+  withAccountChoice,
 } from '../src/shared/connect-origins.ts';
 
 test('falls back to the production origin when unset or blank', () => {
@@ -53,4 +54,26 @@ test('duplicate origins collapse', () => {
 
 test('an IP host gets no subdomain wildcard', () => {
   assert.deepEqual(toMatchPatterns('http://127.0.0.1:4001'), ['http://127.0.0.1/*']);
+});
+
+test('after a sign-out the extension login asks which account to use', () => {
+  assert.equal(
+    withAccountChoice('https://kaito.ai/login?extensionId=abc'),
+    'https://kaito.ai/login?extensionId=abc&prompt=select_account',
+  );
+  assert.equal(
+    withAccountChoice('https://kaito.ai/login?extensionId=abc&prompt=select_account'),
+    'https://kaito.ai/login?extensionId=abc&prompt=select_account',
+  );
+});
+
+test('only the extension login gets the account choice', () => {
+  for (const url of [
+    'https://kaito.ai/link?method=twitter&extensionId=abc',
+    'https://kaito.ai/login',
+    'https://kaito.ai/verification-hub',
+    'not a url',
+  ]) {
+    assert.equal(withAccountChoice(url), url);
+  }
 });

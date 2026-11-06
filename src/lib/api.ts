@@ -1,3 +1,8 @@
+import type {
+  ActivityFeedConfig,
+  ActivityFeedPage,
+  ActivityFeedPostsPage,
+} from '@/shared/activity-feed';
 import type { AuraSummaryResponse } from '@/shared/aura-summary';
 import type { ReferralSummaryResponse } from '@/shared/referral-summary';
 import type { TradingSummaryResponse } from '@/shared/trading-summary';
@@ -57,6 +62,8 @@ type RequestOptions = {
 
   timeoutMs?: number;
 };
+
+const ACTIVITY_FEED_PAGE_SIZE = 50;
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -234,12 +241,16 @@ export const api = {
     requestId: string,
     attestation: Attestation,
     expectedPlatformUserId?: string,
+    diagnostics?: string,
   ): Promise<SubmitProofResponse> {
     return request<SubmitProofResponse>('/api/v1/extension/proof/submit', {
       method: 'POST',
-      body: expectedPlatformUserId
-        ? { requestId, attestation, expectedPlatformUserId }
-        : { requestId, attestation },
+      body: {
+        requestId,
+        attestation,
+        ...(expectedPlatformUserId ? { expectedPlatformUserId } : {}),
+        ...(diagnostics ? { diagnostics } : {}),
+      },
       sessionToken,
     });
   },
@@ -251,6 +262,12 @@ export const api = {
     return request<{ ok: true }>('/api/v1/extension/proof/fail', {
       method: 'POST',
       body,
+      sessionToken,
+    });
+  },
+  issueUninstallToken(sessionToken: string): Promise<{ token: string }> {
+    return request<{ token: string }>('/api/v1/extension/sessions/current/uninstall-token', {
+      method: 'POST',
       sessionToken,
     });
   },
@@ -287,6 +304,29 @@ export const api = {
 
   getSocialSummary(sessionToken: string): Promise<ExtensionSocialSummary> {
     return request<ExtensionSocialSummary>('/api/v1/extension/social/summary', { sessionToken });
+  },
+
+  getActivityFeedConfig(sessionToken: string): Promise<ActivityFeedConfig> {
+    return request<ActivityFeedConfig>('/api/v1/extension/activity-feed/config', { sessionToken });
+  },
+
+  getActivityFeed(sessionToken: string, before?: string): Promise<ActivityFeedPage> {
+    const qs = new URLSearchParams({ limit: String(ACTIVITY_FEED_PAGE_SIZE) });
+    if (before) qs.set('before', before);
+    return request<ActivityFeedPage>(`/api/v1/extension/activity-feed?${qs.toString()}`, {
+      sessionToken,
+    });
+  },
+
+  getActivityFeedPosts(sessionToken: string, before?: string): Promise<ActivityFeedPostsPage> {
+    const qs = new URLSearchParams({ limit: String(ACTIVITY_FEED_PAGE_SIZE) });
+    if (before) qs.set('before', before);
+    return request<ActivityFeedPostsPage>(
+      `/api/v1/extension/activity-feed/posts?${qs.toString()}`,
+      {
+        sessionToken,
+      },
+    );
   },
 
   getSocialCardActivity(sessionToken: string): Promise<ExtensionSocialCardActivityResponse> {
@@ -339,6 +379,10 @@ export const api = {
 
   getAttentionConfig(sessionToken?: string): Promise<AttentionConfigResponse> {
     return request<AttentionConfigResponse>('/api/v1/extension/attention/config', { sessionToken });
+  },
+
+  getSelectorConfig(sessionToken: string): Promise<unknown> {
+    return request<unknown>('/api/v1/extension/selector-config', { sessionToken });
   },
 
   getFollowRecommendations(sessionToken: string): Promise<FollowRecommendationResponse> {

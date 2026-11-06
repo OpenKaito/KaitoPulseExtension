@@ -1,7 +1,11 @@
 import { logDev } from '@/lib/env';
 import { PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
 import { optionalPatternsForUrl, PROOF_TARGETS } from '@/shared/proof-targets';
-import { navigationTargetForLog, verifierUrlMatches } from '@/shared/verifier-url';
+import {
+  navigationTargetForLog,
+  verifierOriginMatches,
+  verifierUrlMatches,
+} from '@/shared/verifier-url';
 
 const SCRIPT_IDS = [
   'kaito-proof-arming',
@@ -275,6 +279,14 @@ export async function activateVerifierRuntime(guideUrl: string): Promise<Verifie
       const tabUrl =
         tab.status === 'loading' ? tab.pendingUrl || tab.url : tab.url || tab.pendingUrl;
       if (!verifierUrlMatches(tabUrl, guideUrl)) {
+        if (verifierOriginMatches(tabUrl, guideUrl)) {
+          logDev('verifier runtime: tab left the verify page, returning', {
+            tabId,
+            at: tabUrl ? navigationTargetForLog(tabUrl, guideUrl) : 'unknown',
+          });
+          await chrome.tabs.update(tabId, { url: guideUrl });
+          return;
+        }
         throw new Error(
           `verifier_runtime_tab_mismatch:${tabId} at ${tabUrl ? navigationTargetForLog(tabUrl, guideUrl) : 'unknown'}`,
         );

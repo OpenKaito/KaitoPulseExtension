@@ -21,6 +21,7 @@
   },
   "profile": {
     "PRIMARY_COLUMN": "[data-testid=\"primaryColumn\"]",
+    "SIDEBAR_COLUMN": "[data-testid=\"sidebarColumn\"]",
     "PROFILE_USER_NAME": "[data-testid=\"UserName\"]",
     "TABLIST": "[role=\"tablist\"]"
   }

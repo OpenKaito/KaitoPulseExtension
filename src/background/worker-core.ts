@@ -2,7 +2,9 @@ import { latestProofByVerifier } from '@/shared/latest-proof';
 import { clearExpectedAccount, expectedAccountFor } from './expected-account';
 import { api } from '@/lib/api';
 import { checkProofTargetUrl } from '@/shared/proof-targets';
-import { logDev } from '@/lib/env';
+import { ENV, logDev } from '@/lib/env';
+import { createUninstallUrlSync, type StoredUninstallToken } from './uninstall-url';
+import { readPrivateValue, removePrivateValue, writePrivateValue } from './private-storage';
 import { ensurePrimusIdentity } from './primus-identity';
 import {
   clearLastResult,
@@ -40,7 +42,9 @@ import {
   attnOpenSpanSnapshotItem,
   attnPendingEventsItem,
   attnPendingServeEventsItem,
+  signedOutByUserItem,
 } from '@/shared/storage';
+import { withAccountChoice } from '@/shared/connect-origins';
 import {
   getPrimusTemplateTargetUrls,
   isExtensionCreatedVerifierTab,
@@ -54,8 +58,16 @@ import {
 } from '@/background/popup-window';
 import { verifierLandingUrl } from '@/shared/verifier-landing';
 import { describeTabForLog, installMainFrameTracker } from './page-state-tracker';
-import { describeCaptureTrace } from './capture-trace-recorder';
-import { joinForFallback } from '@/shared/capture-trace';
+import {
+  captureTraceOutcomes,
+  describeCaptureTrace,
+  readTargetCheck,
+} from './capture-trace-recorder';
+import {
+  formatTargetCheck,
+  joinForFallback,
+  refineTargetDataMissing,
+} from '@/shared/capture-trace';
 import {
   environmentTag,
   formatPrefetchDiagnostics,
@@ -69,6 +81,7 @@ import {
   verifierUrlMatches,
 } from '@/shared/verifier-url';
 import { runVerifierPreflight, VerifierPreflightError } from './verifier-preflight';
+import { holdScreenWakeLockInPage, releaseScreenWakeLockInPage } from './proof-wake-lock';
 import { isSupportedVerifyPlatform } from '@/verify/catalog';
 import { refreshRemoteConfig } from './attention/remote-config';
 import { clearEdgeCaches, invalidateBadge } from './edge-cache';
@@ -202,10 +215,15 @@ function updateProofTargetTab(
   ) {
     return;
   }
+  const previousTabId = activeProofSession.targetTabId;
+  if (typeof previousTabId === 'number' && previousTabId !== tabId) {
+    setProofTabWakeLock(previousTabId, false);
+  }
   activeProofSession.targetTabId = tabId;
   activeProofSession.guideUrl = guideUrl;
   activeProofSession.documentCheckPending = false;
   void markProofDocument(tabId);
+  setProofTabWakeLock(tabId, true);
   if (state.proofProgress?.verifierId === verifierId) {
     setProofProgress(verifierId, state.proofProgress.stage, state.proofProgress.message, {
       targetTabId: tabId,
@@ -221,6 +239,15 @@ function updateProofTargetTab(
   });
 }
 
+function setProofTabWakeLock(tabId: number, hold: boolean): void {
+  void chrome.scripting
+    .executeScript({
+      target: { tabId },
+      func: hold ? holdScreenWakeLockInPage : releaseScreenWakeLockInPage,
+    })
+    .catch(() => undefined);
+}
+
 function finishProofTabGuard(
   verifierId: string,
   result?: { kind: 'success' | 'error'; title: string; message: string },
@@ -231,6 +258,7 @@ function finishProofTabGuard(
   const tabId = activeProofSession.targetTabId;
   const guideUrl = activeProofSession.guideUrl;
   activeProofSession = undefined;
+  if (typeof tabId === 'number') setProofTabWakeLock(tabId, false);
   if (result) {
     showVerificationResultOverlayForTabs(
       typeof tabId === 'number' ? [tabId] : [],
@@ -281,12 +309,13 @@ async function failureReportPrefix(
     chrome.runtime?.getManifest?.().version ?? '?',
   );
   const capture = describeCaptureTrace(since);
-  if (typeof tabId !== 'number') return [environment, capture].filter(Boolean).join(' | ');
+  const check = formatTargetCheck(await readTargetCheck(), since);
+  if (typeof tabId !== 'number') return [environment, capture, check].filter(Boolean).join(' | ');
   const [page, prefetch] = await Promise.all([
     describeTabForLog(tabId, guideUrl, since).catch(() => undefined),
     readPrefetchDiagnostics(tabId, since, prefetchOperationsFor(verifierId)),
   ]);
-  return [environment, page, prefetch, capture].filter(Boolean).join(' | ');
+  return [environment, page, prefetch, capture, check].filter(Boolean).join(' | ');
 }
 
 function reportProofFailureToBackend(
@@ -582,6 +611,7 @@ export function cancelActiveProof(): { accepted: boolean; state: WorkerState } {
   if (session && !session.interruptedError && session.pastPointOfNoReturn) {
     return { accepted: false, state: getState() };
   }
+  if (!session) cancelRequestedWithoutSession = true;
 
   return { accepted: true, state: interruptActiveProof('canceled by user') };
 }
@@ -729,10 +759,21 @@ function normalizeMe(
   };
 }
 
+const uninstallUrl = createUninstallUrlSync({
+  apiBaseUrl: ENV.apiBaseUrl,
+  read: () => readPrivateValue<StoredUninstallToken>('uninstallToken'),
+  write: (value) => writePrivateValue('uninstallToken', value),
+  remove: () => removePrivateValue('uninstallToken'),
+  issue: () => authedCall((token) => api.issueUninstallToken(token)),
+  setUrl: (url) => chrome.runtime.setUninstallURL(url),
+  log: logDev,
+});
+
 function applyMe(me: ExtensionMeResponse | undefined) {
   const normalized = normalizeMe(me);
   state.me = normalized;
   state.signedIn = hasIdentity(normalized);
+  void uninstallUrl.sync(normalized?.privyId);
 }
 
 export async function updateActivityInsightsEnabled(enabled: boolean): Promise<void> {
@@ -975,11 +1016,43 @@ export async function ensureStartupBootstrap(): Promise<void> {
   await initialBootstrapPromise.catch(() => undefined);
 }
 
+const COMPANION_PROOFS: Readonly<Record<string, string>> = {
+  x_analytics_overview: 'x_creator_rewards_zktls',
+};
+
+let cancelRequestedWithoutSession = false;
+
 export async function runProofFlow(
   verifierId: string,
   options: ProofFlowOptions = {},
 ): Promise<ProofRunSummary> {
-  return withProofLock(verifierId, () => runProofFlowUnlocked(verifierId, options));
+  return withProofLock(verifierId, async () => {
+    cancelRequestedWithoutSession = false;
+    const summary = await runProofFlowUnlocked(verifierId, options);
+    const companion = await runCompanionProof(verifierId, summary, options);
+    if (!companion) return summary;
+    const combined = { ...summary, companion };
+    state.lastResult = combined;
+    await setLastResult(combined);
+    return combined;
+  });
+}
+
+async function runCompanionProof(
+  verifierId: string,
+  summary: ProofRunSummary,
+  options: ProofFlowOptions,
+): Promise<ProofRunSummary | undefined> {
+  const companionId = COMPANION_PROOFS[verifierId];
+  if (!companionId || (options.source ?? 'manual') !== 'manual') return undefined;
+  if (cancelRequestedWithoutSession) return undefined;
+  if (summary.error?.message.startsWith('verification_interrupted')) return undefined;
+  if (!state.verifiers.some((entry) => entry.id === companionId)) return undefined;
+  logDev('running companion proof', { verifierId, companionId, primaryOk: !summary.error });
+  return runProofFlowUnlocked(companionId, {
+    source: 'manual',
+    ownerWindowId: options.ownerWindowId,
+  });
 }
 
 async function withProofLock(
@@ -1198,8 +1271,18 @@ async function runProofFlowUnlocked(
         activeProofSession.pastPointOfNoReturn = true;
       }
       const expectedAccountId = await expectedAccountFor(verifierId);
+      const session =
+        activeProofSession?.verifierId === verifierId ? activeProofSession : undefined;
+      const diagnostics = await failureReportPrefix(
+        verifierId,
+        session?.targetTabId,
+        proofStartedAt,
+        session?.guideUrl,
+      )
+        .then((prefix) => redactFailureMessage(prefix).slice(0, 2000) || undefined)
+        .catch(() => undefined);
       result = await authedCall((token) =>
-        api.submitProof(token, sign.requestId, attestation, expectedAccountId),
+        api.submitProof(token, sign.requestId, attestation, expectedAccountId, diagnostics),
       );
       await clearExpectedAccount(verifierId);
     }
@@ -1242,6 +1325,15 @@ async function runProofFlowUnlocked(
         ? activeProofSession.interruptedError
         : undefined;
     summary.error = serializeError(interruption ?? error);
+    if (summary.error.code === 'target_data_missing') {
+      const refined = refineTargetDataMissing(
+        verifierId,
+        captureTraceOutcomes(proofStartedAt),
+        await readTargetCheck(),
+        proofStartedAt,
+      );
+      if (refined) summary.error = { ...summary.error, code: refined };
+    }
 
     reportProofFailureToBackend(
       summary,
@@ -1530,19 +1622,29 @@ async function keepAutoProofWorkerAlive(tabId: number): Promise<void> {
           [key]?: {
             port: chrome.runtime.Port;
             timer: number;
+            ping: number;
           };
         };
         const existing = global[key];
         if (existing) {
           clearTimeout(existing.timer);
+          clearInterval(existing.ping);
           existing.port.disconnect();
         }
 
         const port = chrome.runtime.connect({ name: 'kaitoAutoProofKeepAlive' });
+        const ping = window.setInterval(() => {
+          try {
+            port.postMessage({ type: 'keepalive' });
+          } catch {
+            window.clearInterval(ping);
+          }
+        }, 20_000);
         const timer = window.setTimeout(() => port.disconnect(), timeoutMs);
-        global[key] = { port, timer };
+        global[key] = { port, timer, ping };
         port.onDisconnect.addListener(() => {
           clearTimeout(timer);
+          clearInterval(ping);
           if (global[key]?.port === port) {
             delete global[key];
           }
@@ -1639,6 +1741,7 @@ export async function signInWithPrivySession(
     sessionToken: response.sessionToken,
     signedInAt: Date.now(),
   });
+  await signedOutByUserItem.setValue(false).catch(() => undefined);
 
   void refreshRemoteConfig({ force: true });
   applyMe(me);
@@ -1683,7 +1786,10 @@ export async function setPendingSignInReturnTab(tabId: number | undefined): Prom
   }
 }
 
-export async function openSignInWindow(url: string): Promise<void> {
+export async function openSignInWindow(requestedUrl: string): Promise<void> {
+  const url = (await signedOutByUserItem.getValue().catch(() => false))
+    ? withAccountChoice(requestedUrl)
+    : requestedUrl;
   const stored = await chrome.storage.session?.get(SIGN_IN_WINDOW_ID_KEY).catch(() => undefined);
   const existingId =
     typeof stored?.[SIGN_IN_WINDOW_ID_KEY] === 'number'
@@ -1787,6 +1893,7 @@ export async function signOut(): Promise<void> {
       logDev('revoke session failed; clearing local session anyway', error);
     });
   }
+  await signedOutByUserItem.setValue(true).catch(() => undefined);
   await discardUnsentActivity();
   await clearStoredSession();
   await clearEdgeCaches().catch((error) => {
@@ -1794,6 +1901,7 @@ export async function signOut(): Promise<void> {
   });
   state.me = undefined;
   state.signedIn = false;
+  void uninstallUrl.sync(undefined);
   state.verifiers = [];
   state.verifications = {};
   autoProofsByVerifier.clear();
@@ -1805,6 +1913,7 @@ export async function resetSession(): Promise<WorkerState> {
   await clearStoredSession();
   state.me = undefined;
   state.signedIn = false;
+  void uninstallUrl.sync(undefined);
   state.verifiers = [];
   state.verifications = {};
   state.lastResult = undefined;
@@ -1887,6 +1996,8 @@ function proofErrorUserMessage(error: NonNullable<ProofRunSummary['error']>): st
       return 'The platform did not return a reading we could use. Nothing was recorded — please retry.';
     case 'third_party_login_required':
       return 'Sign in to this platform, then retry verification.';
+    case 'platform_account_not_found':
+      return 'The connected wallet has no account on this platform. Connect the wallet you use there, then retry.';
     case 'permission_required':
       return 'Kaito Pulse needs access to this site. Retry and choose Allow when Chrome asks.';
     case 'unsupported_account_type':
@@ -1998,6 +2109,7 @@ function classifyProofError(message: string, reason?: string, status?: number): 
 function isRetryableProofError(code: ProofErrorCode): boolean {
   return [
     'third_party_login_required',
+    'platform_account_not_found',
     'permission_required',
     'wallet_not_connected',
     'page_closed',

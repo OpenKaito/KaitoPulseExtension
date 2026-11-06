@@ -32,6 +32,11 @@ import {
 } from '@/background/ad-flag-handlers';
 import { reportXCreatorRewardsFromConsole } from '@/background/x-creator-rewards-handlers';
 import {
+  handleGetActivityFeed,
+  handleGetActivityFeedPosts,
+  handleGetActivityFeedConfig,
+} from '@/background/activity-feed-handlers';
+import {
   handleFollowFromRecommendation,
   handleGetFollowRecommendations,
   registerFollowActionReporter,
@@ -361,6 +366,13 @@ export default defineBackground({
           case 'getSocialCardActivity':
             return handleGetSocialCardActivity();
 
+          case 'getActivityFeedConfig':
+            return handleGetActivityFeedConfig();
+          case 'getActivityFeed':
+            return handleGetActivityFeed(message.before);
+          case 'getActivityFeedPosts':
+            return handleGetActivityFeedPosts(message.before);
+
           case 'getSocialCard':
             return handleGetSocialCard(message.twitterId, message.candidates);
           case 'fetchTokenChart':
@@ -444,6 +456,10 @@ export default defineBackground({
     }
 
     chrome.runtime.onConnect.addListener((port) => {
+      if (port.name === 'kaitoAttestationKeepAlive' || port.name === 'kaitoAutoProofKeepAlive') {
+        port.onMessage.addListener(() => undefined);
+        return;
+      }
       if (port.name !== 'kaitoExtension') return;
       port.onMessage.addListener((message) => {
         if (!isKaitoMessage(message)) {

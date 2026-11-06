@@ -14,6 +14,7 @@ export const SIGNED_IN_ONLY_SURFACES: readonly SignalSurfaceKey[] = [
   'profile.userInfo',
   'adFlag.feed',
   'tokenChart.feed',
+  'activityFeed.sidebar',
 ];
 
 export function gateSettings(settings: SignalSettings, signedIn: boolean): SignalSettings {

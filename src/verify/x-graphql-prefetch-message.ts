@@ -1,5 +1,11 @@
 export const GRAPHQL_PREFETCH_REQUEST_MESSAGE = 'kaitoXGraphqlPrefetchRequest';
 
+export const X_PREFETCH_OPERATION_NAMES = [
+  'Viewer',
+  'originalContentRewards',
+  'accountOverviewDailyQuery',
+] as const;
+
 export type GraphqlPrefetchRequestMessage = {
   source: typeof GRAPHQL_PREFETCH_REQUEST_MESSAGE;
   operation: string;

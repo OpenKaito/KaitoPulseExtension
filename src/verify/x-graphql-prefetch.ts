@@ -18,6 +18,8 @@ type XGraphqlOperation = {
 
   requiresTransactionId: boolean;
   buildParams: () => URLSearchParams;
+
+  fixedPath?: string;
 };
 
 const VIEWER_FEATURES = {
@@ -71,6 +73,16 @@ const OPERATIONS: Record<string, XGraphqlOperation> = {
         features: JSON.stringify(VIEWER_FEATURES),
         fieldToggles: JSON.stringify(VIEWER_FIELD_TOGGLES),
       }),
+  },
+
+  originalContentRewards: {
+    name: 'originalContentRewards',
+    host: 'x.com',
+    basePath: '',
+    pinnedQueryId: '',
+    requiresTransactionId: false,
+    buildParams: () => new URLSearchParams(),
+    fixedPath: '/i/jfapi/creators/original_content_rewards',
   },
 
   accountOverviewDailyQuery: {
@@ -267,8 +279,9 @@ async function fire(
     return;
   }
 
-  const queryId = await resolveQueryId(operation, attempt);
-  const url = `https://${operation.host}${operation.basePath}/${queryId}/${operation.name}?${operation.buildParams().toString()}`;
+  const url = operation.fixedPath
+    ? `https://${operation.host}${operation.fixedPath}`
+    : `https://${operation.host}${operation.basePath}/${await resolveQueryId(operation, attempt)}/${operation.name}?${operation.buildParams().toString()}`;
   const headers: Record<string, string> = {
     authorization: auth.authorization,
     'x-csrf-token': csrf,

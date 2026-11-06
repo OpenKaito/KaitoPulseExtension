@@ -31,3 +31,11 @@ test('a missing site permission names the fix instead of asking to log in', () =
   assert.doesNotMatch(description, /logged in/);
   assert.equal(resultKindForError('permission_required'), 'failed');
 });
+
+test('a wallet with no platform account says so instead of asking to log in', () => {
+  assert.equal(errorHeadline('platform_account_not_found'), 'No account for this wallet');
+  const description = errorDescription('platform_account_not_found', 'Lighter');
+  assert.match(description, /has no Lighter account/);
+  assert.doesNotMatch(description, /logged in/);
+  assert.equal(resultKindForError('platform_account_not_found'), 'failed');
+});

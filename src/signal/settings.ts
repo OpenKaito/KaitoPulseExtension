@@ -14,7 +14,8 @@ export type SignalSurfaceKey =
   | 'protocol.hyperliquid'
   | 'protocol.polymarket'
   | 'adFlag.feed'
-  | 'tokenChart.feed';
+  | 'tokenChart.feed'
+  | 'activityFeed.sidebar';
 
 export type SignalSettings = Partial<Record<SignalSurfaceKey, boolean>>;
 
@@ -148,6 +149,18 @@ export const SIGNAL_SURFACE_GROUPS: SignalCategoryMeta[] = [
         label: 'Cashtag hover charts',
         description:
           'Shows a Price + Sentiment chart popover when hovering a $TOKEN cashtag in a tweet',
+      },
+    ],
+  },
+  {
+    id: 'activityFeed',
+    label: 'Activity feed',
+    surfaces: [
+      {
+        key: 'activityFeed.sidebar',
+        label: 'Activity feed on X',
+        description:
+          'Card in the right column on X, with recent calls from X and Substack and trades from people you follow',
       },
     ],
   },

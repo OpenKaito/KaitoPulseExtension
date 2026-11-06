@@ -7,6 +7,7 @@ export type CaptureTrace = {
   record(url: string, hit: CaptureHit): void;
   openWindow(at: number): void;
   describe(): string;
+  outcomes(): CapturedTarget[];
 };
 
 export function createCaptureTrace(
@@ -26,6 +27,14 @@ export function createCaptureTrace(
     },
     openWindow(at) {
       windowOpenedAt ??= at;
+    },
+    outcomes() {
+      return hits.map((list, index) => ({
+        label: targetLabel(targets[index]),
+        outcomes: list
+          .filter((hit) => windowOpenedAt === undefined || hit.at >= windowOpenedAt)
+          .map(outcome),
+      }));
     },
     describe() {
       return formatCaptureTrace(
@@ -83,4 +92,81 @@ export function joinForFallback(prefix: string, message: string, limit: number):
   if (!prefix) return message.slice(0, limit);
   if (prefix.length >= limit) return prefix.slice(0, limit);
   return `${prefix} | ${message}`.slice(0, limit);
+}
+
+export const TARGET_CHECK_DEBUG_KEY = 'kaitoTargetCheckDebug';
+
+export type TargetCheck = {
+  outcome: string;
+  missing?: string[];
+  found?: string;
+  keys?: string;
+  n?: number;
+  at?: number;
+};
+
+export type TargetCheckRecord = { at?: number; targets?: Record<string, TargetCheck> };
+
+export type CapturedTarget = { label: string; outcomes: string[] };
+
+const CHECKS_REPORTED = 8;
+
+function clean(value: string, max: number): string {
+  return value.replace(/[\s|,]/g, '_').slice(0, max);
+}
+
+function checksSince(record: unknown, since: number): [string, TargetCheck][] {
+  const targets = (record as TargetCheckRecord | undefined)?.targets;
+  if (!targets || typeof targets !== 'object') return [];
+  return Object.entries(targets).filter(
+    ([, check]) => check && typeof check.outcome === 'string' && (check.at ?? 0) >= since,
+  );
+}
+
+export function formatTargetCheck(record: unknown, since = 0): string | undefined {
+  const entries = checksSince(record, since).slice(0, CHECKS_REPORTED);
+  if (entries.length === 0) return undefined;
+  const parts = entries.map(([url, check]) => {
+    let part = `${clean(targetLabel(url), 40)}:${clean(check.outcome, 32)}`;
+    if (check.n && check.n > 1) part += `x${check.n}`;
+    if (check.missing?.length) part += `;missing=${clean(check.missing[0], 80)}`;
+    if (check.found) part += `;found=${clean(check.found, 80)}`;
+    if (check.keys) part += `;keys=${clean(check.keys, 120)}`;
+    return part;
+  });
+  return `check=${parts.join(',')}`;
+}
+
+const LOGIN_OUTCOMES = new Set(['401', '403', 'http401', 'http403']);
+
+export function refineTargetDataMissing(
+  verifierId: string,
+  captured: readonly CapturedTarget[],
+  checks: unknown,
+  since = 0,
+): 'third_party_login_required' | 'platform_account_not_found' | undefined {
+  const outcomesByLabel = new Map<string, string[]>();
+  for (const target of captured) {
+    if (target.outcomes.length > 0) outcomesByLabel.set(target.label, [...target.outcomes]);
+  }
+  for (const [url, check] of checksSince(checks, since)) {
+    const label = targetLabel(url);
+    outcomesByLabel.set(label, [...(outcomesByLabel.get(label) ?? []), check.outcome]);
+  }
+  const only = (outcomes: string[], allowed: (o: string) => boolean) =>
+    outcomes.length > 0 && outcomes.every(allowed);
+
+  if (verifierId === 'lighter_wallet') {
+    const account = outcomesByLabel.get('v1/account');
+    if (
+      account &&
+      only(account, (o) => ['400', 'ERR_FAILED', 'http400', 'replay_failed'].includes(o))
+    ) {
+      return 'platform_account_not_found';
+    }
+  }
+  for (const outcomes of outcomesByLabel.values()) {
+    if (only(outcomes, (o) => LOGIN_OUTCOMES.has(o))) return 'third_party_login_required';
+  }
+  return undefined;
 }

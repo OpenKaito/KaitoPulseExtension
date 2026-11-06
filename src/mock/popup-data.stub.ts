@@ -3,6 +3,7 @@ import type { FollowRecommendationResponse } from '@/shared/recommend-follow';
 import type { PopupData } from '@/popup/data/types';
 import type { SocialCardData } from '@/popup/social-card/view-model';
 import { EMPTY_DATA } from '@/popup/data/empty';
+import type { ActivityFeedPage } from '@/shared/activity-feed';
 
 export const FIXTURE_DATA: PopupData = EMPTY_DATA;
 export const FIXTURE_SOCIAL_CARD: SocialCardData | undefined = undefined;
@@ -10,3 +11,7 @@ export const FIXTURE_SOCIAL_CARD_LINKS: ExtensionSocialCard | undefined = undefi
 export const FIXTURE_RECOMMENDATIONS: FollowRecommendationResponse | undefined = undefined;
 
 export function validateFixtures(): void {}
+
+export function fixtureActivityPages(_now?: number): ActivityFeedPage[] {
+  return [];
+}

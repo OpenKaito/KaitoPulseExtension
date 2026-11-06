@@ -26,8 +26,8 @@ test('only known route words and the guide path survive; every other segment is 
     'https://id.example/callback/:x',
   );
   assert.equal(
-    navigationTargetForLog('https://x.com/i/account_analytics/content', 'https://x.com/i/account_analytics'),
-    'https://x.com/i/account_analytics/:x',
+    navigationTargetForLog('https://polymarket.com/portfolio/0xabc', 'https://polymarket.com/portfolio'),
+    'https://polymarket.com/portfolio/:x',
   );
   assert.equal(
     navigationTargetForLog('https://www.binance.com/en/my/wallet/account/futures', 'https://www.binance.com/en/my/wallet/account/futures'),
@@ -74,4 +74,26 @@ test('failure messages keep diagnostics but lose credentials, emails and long op
   for (const secret of ['AAAAabc123', 'deadbeef', 'xyz', 'alice@example.com', '0123456789abcdef0123456789abcdef0123']) {
     assert.ok(!message.includes(secret), secret);
   }
+});
+
+test('X feature paths under /i/ keep their lowercase words; handles and ids stay masked', () => {
+  assert.equal(
+    navigationTargetForLog('https://x.com/i/jf/creators/original_content_rewards'),
+    'https://x.com/i/jf/creators/original_content_rewards',
+  );
+  assert.equal(
+    navigationTargetForLog('https://x.com/i/account_analytics/content', 'https://x.com/i/account_analytics'),
+    'https://x.com/i/account_analytics/content',
+  );
+  assert.equal(navigationTargetForLog('https://x.com/i/web/status/1849000000000000000'), 'https://x.com/i/web/status/:x');
+  assert.equal(navigationTargetForLog('https://x.com/someone/status/1849'), 'https://x.com/:x/status/:x');
+  assert.equal(navigationTargetForLog('https://polymarket.com/i/abc/def'), 'https://polymarket.com/i/:x/:x');
+});
+
+test('long snake_case error codes survive redaction; opaque tokens do not', () => {
+  assert.equal(
+    redactFailureMessage('primus_identity_initialization_failed: no_identity'),
+    'primus_identity_initialization_failed: no_identity',
+  );
+  assert.equal(redactFailureMessage('id AbCdEf0123456789AbCdEf0123456789xyz'), 'id [redacted]');
 });

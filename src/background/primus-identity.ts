@@ -19,13 +19,28 @@ export function ensurePrimusIdentity(): Promise<void> {
         __kaitoInitializePrimusIdentity?: () => Promise<void>;
       }
     ).__kaitoInitializePrimusIdentity;
-    if (!initialize) throw new Error('primus_identity_initialization_failed');
+    if (!initialize) throw new Error('primus_identity_initialization_failed: no_initializer');
     await chrome.storage.local.remove('userInfo');
-    await initialize();
-    if (!(await hasIdentity())) throw new Error('primus_identity_initialization_failed');
+    try {
+      await initialize();
+    } catch (error) {
+      throw new Error(
+        `primus_identity_initialization_failed: threw ${error instanceof Error ? error.message : String(error)}`.slice(
+          0,
+          300,
+        ),
+      );
+    }
+    if (!(await hasIdentity()))
+      throw new Error('primus_identity_initialization_failed: no_identity');
   })()
-    .catch(() => {
-      throw new Error('primus_identity_initialization_failed');
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        message.startsWith('primus_identity_initialization_failed')
+          ? message
+          : `primus_identity_initialization_failed: ${message}`.slice(0, 300),
+      );
     })
     .finally(() => {
       initialization = undefined;
