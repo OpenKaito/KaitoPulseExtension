@@ -769,7 +769,10 @@
   flex: 1 0 0;
   flex-direction: column;
   gap: 8px;
-  min-width: 0;
+  /* min-content, not 0: a chip never shrinks below its (now single-line) label, so a long one like
+     "Home Timeline Impressions" keeps the chip wide enough to show it in full — the equal-flex split
+     then gives the shorter chip the slack (Binger 2026-11-10). */
+  min-width: min-content;
   padding: 12px;
   border-radius: 8px;
   background: #141517;
@@ -781,8 +784,8 @@
   line-height: 1.3;
   color: var(--pv-text-3);
   text-transform: capitalize;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* One line, never truncated: the chip is sized (min-content) to fit the whole label, so "Home
+     Timeline Impressions" reads in full on a single line (Binger 2026-11-10). */
   white-space: nowrap;
 }
 .pv-chip__row {

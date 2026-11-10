@@ -692,6 +692,7 @@ export const TOTAL_SMART_FOLLOWERS_LABEL = 'Total Smart followers';
 
 export const VERIFIED_FOLLOWERS_LABEL = 'Verified followers';
 export const ACTIVE_FOLLOWERS_LABEL = 'Active followers';
+export const HOME_TIMELINE_IMPRESSIONS_LABEL = 'Home Timeline Impressions';
 
 function mapFollowerCount(
   raw: number | null | undefined,
@@ -809,6 +810,10 @@ export function hoverCardToPopoverData(result: HoverCardResult): SignalPopoverDa
       true,
     ),
     activeFollowers: mapFollowerCount(result.socialFollowers?.active, ACTIVE_FOLLOWERS_LABEL),
+    homeTimelineImpressions: mapFollowerCount(
+      result.socialFollowers?.homeTimelineImpressions,
+      HOME_TIMELINE_IMPRESSIONS_LABEL,
+    ),
     profileCardMode: result.profileCardMode,
     bio: result.profile?.bio,
     hyperliquid: mapHyperliquid(

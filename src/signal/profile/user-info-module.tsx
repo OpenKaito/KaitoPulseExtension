@@ -360,6 +360,61 @@ function TradingTotalCells(props: { totals: PopoverTotals }): JSX.Element {
   );
 }
 
+/**
+ * `both`'s trading row (the Aura V2 design, Yagai 2026-11-10): two half-cells, each laying its label on
+ * the left and its figure on the right (horizontal), with a divider between the two — NOT the socials
+ * row's stacked cells. Only this row uses it; `trading_only` keeps `TradingTotalCells` inline.
+ */
+function TradingSplitCells(props: { totals: PopoverTotals }): JSX.Element {
+  const direction = () => props.totals.allTimePnl?.direction;
+  const account = () => props.totals.accountValue;
+  const accountPlatforms = () => props.totals.accountValue?.platforms ?? props.totals.platforms;
+  const arrow = () =>
+    direction() === 'loss'
+      ? ('down' as const)
+      : direction() === 'gain'
+        ? ('up' as const)
+        : undefined;
+  return (
+    <>
+      <div class="signal-uinfo__xtcell">
+        <div class="signal-uinfo__xstat-label">
+          <span>{TOTAL_ACCOUNT_VALUE_LABEL}</span>
+          <XTotalMarks platforms={accountPlatforms()} />
+        </div>
+        <div class="signal-uinfo__xstat-value">
+          <Show when={account()} keyed>
+            {(value) => <AccountSizeDots tier={value.tier} size={16} />}
+          </Show>
+          <span class="signal-uinfo__xstat-num signal-uinfo__xstat-num--plain signal-popover__num">
+            {account()?.label ?? NO_TOTAL}
+          </span>
+        </div>
+      </div>
+      <div class="signal-uinfo__xtcell">
+        {/* All-Time P&L carries no platform marks in this layout (the Aura V2 design). */}
+        <div class="signal-uinfo__xstat-label">
+          <span>{TOTAL_ALL_TIME_PNL_LABEL}</span>
+        </div>
+        <div class="signal-uinfo__xstat-value">
+          <Show when={arrow()} keyed>
+            {(dir) => triangle(dir)}
+          </Show>
+          <span
+            class="signal-uinfo__xstat-num signal-popover__num"
+            classList={{
+              'signal-uinfo__xstat-num--gain': direction() === 'gain',
+              'signal-uinfo__xstat-num--loss': direction() === 'loss',
+            }}
+          >
+            {props.totals.allTimePnl?.text ?? NO_TOTAL}
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function XTab(props: { data: UserInfoData }): JSX.Element {
   let xtabEl: HTMLDivElement | undefined;
 
@@ -387,15 +442,44 @@ function XTab(props: { data: UserInfoData }): JSX.Element {
   };
   return (
     <div class="signal-uinfo__xtab" ref={xtabEl}>
-      <div class="signal-uinfo__xstats">
-        <TotalSmartFollowersCell
-          stat={row().total}
-          panel={row().panel}
-          hasHidden={row().hasHidden}
-        />
-        <For each={row().stats}>{(stat) => <SmartFollowerCell stat={stat} />}</For>
-        <Show when={row().totals}>{(totals) => <TradingTotalCells totals={totals()} />}</Show>
-      </div>
+      <Show
+        when={row().tradingOwnRow}
+        fallback={
+          <div class="signal-uinfo__xstats">
+            <TotalSmartFollowersCell
+              stat={row().total}
+              panel={row().panel}
+              hasHidden={row().hasHidden}
+            />
+            <For each={row().stats}>{(stat) => <SmartFollowerCell stat={stat} />}</For>
+            <Show when={row().totals}>{(totals) => <TradingTotalCells totals={totals()} />}</Show>
+          </div>
+        }
+      >
+        {/* `both` (the Aura V2 design): three socials cells on top, two trading cells on their own
+            row below — "一行 socials 一行 trading". Both rows are the same three-column grid, with a
+            12px gap and a full-width divider between them (gap-12 · line · gap-12). */}
+        <div class="signal-uinfo__xrows">
+          <div class="signal-uinfo__xstats signal-uinfo__xstats--socials3">
+            <TotalSmartFollowersCell
+              stat={row().total}
+              panel={row().panel}
+              hasHidden={row().hasHidden}
+            />
+            <For each={row().stats}>{(stat) => <SmartFollowerCell stat={stat} />}</For>
+          </div>
+          <Show when={row().totals}>
+            {(totals) => (
+              <>
+                <div class="signal-uinfo__xrow-divider" aria-hidden="true" />
+                <div class="signal-uinfo__xtrading">
+                  <TradingSplitCells totals={totals()} />
+                </div>
+              </>
+            )}
+          </Show>
+        </div>
+      </Show>
       <Show when={props.data.topSmartFollowers.length > 0}>
         <div class="signal-uinfo__xfollowers">
           {}

@@ -5,6 +5,7 @@ export const EMPTY_DATA: PopupData = {
     aura: null,
     auraDelta: null,
     smartFollowers: null,
+    homeTimelineImpressions: null,
     accountSize: null,
 
     accountValueUsd: null,

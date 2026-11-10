@@ -338,6 +338,13 @@ export interface SignalPopoverData {
   verifiedFollowers?: SmartFollowerStat;
   activeFollowers?: SmartFollowerStat;
 
+  /**
+   * Home Timeline Impressions (X Original Content Rewards). The X-profile card's third social metric:
+   * it closes the socials row in `both`, and takes the fourth cell in `x_only` (replacing the sector
+   * segment there — the Aura V2 design). Absent when the account has no reading.
+   */
+  homeTimelineImpressions?: SmartFollowerStat;
+
   profileCardMode?: ProfileCardMode;
 
   bio?: string;

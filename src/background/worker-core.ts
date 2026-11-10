@@ -82,10 +82,15 @@ import {
 } from '@/shared/verifier-url';
 import { runVerifierPreflight, VerifierPreflightError } from './verifier-preflight';
 import { holdScreenWakeLockInPage, releaseScreenWakeLockInPage } from './proof-wake-lock';
+import { formatStageTiming, recordStage, type StageMark } from './proof-stage-timing';
 import { isSupportedVerifyPlatform } from '@/verify/catalog';
 import { refreshRemoteConfig } from './attention/remote-config';
 import { clearEdgeCaches, invalidateBadge } from './edge-cache';
 import { activateVerifierRuntime, type VerifierRuntime } from './verifier-runtime';
+
+const STALE_PROOF_REPORT_MAX_AGE_MS = 30 * 60 * 1000;
+const proofStageTimelines = new Map<string, { startedAt: number; marks: StageMark[] }>();
+const reportedStaleProofs = new Set<string>();
 
 const state: WorkerState = {
   status: 'uninitialized',
@@ -159,6 +164,8 @@ function setProofProgress(
   if (activeProofSession?.verifierId === verifierId && activeProofSession.interruptedError) {
     return;
   }
+  const timeline = proofStageTimelines.get(verifierId);
+  if (timeline) timeline.marks = recordStage(timeline.marks, stage, Date.now());
   state.proofProgress = {
     verifierId,
     stage,
@@ -308,14 +315,17 @@ async function failureReportPrefix(
     globalThis.navigator?.userAgent ?? '',
     chrome.runtime?.getManifest?.().version ?? '?',
   );
+  const timeline = proofStageTimelines.get(verifierId);
+  const timing = timeline ? formatStageTiming(timeline.marks, timeline.startedAt, Date.now()) : '';
   const capture = describeCaptureTrace(since);
   const check = formatTargetCheck(await readTargetCheck(), since);
-  if (typeof tabId !== 'number') return [environment, capture, check].filter(Boolean).join(' | ');
+  if (typeof tabId !== 'number')
+    return [environment, timing, capture, check].filter(Boolean).join(' | ');
   const [page, prefetch] = await Promise.all([
     describeTabForLog(tabId, guideUrl, since).catch(() => undefined),
     readPrefetchDiagnostics(tabId, since, prefetchOperationsFor(verifierId)),
   ]);
-  return [environment, page, prefetch, capture, check].filter(Boolean).join(' | ');
+  return [environment, timing, page, prefetch, capture, check].filter(Boolean).join(' | ');
 }
 
 function reportProofFailureToBackend(
@@ -389,13 +399,20 @@ function expireStaleProofProgress(message?: string): boolean {
   summary.finishedAt = Date.now();
   state.lastResult = summary;
   setStatus('error', errorMessage);
-  reportProofFailureToBackend(
-    summary,
-    progress.stage,
-    progress.targetTabId,
-    progress.startedAt,
-    progress.guideUrl,
-  );
+  const staleKey = `${summary.requestId || progress.verifierId}:${progress.startedAt}`;
+  if (
+    !reportedStaleProofs.has(staleKey) &&
+    summary.finishedAt - progress.startedAt <= STALE_PROOF_REPORT_MAX_AGE_MS
+  ) {
+    reportedStaleProofs.add(staleKey);
+    reportProofFailureToBackend(
+      summary,
+      progress.stage,
+      progress.targetTabId,
+      progress.startedAt,
+      progress.guideUrl,
+    );
+  }
   clearProofProgress(progress.verifierId);
   void setLastResult(summary).catch((error) => {
     logDev('persist stale proof failure failed', error);
@@ -1108,6 +1125,7 @@ async function runProofFlowUnlocked(
 ): Promise<ProofRunSummary> {
   const summary: ProofRunSummary = { verifierId, requestId: '' };
   const proofStartedAt = Date.now();
+  proofStageTimelines.set(verifierId, { startedAt: proofStartedAt, marks: [] });
   let creatorRewardsOutcome: Promise<XCreatorRewardsOutcome> | undefined;
   let verifierRuntime: VerifierRuntime | undefined;
   activeProofVerifierIds.add(verifierId);

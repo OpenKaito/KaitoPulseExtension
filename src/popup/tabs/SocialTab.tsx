@@ -31,14 +31,19 @@ const SocialSkeleton: Component = () => (
 const smartFollowersMoved = (): boolean =>
   xVerified() && popupData().profile.smartFollowers != null;
 
+// Home Timeline Impressions rides the same X verification as Smart Followers (the Aura V2 design):
+// it sits beside the Smart Followers chip once the account has a reading.
+const hasHomeTimeline = (): boolean =>
+  xVerified() && popupData().profile.homeTimelineImpressions != null;
+
+const hasTopChips = (): boolean => smartFollowersMoved() || hasHomeTimeline();
+
 const hasCategories = (): boolean =>
   popupData().social.categories.some((category) => (category.score ?? 0) > 0);
 
 const socialEmpty = (): boolean => {
   const social = popupData().social;
-  return (
-    !smartFollowersMoved() && !hasCategories() && social.followers.length === 0 && !hasSocialCard()
-  );
+  return !hasTopChips() && !hasCategories() && social.followers.length === 0 && !hasSocialCard();
 };
 
 const SocialBody: Component = () => {
@@ -55,17 +60,29 @@ const SocialBody: Component = () => {
       }
     >
       {}
-      <Show when={smartFollowersMoved() || hasCategories()}>
+      <Show when={hasTopChips() || hasCategories()}>
         <div class="pv-chip-stack">
-          {}
-          <Show when={smartFollowersMoved()}>
+          {/* Smart Followers + Home Timeline Impressions share the top chip row (the Aura V2 design). */}
+          <Show when={hasTopChips()}>
             <div class="pv-chips">
-              <div class="pv-chip">
-                <p class="pv-chip__label">Smart Followers</p>
-                <div class="pv-chip__row">
-                  <p class="pv-chip__score">{formatCount(popupData().profile.smartFollowers)}</p>
+              <Show when={smartFollowersMoved()}>
+                <div class="pv-chip">
+                  <p class="pv-chip__label">Smart Followers</p>
+                  <div class="pv-chip__row">
+                    <p class="pv-chip__score">{formatCount(popupData().profile.smartFollowers)}</p>
+                  </div>
                 </div>
-              </div>
+              </Show>
+              <Show when={hasHomeTimeline()}>
+                <div class="pv-chip">
+                  <p class="pv-chip__label">Home Timeline Impressions</p>
+                  <div class="pv-chip__row">
+                    <p class="pv-chip__score">
+                      {formatCount(popupData().profile.homeTimelineImpressions)}
+                    </p>
+                  </div>
+                </div>
+              </Show>
             </div>
           </Show>
 

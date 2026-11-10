@@ -2478,6 +2478,24 @@ async function executeAttestation(
         hasResultValue: result?.result !== undefined && result?.result !== null,
         resultType: typeof result?.result,
       });
+      if (
+        (result?.result === undefined || result?.result === null) &&
+        attempt < EXECUTE_ATTESTATION_RETRIES
+      ) {
+        const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+        if (tab) {
+          logDev('attestation script returned no result; retrying after the page settles', {
+            tabId,
+            attempt: attempt + 1,
+            status: tab.status,
+          });
+          await waitForTabReady(tabId);
+          await waitForTabToSettle(tabId);
+          await ensurePrimusBridge(tabId);
+          result = undefined;
+          continue;
+        }
+      }
       break;
     } catch (error) {
       await writeExecuteDebug('execute_script_error', {

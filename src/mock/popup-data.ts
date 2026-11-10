@@ -405,6 +405,7 @@ export const FIXTURE_DATA: PopupData = {
     aura: 84,
     auraDelta: 18,
     smartFollowers: 12456,
+    homeTimelineImpressions: 2456,
 
     verifiedFollowers: 12456,
     accountSize: 1,

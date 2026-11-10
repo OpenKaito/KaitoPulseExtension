@@ -37,6 +37,7 @@ const MOCK_PLATFORMS = ['hyperliquid', 'polymarket'];
 
 const MOCK_VERIFIED_FOLLOWERS = 880;
 const MOCK_ACTIVE_FOLLOWERS = 1_200;
+const MOCK_HOME_TIMELINE_IMPRESSIONS = 2_456;
 const MOCK_X_FOLLOWERS_TOTAL = 48_200;
 const MOCK_FOLLOWERS_VERIFIED_AT = '2026-08-13T00:00:00.000Z';
 
@@ -414,6 +415,7 @@ function syntheticSocialFollowers(twitterId: string, zero: boolean): HoverCardSo
     total: MOCK_X_FOLLOWERS_TOTAL,
     verified: zero ? 0 : MOCK_VERIFIED_FOLLOWERS,
     active: zero ? 0 : MOCK_ACTIVE_FOLLOWERS,
+    homeTimelineImpressions: zero ? 0 : MOCK_HOME_TIMELINE_IMPRESSIONS,
     verifiedAt: MOCK_FOLLOWERS_VERIFIED_AT,
   };
 }

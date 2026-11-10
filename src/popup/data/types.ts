@@ -10,6 +10,9 @@ export type AuraProfile = {
   auraDelta?: number | null;
   smartFollowers?: number | null;
 
+  /** Home Timeline Impressions (X Original Content Rewards). Social tab chip, the Aura V2 design. */
+  homeTimelineImpressions?: number | null;
+
   verifiedFollowers?: number | null;
   accountSize?: AccountSizeTier | null;
 

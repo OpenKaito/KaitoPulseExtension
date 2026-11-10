@@ -21,6 +21,8 @@ export function withHoverCard(base: PopupData, card: HoverCardResult): PopupData
       ...base.profile,
       smartFollowers: card.smartFollowers?.total ?? null,
 
+      homeTimelineImpressions: card.socialFollowers?.homeTimelineImpressions ?? null,
+
       verifiedFollowers: card.socialFollowers?.verified ?? null,
     },
     social: {

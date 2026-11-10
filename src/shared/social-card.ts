@@ -221,6 +221,13 @@ export interface HoverCardSocialFollowers {
   active?: number;
   activeVerified?: number;
 
+  /**
+   * Home Timeline Impressions (X Original Content Rewards, 90-day window). Unlike the three above
+   * it is not on the x_analytics proof — the BFF folds it in from the account's latest creator-
+   * rewards snapshot (KEBS #493 / CommunityBff #1536). Absent ≠ 0, self-reported.
+   */
+  homeTimelineImpressions?: number;
+
   verifiedAt: string;
 }
 
