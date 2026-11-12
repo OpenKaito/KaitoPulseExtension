@@ -25,6 +25,29 @@ async function writeCapturedAttr(tabId: number, captured: boolean): Promise<Mark
   }
 }
 
+// `stored=<via>/marked=<n>` for the failure diagnostics: the captured target
+// response being armed for the attestor (beginAttest fired) is the "request
+// stored" step on the 00013 path. Its ABSENCE on a failed attempt is itself the
+// signal — the attestor never got a response to prove. Read from
+// chrome.storage.local, so it survives the offscreen restart.
+export async function describeCaptureSignal(since = 0): Promise<string | undefined> {
+  const stored = await chrome.storage?.local
+    ?.get(LAST_CAPTURE_SIGNAL_STORAGE_KEY)
+    .catch(() => undefined);
+  const signal = stored?.[LAST_CAPTURE_SIGNAL_STORAGE_KEY] as
+    | { at?: number; via?: string; results?: { marked?: boolean }[] }
+    | undefined;
+  if (!signal || typeof signal.at !== 'number' || signal.at < since) return undefined;
+  const marked = Array.isArray(signal.results)
+    ? signal.results.filter((result) => result?.marked).length
+    : 0;
+  const via =
+    String(signal.via ?? '?')
+      .replace(/[^a-z]/gi, '')
+      .slice(0, 8) || '?';
+  return `stored=${via}/marked=${marked}`;
+}
+
 export function watchPrimusCaptureComplete(tabId: number): () => void {
   if (!chrome.storage?.onChanged || !chrome.scripting?.executeScript) return () => undefined;
   const tabs = new Set([tabId]);

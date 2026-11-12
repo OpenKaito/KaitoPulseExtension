@@ -1,6 +1,6 @@
 {
   "name": "kaito-extension",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "Kaito Pulse Chrome extension for zkTLS verification and X signals",
   "license": "SEE LICENSE IN LICENSE",

@@ -46,6 +46,7 @@ import {
 } from '@/shared/storage';
 import { withAccountChoice } from '@/shared/connect-origins';
 import {
+  describeAlgorithmDebug,
   getPrimusTemplateTargetUrls,
   isExtensionCreatedVerifierTab,
   runAttestation,
@@ -63,6 +64,7 @@ import {
   describeCaptureTrace,
   readTargetCheck,
 } from './capture-trace-recorder';
+import { describeCaptureSignal } from './capture-signal';
 import {
   formatTargetCheck,
   joinForFallback,
@@ -319,13 +321,24 @@ async function failureReportPrefix(
   const timing = timeline ? formatStageTiming(timeline.marks, timeline.startedAt, Date.now()) : '';
   const capture = describeCaptureTrace(since);
   const check = formatTargetCheck(await readTargetCheck(), since);
+  // `stored=...`: the captured target response being armed for the attestor
+  // (beginAttest) — the "request stored" step on the 00013 path. Its absence on a
+  // failed attempt means the attestor never got a response to prove.
+  const stored = await describeCaptureSignal(since).catch(() => undefined);
+  // Attestor-engine snapshot (`algo=...`): where the Primus algorithm was when the
+  // attempt failed. Both this and `stored` read from chrome.storage.local, so they
+  // survive the offscreen document being torn down + recreated on a failed attempt —
+  // which is what used to leave a 00014 with no attestor-side trace on our side.
+  const algo = await describeAlgorithmDebug().catch(() => undefined);
   if (typeof tabId !== 'number')
-    return [environment, timing, capture, check].filter(Boolean).join(' | ');
+    return [environment, timing, capture, check, stored, algo].filter(Boolean).join(' | ');
   const [page, prefetch] = await Promise.all([
     describeTabForLog(tabId, guideUrl, since).catch(() => undefined),
     readPrefetchDiagnostics(tabId, since, prefetchOperationsFor(verifierId)),
   ]);
-  return [environment, timing, page, prefetch, capture, check].filter(Boolean).join(' | ');
+  return [environment, timing, page, prefetch, capture, check, stored, algo]
+    .filter(Boolean)
+    .join(' | ');
 }
 
 function reportProofFailureToBackend(
@@ -1183,36 +1196,21 @@ async function runProofFlowUnlocked(
         verifiedAt: read.verifiedAt,
       };
     } else {
-      const sign = await authedCall((token) => api.signRequest(token, verifierId));
-      throwIfProofInterrupted(verifierId);
-      summary.requestId = sign.requestId;
-      await ensurePrimusIdentity();
-      throwIfProofInterrupted(verifierId);
-      state.lastResult = { ...summary };
-      await setLastResult(state.lastResult);
-      const attestedTemplate = buildPrimusTemplate(sign.template, verifier);
-      const attestedGuideUrl = resolveGuideUrl(verifier, attestedTemplate);
-      if (!attestedGuideUrl) {
-        throw new Error(`proof_target_not_allowed:${verifierId}`);
-      }
-      template = attestedTemplate;
-      guideUrl = attestedGuideUrl;
-      setProofProgress(
-        verifierId,
-        state.proofProgress?.stage ?? 'preparing',
-        state.proofProgress?.message ?? 'Preparing verification request',
-        { guideUrl: attestedGuideUrl },
-      );
-      verifierRuntime = await activateVerifierRuntime(attestedGuideUrl);
-      throwIfProofInterrupted(verifierId);
-
+      // Run the eligibility preflight BEFORE signing. A doomed account (not Premium,
+      // not linked, not logged in, no analytics access) then fails fast WITHOUT
+      // burning a Primus attestation (quota is appId-shared) or starting the
+      // signed-request TTL clock. The preflight only needs the (static) guide URL,
+      // not the signed template — `runVerifierPreflight` ignores the template arg,
+      // and the only verifier with a preflight rule (x_analytics_overview) has a
+      // static `guide.url`, so `resolveGuideUrl(verifier, undefined)` resolves it.
       let preflightTabId: number | undefined;
-      if (source !== 'auto') {
+      const preflightGuideUrl = resolveGuideUrl(verifier, undefined);
+      if (source !== 'auto' && preflightGuideUrl) {
         setProofProgress(verifierId, 'reading_data', 'Checking account eligibility', {
-          guideUrl: attestedGuideUrl,
+          guideUrl: preflightGuideUrl,
         });
         const linkedAccountId = await resolveLinkedAccountIdForPreflight(verifier);
-        await runVerifierPreflight(verifier, attestedGuideUrl, attestedTemplate, {
+        await runVerifierPreflight(verifier, preflightGuideUrl, undefined, {
           linkedAccountId,
           windowId: options.ownerWindowId,
           forceCreateTab: retryAfterFailure,
@@ -1240,11 +1238,39 @@ async function runProofFlowUnlocked(
           },
           onTargetTab: async (tabId) => {
             preflightTabId = tabId;
-            updateProofTargetTab(verifierId, tabId, attestedGuideUrl, verifier.name);
-            await verifierRuntime?.prepareTab(tabId);
+            updateProofTargetTab(verifierId, tabId, preflightGuideUrl, verifier.name);
+            // prepareTab is deferred to after the runtime is activated below.
           },
         });
         throwIfProofInterrupted(verifierId);
+      }
+
+      const sign = await authedCall((token) => api.signRequest(token, verifierId));
+      throwIfProofInterrupted(verifierId);
+      summary.requestId = sign.requestId;
+      await ensurePrimusIdentity();
+      throwIfProofInterrupted(verifierId);
+      state.lastResult = { ...summary };
+      await setLastResult(state.lastResult);
+      const attestedTemplate = buildPrimusTemplate(sign.template, verifier);
+      const attestedGuideUrl = resolveGuideUrl(verifier, attestedTemplate);
+      if (!attestedGuideUrl) {
+        throw new Error(`proof_target_not_allowed:${verifierId}`);
+      }
+      template = attestedTemplate;
+      guideUrl = attestedGuideUrl;
+      setProofProgress(
+        verifierId,
+        state.proofProgress?.stage ?? 'preparing',
+        state.proofProgress?.message ?? 'Preparing verification request',
+        { guideUrl: attestedGuideUrl },
+      );
+      verifierRuntime = await activateVerifierRuntime(attestedGuideUrl);
+      throwIfProofInterrupted(verifierId);
+      // Prepare the tab the preflight already opened now that the runtime exists
+      // (prepareTab was skipped during the pre-sign preflight above).
+      if (preflightTabId !== undefined) {
+        await verifierRuntime?.prepareTab(preflightTabId);
       }
 
       const pageSignedCapture = Boolean(verifier.requiresPageSignedInitialTraffic);

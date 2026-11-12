@@ -315,6 +315,8 @@ async function fire(
     throw error;
   }
   result.status = response.status;
+  const contentLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > 0) result.bytes = contentLength;
   noteDiagnostics(operation.name, {});
   void response
     .clone()

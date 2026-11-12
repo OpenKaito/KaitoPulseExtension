@@ -33,6 +33,20 @@ test('a fired prefetch reports query id source, status and the X error', () => {
   );
 });
 
+test('response wire size is reported when the server sent Content-Length', () => {
+  assert.equal(
+    formatPrefetchDiagnostics({
+      accountOverviewDailyQuery: {
+        auth: true,
+        tid: true,
+        fired: 1,
+        results: [{ status: 200, at: 1, bytes: 91500 }],
+      },
+    }),
+    'prefetch=accountOverviewDailyQuery{auth=1 tid=1 fired=1 status=200 bytes=91500}',
+  );
+});
+
 test('missing or malformed snapshots produce nothing', () => {
   assert.equal(formatPrefetchDiagnostics(undefined), undefined);
   assert.equal(formatPrefetchDiagnostics('x'), undefined);

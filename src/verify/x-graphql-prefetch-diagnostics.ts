@@ -16,6 +16,11 @@ export type PrefetchResult = {
   status: number | 'pending' | 'network_error';
   at: number;
   xerr?: string;
+  // Response wire size (Content-Length) in bytes, when the server reports it. This
+  // is the proxy for zkTLS proof cost: the attestor proves the TLS record bytes, so
+  // a 00014/slow proof on a large `accountOverviewDailyQuery` response is told apart
+  // from one on a small response (size vs. network, in the proof_outcome diagnostics).
+  bytes?: number;
 };
 
 export const PREFETCH_RESULTS_KEPT = 3;
@@ -73,7 +78,10 @@ export function formatPrefetchDiagnostics(
       `fired=${results.length}`,
       d.skip ? `skip=${clip(d.skip, 24)}` : undefined,
       ...results.map(
-        (r) => `status=${clip(r.status, 16)}${r.xerr ? ` xerr=${clip(r.xerr, 80)}` : ''}`,
+        (r) =>
+          `status=${clip(r.status, 16)}` +
+          `${typeof r.bytes === 'number' ? ` bytes=${clip(r.bytes, 12)}` : ''}` +
+          `${r.xerr ? ` xerr=${clip(r.xerr, 80)}` : ''}`,
       ),
     ].filter(Boolean);
     parts.push(`${clip(operation, 32)}{${fields.join(' ')}}`);

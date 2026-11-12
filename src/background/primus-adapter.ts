@@ -24,6 +24,14 @@ const BRIDGE_READY_POLL_MS = 250;
 const PRIMUS_SDK_VERSION = '0.3.14';
 const PRIMUS_CLIENT_TYPE = '@primuslabs/zktls-js-sdk';
 const RUN_ATTESTATION_RETRIES = 3;
+// A `00014` is the Primus attestor not responding within its 2-minute watchdog —
+// usually a slow client/attestor network, where each attempt burns ~128s. Retrying
+// it the full RUN_ATTESTATION_RETRIES times leaves the user staring at "Generating
+// proof" for 8+ minutes (a top driver of page_interrupted) and can push the whole
+// flow past the signed-request TTL (request_expired). Give a timeout ONE more shot,
+// not the full budget; genuinely transient errors (frame removed, parse error,
+// 10003/30001 5xx) keep RUN_ATTESTATION_RETRIES.
+const TIMEOUT_ATTESTATION_RETRIES = 1;
 const EXECUTE_ATTESTATION_RETRIES = 4;
 const POST_NAVIGATION_SETTLE_MS = 1500;
 const TAB_OPEN_TIMEOUT_MS = 60_000;
@@ -216,10 +224,13 @@ async function runAttestationAttempts(
     } catch (error) {
       stopCaptureTrace();
       lastError = error;
+      const maxRetriesForError = isSlowTimeoutAttestationError(error)
+        ? TIMEOUT_ATTESTATION_RETRIES
+        : RUN_ATTESTATION_RETRIES;
       if (
         options.isCanceled?.() ||
         (!isTransientFrameError(error) && !isRetryableAttestationError(error)) ||
-        attempt === RUN_ATTESTATION_RETRIES
+        attempt >= maxRetriesForError
       ) {
         throw error;
       }
@@ -399,6 +410,44 @@ async function readPrimusAlgorithmDebug(): Promise<PrimusAlgorithmDebug | undefi
     return undefined;
   }
   return value as PrimusAlgorithmDebug;
+}
+
+// Compact attestor-engine state for the proof_outcome diagnostics, e.g.
+//   algo=init:DONE/1s offline:RUNNING/128s online:DONE/2s
+// The three phases are the Primus algorithm's own steps; `offline` is the MPC
+// proof generation, so `offline:RUNNING/<~128>s` is exactly where a `00014`
+// ("did not respond within 2 minutes") sits. Read from chrome.storage.local in
+// the service worker, so it SURVIVES the offscreen document being torn down and
+// recreated on a failed attempt — that teardown is why the in-page attestor logs
+// are gone by the time we report, and this snapshot is what replaces them.
+export function formatAlgorithmDebug(debug: PrimusAlgorithmDebug | undefined): string | undefined {
+  const details = debug?.details;
+  if (!details) return undefined;
+  const sanitize = (text: unknown): string =>
+    String(text ?? '?')
+      .replace(/[^A-Za-z0-9_]+/g, '_')
+      .slice(0, 24) || '?';
+  const seg = (name: string, step: PrimusAlgorithmStepDebug | undefined): string | undefined => {
+    if (!step || (step.statusDescription === undefined && step.elapsed === undefined))
+      return undefined;
+    const elapsed =
+      step.elapsed === undefined || !Number.isFinite(Number(step.elapsed))
+        ? ''
+        : `/${Math.round(Number(step.elapsed))}s`;
+    return `${name}:${sanitize(step.statusDescription)}${elapsed}`;
+  };
+  const parts = [
+    seg('init', details.initialization),
+    seg('offline', details.offline),
+    seg('online', details.online),
+  ].filter(Boolean);
+  return parts.length > 0 ? `algo=${parts.join(' ')}` : undefined;
+}
+
+// Read + format the attestor-engine snapshot for a failure report. Durable across
+// the offscreen restart (it is chrome.storage.local, written by the algorithm).
+export async function describeAlgorithmDebug(): Promise<string | undefined> {
+  return formatAlgorithmDebug(await readPrimusAlgorithmDebug().catch(() => undefined));
 }
 
 function elapsedSecondsFromStep(step: PrimusAlgorithmStepDebug, fallbackMs: number): number {
@@ -2577,6 +2626,13 @@ const RETRYABLE_ATTESTATION_ERRORS: readonly RegExp[] = [
 function isRetryableAttestationError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return RETRYABLE_ATTESTATION_ERRORS.some((pattern) => pattern.test(message));
+}
+
+// A `00014` ("did not respond within 2 minutes") is retryable but slow: see
+// TIMEOUT_ATTESTATION_RETRIES. Retried at most once, not RUN_ATTESTATION_RETRIES.
+function isSlowTimeoutAttestationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b00014\b/.test(message);
 }
 
 function unwrapInjectionResult<T>(result: ExecuteResult<T> | undefined, fallback: string): T {
