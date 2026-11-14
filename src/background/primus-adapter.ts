@@ -330,6 +330,18 @@ async function withAttestationTimeout<T>(
         watchdogReject?.(new Error('verification_interrupted: canceled mid-flight'));
         return;
       }
+      if (offlineRunningSince === undefined) {
+        const elapsedMs = Date.now() - startedAt;
+        if (elapsedMs >= PRIMUS_OFFLINE_PROGRESS_AFTER_MS) {
+          const message = `Still generating your proof — Primus is taking longer than usual (${Math.round(
+            elapsedMs / 1000,
+          )}s)`;
+          if (message !== lastProgressMessage) {
+            lastProgressMessage = message;
+            options.onProgress?.('generating_proof', message);
+          }
+        }
+      }
       if (polling) {
         return;
       }
@@ -1355,7 +1367,7 @@ function watchPrimusInterceptionStart(
 ): () => void {
   const dataSource = getTemplateDataSource(template);
   const refire = dataSource === GRAPHQL_PREFETCH_DATA_SOURCE ? requestGraphqlPrefetch : undefined;
-  if (!refire || !chrome.storage?.onChanged) {
+  if (!chrome.storage?.onChanged) {
     return () => undefined;
   }
 
@@ -1371,12 +1383,15 @@ function watchPrimusInterceptionStart(
       return;
     }
     const pageTabId = typeof debug.tabId === 'number' ? debug.tabId : tabId;
-    logDev('primus interception started; re-firing target requests', {
-      tabId,
-      pageTabId,
-      dataSource,
-    });
-    void refire(pageTabId, template);
+    void keepAttestationWorkerAlive(pageTabId);
+    if (refire) {
+      logDev('primus interception started; re-firing target requests', {
+        tabId,
+        pageTabId,
+        dataSource,
+      });
+      void refire(pageTabId, template);
+    }
   };
 
   chrome.storage.onChanged.addListener(onChanged);

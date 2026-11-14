@@ -2003,6 +2003,9 @@ function serializeError(error: unknown): NonNullable<ProofRunSummary['error']> {
   const code = classifyProofError(message);
   return {
     message,
+    ...(code === 'page_interrupted'
+      ? { reason: message.replace(/^verification_interrupted:\s*/, '').slice(0, 64) }
+      : {}),
     code,
     retryable: isRetryableProofError(code),
   };
@@ -2080,6 +2083,12 @@ function classifyProofError(message: string, reason?: string, status?: number): 
   }
   if (text.includes('sign_in_required')) return 'sign_in_required';
   if (text.includes('primus_identity_initialization_failed')) return 'proof_initialization_failed';
+  if (
+    text.includes('primus_algorithm_not_initialized') ||
+    text.includes('primus_bridge_unavailable')
+  ) {
+    return 'proof_initialization_failed';
+  }
   if (text.includes('wallet_not_connected')) return 'wallet_not_connected';
   if (
     status === 401 ||
@@ -2144,6 +2153,7 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     status === 504 ||
     text.includes('upstream_') ||
     text.includes('00011') ||
+    text.includes('primusservernetworkerror') ||
     text.includes('unstable connection')
   )
     return 'network_error';

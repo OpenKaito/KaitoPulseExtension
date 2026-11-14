@@ -1,3 +1,4 @@
+import { redactFailureMessage } from '@/shared/verifier-url';
 import {
   PREFETCH_DIAGNOSTICS_STORAGE_KEY,
   PREFETCH_RESULTS_KEPT,
@@ -46,6 +47,7 @@ function accountOverviewVariables(): Record<string, unknown> {
   const from = to - 7 * DAY_MS;
   const iso = (ms: number) => new Date(ms).toISOString();
   return {
+    include_previous: true,
     current_from: from,
     current_from_iso: iso(from),
     current_to: to,
@@ -56,6 +58,7 @@ function accountOverviewVariables(): Record<string, unknown> {
     prev_to_iso: iso(from),
     backfill_from: to - 2 * DAY_MS,
     backfill_to: to,
+    show_realtime_active_followers: true,
     show_verified_followers: true,
   };
 }
@@ -98,6 +101,25 @@ const OPERATIONS: Record<string, XGraphqlOperation> = {
 
 export function isSupportedPrefetchOperation(operation: string): boolean {
   return Object.hasOwn(OPERATIONS, operation);
+}
+
+export function formatXError(body: unknown): string | undefined {
+  const first = (body as { errors?: unknown })?.errors;
+  const entry = Array.isArray(first)
+    ? (first[0] as { code?: unknown; message?: unknown })
+    : undefined;
+  if (!entry || typeof entry !== 'object') return undefined;
+  const code = typeof entry.code === 'number' ? String(entry.code) : undefined;
+  const message =
+    typeof entry.message === 'string'
+      ? redactFailureMessage(entry.message)
+          .replace(/@\w+/g, '@')
+          .replace(/\d{7,}/g, '#')
+          .replace(/=/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : undefined;
+  return [code, message].filter(Boolean).join(':') || undefined;
 }
 
 const PREFETCH_COOLDOWN_MS = 45_000;
@@ -321,10 +343,10 @@ async function fire(
   void response
     .clone()
     .json()
-    .then((body: { errors?: { message?: unknown }[] }) => {
-      const message = body?.errors?.[0]?.message;
-      if (typeof message !== 'string') return;
-      result.xerr = message;
+    .then((body: unknown) => {
+      const xerr = formatXError(body);
+      if (!xerr) return;
+      result.xerr = xerr;
       noteDiagnostics(operation.name, {});
     })
     .catch(() => undefined);
