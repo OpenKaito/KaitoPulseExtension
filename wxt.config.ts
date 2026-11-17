@@ -138,7 +138,7 @@ export default defineConfig({
     name: 'Kaito Pulse',
     short_name: 'Kaito Pulse',
     description:
-      'See who’s really trading. Verified positions, trader theses and market sentiment, right on X.',
+      'X activity insights, plus zkTLS proofs of your third-party platform data submitted to Kaito.',
     minimum_chrome_version: '120',
     key: extensionKey(),
     action: {

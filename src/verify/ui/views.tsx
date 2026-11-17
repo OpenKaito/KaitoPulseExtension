@@ -392,7 +392,7 @@ export const DockList: Component<{
       </div>
       <Show when={seg() === 'all'}>
         <div class="kv-cards-caption">
-          Pick a task &amp; start earning <span class="count">{visible().length}</span>
+          Pick a task to verify <span class="count">{visible().length}</span>
         </div>
         <HubList tasks={visible()} onOpenTask={props.onOpenTask} verifyingId={props.verifyingId} />
       </Show>
@@ -529,7 +529,7 @@ export const ConsentView: Component<{
           <p class="kv-consent-sub">
             {serverRead()
               ? `We read your public ${meta().displayName} stats for the wallet you verified on Kaito.`
-              : `Verify your ${meta().displayName} account to complete this campaign.`}
+              : `Verify your ${meta().displayName} account to complete verification.`}
           </p>
         </div>
 

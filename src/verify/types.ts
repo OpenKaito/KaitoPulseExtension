@@ -34,7 +34,7 @@ export interface PlatformMeta {
 
     validity: string;
 
-    earn: string[];
+    earn?: string[];
 
     steps: string[];
   };
