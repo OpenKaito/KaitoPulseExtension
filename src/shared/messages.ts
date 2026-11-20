@@ -275,7 +275,7 @@ export type ProofRunSummary = {
 
   finishedAt?: number;
   creatorRewards?: XCreatorRewardsOutcome;
-  companion?: ProofRunSummary;
+  companions?: readonly ProofRunSummary[];
   error?: {
     message: string;
     status?: number;

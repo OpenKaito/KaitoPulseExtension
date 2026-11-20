@@ -40,7 +40,11 @@ export async function runVerifierPreflight(
 ): Promise<void> {
   try {
     if (verifier.id === 'x_analytics_overview') {
-      await preflightXAnalytics(guideUrl, options);
+      await preflightXAnalytics(guideUrl, options, 'overview');
+      return;
+    }
+    if (verifier.id === 'x_analytics_audience') {
+      await preflightXAnalytics(guideUrl, options, 'audience');
       return;
     }
     logDev('verifier preflight skipped', { verifierId: verifier.id, reason: 'no_rule' });
@@ -56,6 +60,11 @@ export async function runVerifierPreflight(
 async function preflightXAnalytics(
   guideUrl: string,
   options: VerifierPreflightOptions = {},
+  // The overview verifier cross-checks the attested X against the Privy link and
+  // hands off the creator-rewards page. The audience verifier does neither (it has
+  // no crossCheckPrivyIdentity, and creator rewards is an overview-page concern),
+  // so it reuses only the shared signed-in + Premium gate below.
+  variant: 'overview' | 'audience' = 'overview',
 ): Promise<void> {
   const result = await readJsonFromVerifierPage<{
     overview?: { ok?: boolean; status?: number; errors?: string[] };
@@ -74,8 +83,10 @@ async function preflightXAnalytics(
   if (value.reason === 'not_signed_in') {
     throw new VerifierPreflightError('third_party_login_required', 'x_login_required');
   }
-  assertLinkedXAccount(value.viewerId, options.linkedAccountId);
-  handOffCreatorRewardsPage(value.viewerId, value.creatorRewards, options);
+  if (variant === 'overview') {
+    assertLinkedXAccount(value.viewerId, options.linkedAccountId);
+    handOffCreatorRewardsPage(value.viewerId, value.creatorRewards, options);
+  }
   const overview = value.overview;
   if (!overview) {
     logDev('x analytics preflight inconclusive; overview not read');

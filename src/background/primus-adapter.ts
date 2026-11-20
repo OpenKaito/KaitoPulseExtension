@@ -94,6 +94,7 @@ type SignedRequestPayload = {
 
 type PrimusStartPayload = SignedRequestPayload & {
   kaitoTemplate?: PrimusTemplateMetadata;
+  kaitoRequestId?: string;
 };
 
 type DataSourceRequestTemplate = {
@@ -133,6 +134,8 @@ export type RunAttestationOptions = {
   onTargetTab?: (tabId: number) => void | Promise<void>;
 
   isCanceled?: () => boolean;
+
+  kaitoRequestId?: string;
 };
 
 type ExecuteResult<T> = chrome.scripting.InjectionResult<T>;
@@ -160,6 +163,7 @@ export async function runAttestation(
   options: RunAttestationOptions = {},
 ): Promise<Attestation> {
   const payload = parseSignedRequest(signedRequest, template);
+  if (options.kaitoRequestId) payload.kaitoRequestId = options.kaitoRequestId;
   return runAttestationAttempts(guideUrl, payload, template, options);
 }
 

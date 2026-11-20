@@ -1046,8 +1046,13 @@ export async function ensureStartupBootstrap(): Promise<void> {
   await initialBootstrapPromise.catch(() => undefined);
 }
 
-const COMPANION_PROOFS: Readonly<Record<string, string>> = {
-  x_analytics_overview: 'x_creator_rewards_zktls',
+// One "Verify X" runs the whole X Account Analytics set: the overview (primary),
+// then its companions in order — creator rewards and audience demographics — each
+// its own zkTLS attestation, so a single user action produces all three proofs.
+// A companion failure never fails the primary (a Premium account below the
+// audience follower threshold still gets overview + rewards).
+const COMPANION_PROOFS: Readonly<Record<string, readonly string[]>> = {
+  x_analytics_overview: ['x_creator_rewards_zktls', 'x_analytics_audience'],
 };
 
 let cancelRequestedWithoutSession = false;
@@ -1059,30 +1064,40 @@ export async function runProofFlow(
   return withProofLock(verifierId, async () => {
     cancelRequestedWithoutSession = false;
     const summary = await runProofFlowUnlocked(verifierId, options);
-    const companion = await runCompanionProof(verifierId, summary, options);
-    if (!companion) return summary;
-    const combined = { ...summary, companion };
+    const companions = await runCompanionProofs(verifierId, summary, options);
+    if (companions.length === 0) return summary;
+    const combined = { ...summary, companions };
     state.lastResult = combined;
     await setLastResult(combined);
     return combined;
   });
 }
 
-async function runCompanionProof(
+async function runCompanionProofs(
   verifierId: string,
   summary: ProofRunSummary,
   options: ProofFlowOptions,
-): Promise<ProofRunSummary | undefined> {
-  const companionId = COMPANION_PROOFS[verifierId];
-  if (!companionId || (options.source ?? 'manual') !== 'manual') return undefined;
-  if (cancelRequestedWithoutSession) return undefined;
-  if (summary.error?.message.startsWith('verification_interrupted')) return undefined;
-  if (!state.verifiers.some((entry) => entry.id === companionId)) return undefined;
-  logDev('running companion proof', { verifierId, companionId, primaryOk: !summary.error });
-  return runProofFlowUnlocked(companionId, {
-    source: 'manual',
-    ownerWindowId: options.ownerWindowId,
-  });
+): Promise<ProofRunSummary[]> {
+  const companionIds = COMPANION_PROOFS[verifierId];
+  if (!companionIds || (options.source ?? 'manual') !== 'manual') return [];
+  if (summary.error?.message.startsWith('verification_interrupted')) return [];
+  const results: ProofRunSummary[] = [];
+  for (const companionId of companionIds) {
+    // Re-checked each iteration: a cancel mid-chain stops the rest, and a
+    // companion the current launch does not offer is skipped, not failed.
+    if (cancelRequestedWithoutSession) break;
+    if (!state.verifiers.some((entry) => entry.id === companionId)) continue;
+    logDev('running companion proof', { verifierId, companionId, primaryOk: !summary.error });
+    // A companion's own failure is recorded in its summary and does NOT stop the
+    // next one — the primary already succeeded by here.
+    results.push(
+      await runProofFlowUnlocked(companionId, {
+        source: 'manual',
+        ownerWindowId: options.ownerWindowId,
+      }),
+    );
+  }
+  return results;
 }
 
 async function withProofLock(
@@ -1201,8 +1216,9 @@ async function runProofFlowUnlocked(
       // burning a Primus attestation (quota is appId-shared) or starting the
       // signed-request TTL clock. The preflight only needs the (static) guide URL,
       // not the signed template — `runVerifierPreflight` ignores the template arg,
-      // and the only verifier with a preflight rule (x_analytics_overview) has a
-      // static `guide.url`, so `resolveGuideUrl(verifier, undefined)` resolves it.
+      // and the verifiers with a preflight rule (x_analytics_overview and
+      // x_analytics_audience) both have a static `guide.url`, so
+      // `resolveGuideUrl(verifier, undefined)` resolves it.
       let preflightTabId: number | undefined;
       const preflightGuideUrl = resolveGuideUrl(verifier, undefined);
       if (source !== 'auto' && preflightGuideUrl) {
@@ -1282,6 +1298,7 @@ async function runProofFlowUnlocked(
         sign.signedRequest,
         attestedTemplate,
         {
+          kaitoRequestId: sign.requestId,
           tabId: pageSignedCapture ? undefined : options.tabId,
           windowId: options.ownerWindowId,
           silent: source === 'auto',
