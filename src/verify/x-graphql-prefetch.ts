@@ -70,12 +70,12 @@ function audienceOverviewVariables(): Record<string, unknown> {
   const from = to - 7 * DAY_MS;
   const iso = (ms: number) => new Date(ms).toISOString();
   return {
-    dimensions: ['Age', 'Gender', 'EngagementType', 'ClientAppId', 'IsInNetwork'],
+    dimensions: ['Age', 'Gender', 'EngagementType'],
     from_time_incl: from,
     to_time_excl: to,
     heatmap_from_time_incl: iso(to - 28 * DAY_MS),
     heatmap_to_time_excl: iso(to),
-    requested_metrics: ['Impressions'],
+    requested_metrics: [],
   };
 }
 

@@ -286,6 +286,19 @@
   color: var(--kas-down);
 }
 
+/* Directional call tags also carry --view; the tone fill must win over its transparent/border style. */
+.kas-tag--view.kas-tag--up {
+  background: var(--kas-up-bg);
+  color: var(--kas-up);
+  box-shadow: none;
+}
+
+.kas-tag--view.kas-tag--down {
+  background: var(--kas-down-bg);
+  color: var(--kas-down);
+  box-shadow: none;
+}
+
 .kas-row__body--post {
   position: relative;
   flex-wrap: nowrap;

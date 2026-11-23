@@ -131,7 +131,7 @@ async function flushOnceInner(): Promise<FlushOutcome> {
   const context = { sessionUrl: '', extVersion: chrome.runtime.getManifest().version, fp };
   const envelope = {
     batchId: createAttentionEventId(),
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     sentAt: Date.now(),
     context,
     behaviorEvents: [],

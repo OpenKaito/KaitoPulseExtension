@@ -19,6 +19,11 @@ export interface AttentionGeo {
   tweetHeight: number;
 }
 
+export interface AttentionCashtag {
+  symbol: string;
+  entityHint?: string;
+}
+
 export interface AttentionBehaviorEvent {
   eventId: string;
 
@@ -41,6 +46,8 @@ export interface AttentionBehaviorEvent {
   pageUrl: string;
 
   tabId: string | null;
+
+  cashtags?: AttentionCashtag[];
 }
 
 export interface AttentionServeEvent {
@@ -83,7 +90,7 @@ export interface AttentionBatchContext {
 
 export interface AttentionEventBatch {
   batchId: string;
-  schemaVersion: 1;
+  schemaVersion: 2;
   sentAt: number;
   context: AttentionBatchContext;
   behaviorEvents: AttentionBehaviorEvent[];

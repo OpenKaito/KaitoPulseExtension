@@ -11,6 +11,16 @@ import type { BehaviorActor, BehaviorEvent } from '@/shared/behavior';
 import { createBehaviorEventId } from '@/shared/behavior';
 import type { AttentionBehaviorEvent } from '@/shared/attention';
 import { createAttentionEventId, sanitizePageUrl } from '@/shared/attention';
+import { normalizeCashtagSymbol } from '@/signal/token-chart/symbol';
+import { parseNativeEntityHint } from '@/signal/token-chart/native-entity-hint';
+import { extractArticleCashtags, type CashtagExtractorDom } from './article-cashtags';
+
+const CASHTAG_DOM: CashtagExtractorDom = {
+  tweetTextSelector: () => SELECTORS.TWEET_TEXT,
+  cashtagLinkSelector: () => SELECTORS.CASHTAG_LINK,
+  normalizeSymbol: normalizeCashtagSymbol,
+  parseEntityHint: parseNativeEntityHint,
+};
 
 export class ClickTracker {
   private readonly listener: (event: MouseEvent) => void;
@@ -72,6 +82,7 @@ export class ClickTracker {
 
     const clickedAt = Date.now();
     const authorHandle = getArticleAuthorHandle(attentionRoot);
+    const cashtags = extractArticleCashtags(attentionRoot, CASHTAG_DOM);
     this.emitAttention({
       eventId: createAttentionEventId(),
       type: 'click',
@@ -95,6 +106,7 @@ export class ClickTracker {
       pageUrl: sanitizePageUrl(location.href),
 
       tabId: null,
+      ...(cashtags.length ? { cashtags } : {}),
     });
   }
 }

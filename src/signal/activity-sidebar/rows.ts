@@ -26,6 +26,14 @@ export function outcomeTone(outcome: string | undefined): TagTone {
   return 'neutral';
 }
 
+// Post call direction shares the trade feed's up/down colouring: bullish is green, bearish is red.
+export function directionTone(direction: string | undefined): TagTone {
+  const key = direction?.trim().toLowerCase() ?? '';
+  if (key === 'bullish') return 'up';
+  if (key === 'bearish') return 'down';
+  return 'neutral';
+}
+
 function toNumber(value: string): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -132,6 +140,11 @@ export function fitTagCount(
   return Math.min(n, 1);
 }
 
+export interface SidebarPostTag {
+  text: string;
+  tone: TagTone;
+}
+
 export interface SidebarPostRow {
   kind: 'post';
   key: string;
@@ -143,7 +156,7 @@ export interface SidebarPostRow {
   datedTime: boolean;
   href: string;
   external: boolean;
-  tags: string[];
+  tags: SidebarPostTag[];
   badge: string | null;
   title: string | null;
   summary: string;
@@ -161,7 +174,9 @@ function postHref(post: ActivityFeedPost): { href: string; external: boolean } {
 }
 
 export function toPostRow(post: ActivityFeedPost): SidebarPostRow {
-  const tags = post.tags.map((tag) => tag.text).filter(Boolean);
+  const tags = post.tags
+    .map((tag) => ({ text: tag.text, tone: directionTone(tag.direction) }))
+    .filter((tag) => tag.text);
   return {
     kind: 'post',
     key: `post:${post.eventId}`,

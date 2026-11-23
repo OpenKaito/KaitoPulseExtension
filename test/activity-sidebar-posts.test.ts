@@ -14,7 +14,7 @@ registerHooks({
   },
 });
 
-const { toPostRow, mergeFeedStreams, formatPostDate, fitTagCount } = await import(
+const { toPostRow, mergeFeedStreams, formatPostDate, fitTagCount, directionTone } = await import(
   '../src/signal/activity-sidebar/rows.ts'
 );
 
@@ -66,9 +66,31 @@ test('X call: in-app tweet link, relative time, one tag keeps its badge', () => 
   assert.equal(row.href, '/fx_stargazer/status/1234567890123456789');
   assert.equal(row.external, false);
   assert.equal(row.datedTime, false);
-  assert.deepEqual(row.tags, ['Bullish on $BTC']);
+  assert.deepEqual(row.tags, [{ text: 'Bullish on $BTC', tone: 'up' }]);
   assert.equal(row.badge, 'Top $BTC caller · 10/13 right');
   assert.equal(row.title, null);
+});
+
+test('call direction colours tags like trades: bullish up, bearish down, else neutral', () => {
+  assert.equal(directionTone('bullish'), 'up');
+  assert.equal(directionTone('Bearish'), 'down');
+  assert.equal(directionTone('neutral'), 'neutral');
+  assert.equal(directionTone(undefined), 'neutral');
+  const row = toPostRow(
+    post({
+      tags: [
+        { assetId: 'crypto:BTC', asset: '$BTC', direction: 'bullish', claimType: 'forward_view', text: 'Bullish on $BTC' },
+        { assetId: 'crypto:ETH', asset: '$ETH', direction: 'bearish', claimType: 'forward_view', text: 'Bearish on $ETH' },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    row.tags,
+    [
+      { text: 'Bullish on $BTC', tone: 'up' },
+      { text: 'Bearish on $ETH', tone: 'down' },
+    ],
+  );
 });
 
 test('several tags: all kept for the one-line fit, and no badge', () => {

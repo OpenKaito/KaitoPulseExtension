@@ -16,8 +16,10 @@ import {
   mergeFeedStreams,
   type SidebarFeedRow,
   type SidebarPostRow,
+  type SidebarPostTag,
   type SidebarRow,
   type StreamKey,
+  type TagTone,
 } from './rows';
 import sidebarCss from './activity-sidebar.css?inline';
 import substackMark from '../assets/substack.png?inline';
@@ -67,8 +69,13 @@ async function fetchStream(
 const BADGE_MIN_PX = 60;
 const MORE_TAGS_CLOSE_MS = 120;
 
+// Directional call tags reuse the trade feed's up/down colours; neutral keeps the plain view style.
+function postTagClass(tone: TagTone): string {
+  return tone === 'neutral' ? 'kas-tag kas-tag--view' : `kas-tag kas-tag--view kas-tag--${tone}`;
+}
+
 function MoreTagsPopover(props: {
-  tags: string[];
+  tags: SidebarPostTag[];
   anchor: HTMLElement;
   onEnter: () => void;
   onLeave: () => void;
@@ -95,8 +102,8 @@ function MoreTagsPopover(props: {
     >
       <For each={props.tags}>
         {(tag) => (
-          <span class="kas-tag kas-tag--view" title={tag}>
-            {tag}
+          <span class={postTagClass(tag.tone)} title={tag.text}>
+            {tag.text}
           </span>
         )}
       </For>
@@ -104,7 +111,7 @@ function MoreTagsPopover(props: {
   );
 }
 
-function PostTags(props: { tags: string[]; badge: string | null }): JSX.Element {
+function PostTags(props: { tags: SidebarPostTag[]; badge: string | null }): JSX.Element {
   const [visible, setVisible] = createSignal(props.tags.length);
   const [badgeFits, setBadgeFits] = createSignal(true);
   let body: HTMLDivElement | undefined;
@@ -147,8 +154,8 @@ function PostTags(props: { tags: string[]; badge: string | null }): JSX.Element 
     <div class="kas-row__body kas-row__body--post" ref={body}>
       <For each={props.tags.slice(0, visible())}>
         {(tag) => (
-          <span class="kas-tag kas-tag--view" title={tag}>
-            {tag}
+          <span class={postTagClass(tag.tone)} title={tag.text}>
+            {tag.text}
           </span>
         )}
       </For>
@@ -182,7 +189,9 @@ function PostTags(props: { tags: string[]; badge: string | null }): JSX.Element 
         )}
       </Show>
       <div class="kas-tag-measure" ref={measure} aria-hidden="true">
-        <For each={props.tags}>{(tag) => <span class="kas-tag kas-tag--view">{tag}</span>}</For>
+        <For each={props.tags}>
+          {(tag) => <span class="kas-tag kas-tag--view">{tag.text}</span>}
+        </For>
         <span class="kas-tag kas-tag--view">+{props.tags.length}</span>
       </div>
     </div>

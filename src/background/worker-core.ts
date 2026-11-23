@@ -2102,7 +2102,8 @@ function classifyProofError(message: string, reason?: string, status?: number): 
   if (text.includes('primus_identity_initialization_failed')) return 'proof_initialization_failed';
   if (
     text.includes('primus_algorithm_not_initialized') ||
-    text.includes('primus_bridge_unavailable')
+    text.includes('primus_bridge_unavailable') ||
+    text.includes('primus_init_no_response')
   ) {
     return 'proof_initialization_failed';
   }
@@ -2154,7 +2155,12 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     }
     return 'target_data_missing';
   }
-  if (text.includes('timeout') || text.includes('timed out')) return 'timeout';
+  if (
+    text.includes('timeout') ||
+    text.includes('timed out') ||
+    text.includes('primus_attestation_no_response')
+  )
+    return 'timeout';
   if (
     text.includes('signature_failed') ||
     text.includes('template_mismatch') ||
