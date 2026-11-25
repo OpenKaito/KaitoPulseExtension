@@ -34,6 +34,8 @@ import type { PendingAuthIntent } from './storage';
 import type { FollowRecommendationResponse } from './recommend-follow';
 import type { TokenChartPeriod, TokenChartResult } from './token-chart';
 import type { CashtagOccurrence, ResolvedTicker } from './ticker-resolve';
+import type { TickerRecommendationsResponse } from './ticker-recommendations';
+import type { ScreenerResponse } from './ticker-screener';
 
 export type SelectorOverridePayload = {
   version: number;
@@ -121,6 +123,16 @@ export type KaitoMessageContract = {
   resolveTickers: {
     payload: { occurrences: CashtagOccurrence[] };
     response: FetchResolveTickersResponse;
+  };
+
+  getTickerRecommendations: {
+    payload: { limit?: number };
+    response: GetTickerRecommendationsResponse;
+  };
+
+  getTickerScreener: {
+    payload: { tickers: string[] };
+    response: GetTickerScreenerResponse;
   };
 
   putAdFlag: {
@@ -490,6 +502,18 @@ export type GetActivityFeedConfigResponse = {
 
 export type GetActivityFeedResponse = {
   result?: ActivityFeedPage;
+  error?: string;
+  status?: number;
+};
+
+export type GetTickerRecommendationsResponse = {
+  result?: TickerRecommendationsResponse;
+  error?: string;
+  status?: number;
+};
+
+export type GetTickerScreenerResponse = {
+  result?: ScreenerResponse;
   error?: string;
   status?: number;
 };

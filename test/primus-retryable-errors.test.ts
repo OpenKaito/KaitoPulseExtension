@@ -15,7 +15,10 @@ registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);
     if (url.endsWith('/background/primus-adapter.ts')) {
-      return { ...loaded, source: `${loaded.source}\nexport { isRetryableAttestationError };` };
+      return {
+        ...loaded,
+        source: `${loaded.source}\nexport { isRetryableAttestationError, isTransientInitAttestationError, isSlowTimeoutAttestationError };`,
+      };
     }
     return loaded;
   },
@@ -24,9 +27,12 @@ registerHooks({
 Object.assign(globalThis, {
   chrome: { tabs: { onRemoved: { addListener() {} }, onUpdated: { addListener() {} } }, storage: { local: {} } },
 });
-const { isRetryableAttestationError } = (await import('../src/background/primus-adapter.ts')) as unknown as {
-  isRetryableAttestationError: (error: unknown) => boolean;
-};
+const { isRetryableAttestationError, isTransientInitAttestationError, isSlowTimeoutAttestationError } =
+  (await import('../src/background/primus-adapter.ts')) as unknown as {
+    isRetryableAttestationError: (error: unknown) => boolean;
+    isTransientInitAttestationError: (error: unknown) => boolean;
+    isSlowTimeoutAttestationError: (error: unknown) => boolean;
+  };
 
 test('transient Primus and upstream failures are retried', () => {
   for (const message of [
@@ -50,4 +56,13 @@ test('failures a retry cannot fix are not retried', () => {
   ]) {
     assert.equal(isRetryableAttestationError(new Error(message)), false, message);
   }
+});
+
+test('an uninitialised algorithm is a bounded transient retry, separate from the general set', () => {
+  const err = new Error('primus_start_failed: primus_algorithm_not_initialized');
+  assert.equal(isTransientInitAttestationError(err), true);
+  assert.equal(isSlowTimeoutAttestationError(err), false);
+  assert.equal(isRetryableAttestationError(err), false);
+  assert.equal(isTransientInitAttestationError(new Error('primus_bridge_unavailable')), false);
+  assert.equal(isTransientInitAttestationError(new Error('verification_interrupted: tab closed')), false);
 });

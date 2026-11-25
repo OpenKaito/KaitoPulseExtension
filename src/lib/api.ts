@@ -44,6 +44,8 @@ import type {
 } from '@/shared/voices-social-card';
 import type { CashtagOccurrence, TickerResolveResponse } from '@/shared/ticker-resolve';
 import type { TickerChartResponse } from '@/shared/token-chart';
+import type { TickerRecommendationsResponse } from '@/shared/ticker-recommendations';
+import type { ScreenerResponse } from '@/shared/ticker-screener';
 import type {
   AttentionConfigResponse,
   AttentionEventBatch,
@@ -511,5 +513,26 @@ export const api = {
         sessionToken,
       },
     );
+  },
+
+  getTickerRecommendations(
+    limit?: number,
+    sessionToken?: string,
+  ): Promise<TickerRecommendationsResponse> {
+    const qs = new URLSearchParams();
+    if (typeof limit === 'number') qs.set('limit', String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return request<TickerRecommendationsResponse>(
+      `/api/v1/extension/recommendations/tickers${suffix}`,
+      { sessionToken },
+    );
+  },
+
+  getTickerScreener(tickers: string[], sessionToken?: string): Promise<ScreenerResponse> {
+    return request<ScreenerResponse>('/api/v1/extension/tickers/screener', {
+      method: 'POST',
+      body: { tickers: tickers.join(',') },
+      sessionToken,
+    });
   },
 };

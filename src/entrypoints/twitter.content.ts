@@ -14,6 +14,7 @@ import { viewerIdentity } from '@/signal/viewer-identity';
 import '@/signal/profile/username-history.css';
 import { ProfileModulesController } from '@/signal/profile/profile-modules';
 import { ActivitySidebarController } from '@/signal/activity-sidebar/controller';
+import { TickersCardController } from '@/signal/tickers-card/controller';
 import { ensureSignalFonts } from '@/signal/load-fonts';
 import { loadSettings, subscribe, type SignalSettings } from '@/signal/settings';
 import { gateSettings, readSignedIn, readTermsOk, termsOkFromMe } from '@/signal/session-gate';
@@ -106,11 +107,15 @@ export default defineContentScript({
       const activitySidebar = new ActivitySidebarController(document, settings);
       activitySidebar.observe(document);
 
+      const tickersCard = new TickersCardController(document, settings);
+      tickersCard.observe(document);
+
       const applyEffective = guard(() => {
         settings = gateSettings(storedSettings, signedIn && termsOk);
         orchestrator.applySettings(settings);
         profileModules.applySettings(settings);
         activitySidebar.applySettings(settings);
+        tickersCard.applySettings(settings);
       }, 'settings.apply');
 
       const unsubscribe = subscribe(
@@ -159,6 +164,7 @@ export default defineContentScript({
         orchestrator.cleanup();
         profileModules.cleanup();
         activitySidebar.cleanup();
+        tickersCard.cleanup();
 
         behaviorTracker?.stop();
         behaviorTracker = null;

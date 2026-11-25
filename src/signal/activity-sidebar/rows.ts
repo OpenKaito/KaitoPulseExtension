@@ -1,5 +1,6 @@
 import type { ActivityFeedItem, ActivityFeedPost, ActivityFeedTrade } from '@/shared/activity-feed';
 import { formatApproxUsd, isHyperliquidSpot } from '@/popup/format/activity';
+import { capConsecutiveByAuthor, MAX_CONSECUTIVE_PER_AUTHOR } from './author-cap';
 
 export type TagTone = 'up' | 'down' | 'neutral';
 
@@ -11,6 +12,7 @@ export interface SidebarRow {
   handle: string;
   avatarUrl: string;
   eventTime: string;
+  notional: number;
   tag: string;
   tone: TagTone;
   subject: string;
@@ -26,7 +28,6 @@ export function outcomeTone(outcome: string | undefined): TagTone {
   return 'neutral';
 }
 
-// Post call direction shares the trade feed's up/down colouring: bullish is green, bearish is red.
 export function directionTone(direction: string | undefined): TagTone {
   const key = direction?.trim().toLowerCase() ?? '';
   if (key === 'bullish') return 'up';
@@ -82,6 +83,7 @@ function toRow(item: ActivityFeedItem): SidebarRow {
     handle: item.actor.handle,
     avatarUrl: item.actor.avatarUrl,
     eventTime: item.eventTime,
+    notional: toNumber(item.notional),
   };
   if (item.platform === 'polymarket') {
     const outcome = item.market.outcome?.trim();
@@ -188,7 +190,8 @@ export function toPostRow(post: ActivityFeedPost): SidebarPostRow {
     datedTime: post.source === 'substack',
     ...postHref(post),
     tags,
-    badge: tags.length === 1 ? (post.badge?.text ?? null) : null,
+    badge:
+      tags.length === 1 && post.badge && post.badge.kind !== 'conviction' ? post.badge.text : null,
     title: post.title?.trim() || null,
     summary: post.summary.trim(),
   };
@@ -224,12 +227,15 @@ export function mergeFeedStreams(
   const tradeEdge = edgeOf(trades, (item) => item.eventTime);
   const postEdge = edgeOf(posts, (item) => item.postedAt);
   const cutoff = Math.max(tradeEdge, postEdge);
-  const rows: SidebarFeedRow[] = [
+  const sorted: SidebarFeedRow[] = [
     ...toSidebarRows(trades?.items ?? []),
     ...(posts?.items ?? []).map(toPostRow),
   ]
     .filter((row) => timeOf(row.eventTime) >= cutoff)
     .sort((a, b) => timeOf(b.eventTime) - timeOf(a.eventTime));
+  const rows = capConsecutiveByAuthor(sorted, MAX_CONSECUTIVE_PER_AUTHOR, (row) =>
+    row.kind === 'trade' ? row.notional : 0,
+  );
   const loadMore =
     cutoff === Number.NEGATIVE_INFINITY ? null : tradeEdge >= postEdge ? 'trades' : 'posts';
   return { rows, loadMore };

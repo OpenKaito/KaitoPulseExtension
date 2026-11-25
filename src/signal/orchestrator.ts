@@ -488,7 +488,7 @@ export class Orchestrator {
         if (tier === 'no-data') {
           setAvatarBadgeValue(badgeEl, 'N/A');
         } else if (isCount) {
-          setAvatarBadgeValue(badgeEl, tier === 'no-sf' ? '0' : sf.toLocaleString('en-US'));
+          setAvatarBadgeValue(badgeEl, sf.toLocaleString('en-US'));
         }
       });
       this.badgeSubs.add(sub);

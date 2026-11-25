@@ -11,10 +11,10 @@
   --kas-subject: rgba(15, 20, 25, 0.85);
   --kas-tag-bg: rgba(15, 20, 25, 0.06);
   --kas-tag-text: rgba(15, 20, 25, 0.75);
-  --kas-up: #00a35c;
-  --kas-up-bg: rgba(0, 163, 92, 0.12);
-  --kas-down: #e0245e;
-  --kas-down-bg: rgba(224, 36, 94, 0.1);
+  --kas-up: #59be6c;
+  --kas-up-border: rgba(89, 190, 108, 0.5);
+  --kas-down: #e76250;
+  --kas-down-border: rgba(231, 98, 80, 0.5);
   --kas-scroll-track: rgba(15, 20, 25, 0.06);
   --kas-scroll-thumb: rgba(15, 20, 25, 0.25);
   --kas-surface: #fff;
@@ -40,10 +40,10 @@
   --kas-subject: rgba(255, 255, 255, 0.78);
   --kas-tag-bg: rgba(255, 255, 255, 0.1);
   --kas-tag-text: rgba(255, 255, 255, 0.75);
-  --kas-up: #2ecc70;
-  --kas-up-bg: rgba(46, 204, 112, 0.16);
-  --kas-down: #eb5757;
-  --kas-down-bg: rgba(235, 87, 87, 0.16);
+  --kas-up: #59be6c;
+  --kas-up-border: rgba(89, 190, 108, 0.5);
+  --kas-down: #e76250;
+  --kas-down-border: rgba(231, 98, 80, 0.5);
   --kas-scroll-track: rgba(255, 255, 255, 0.07);
   --kas-scroll-thumb: rgba(255, 255, 255, 0.28);
   --kas-surface: #000;
@@ -69,7 +69,7 @@
   flex-direction: column;
   gap: 10px;
   max-height: 580px;
-  margin-bottom: 16px;
+  margin: 16px 0;
   padding: 14px 19px;
   border: 1px solid var(--kas-border);
   border-radius: 14px;
@@ -277,26 +277,27 @@
 }
 
 .kas-tag--up {
-  background: var(--kas-up-bg);
+  background: transparent;
   color: var(--kas-up);
+  box-shadow: inset 0 0 0 1px var(--kas-up-border);
 }
 
 .kas-tag--down {
-  background: var(--kas-down-bg);
+  background: transparent;
   color: var(--kas-down);
+  box-shadow: inset 0 0 0 1px var(--kas-down-border);
 }
 
-/* Directional call tags also carry --view; the tone fill must win over its transparent/border style. */
 .kas-tag--view.kas-tag--up {
-  background: var(--kas-up-bg);
+  background: transparent;
   color: var(--kas-up);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px var(--kas-up-border);
 }
 
 .kas-tag--view.kas-tag--down {
-  background: var(--kas-down-bg);
+  background: transparent;
   color: var(--kas-down);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px var(--kas-down-border);
 }
 
 .kas-row__body--post {
@@ -370,7 +371,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: var(--kas-tag-bg);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kas-view-border);
   color: var(--kas-tag-text);
 }
 

@@ -7,6 +7,11 @@ import { createLogger } from '@/signal/logger';
 
 const logger = createLogger('token-chart');
 
+type ChartResult = NonNullable<FetchTokenChartResponse['result']>;
+
+const CHART_CACHE_TTL_MS = 5 * 60 * 1000;
+const chartCache = new Map<string, { at: number; result: ChartResult }>();
+
 export async function handleFetchTokenChart(
   symbol: string,
   period: TokenChartPeriod,
@@ -16,6 +21,12 @@ export async function handleFetchTokenChart(
   const stored = await getStoredSession();
   if (!stored?.sessionToken) {
     return { error: 'signed out' };
+  }
+
+  const cacheKey = `${symbol}|${period}|${entity ?? ''}`;
+  const cached = chartCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CHART_CACHE_TTL_MS) {
+    return { result: cached.result };
   }
 
   try {
@@ -32,7 +43,9 @@ export async function handleFetchTokenChart(
 
       event: response.events?.[i] ?? null,
     }));
-    return { result: { symbol, points, meta: response.meta } };
+    const result: ChartResult = { symbol, points, meta: response.meta };
+    chartCache.set(cacheKey, { at: Date.now(), result });
+    return { result };
   } catch (error) {
     logger.error('fetchTokenChart error', error);
     return { error: (error as Error)?.message || 'token chart fetch failed' };

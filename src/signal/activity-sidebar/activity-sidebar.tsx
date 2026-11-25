@@ -69,7 +69,6 @@ async function fetchStream(
 const BADGE_MIN_PX = 60;
 const MORE_TAGS_CLOSE_MS = 120;
 
-// Directional call tags reuse the trade feed's up/down colours; neutral keeps the plain view style.
 function postTagClass(tone: TagTone): string {
   return tone === 'neutral' ? 'kas-tag kas-tag--view' : `kas-tag kas-tag--view kas-tag--${tone}`;
 }

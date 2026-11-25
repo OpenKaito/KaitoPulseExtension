@@ -26,6 +26,10 @@ import {
 import { handleFetchTokenChart } from '@/background/token-chart-handlers';
 import { handleResolveTickers } from '@/background/ticker-resolve-handlers';
 import {
+  handleGetTickerRecommendations,
+  handleGetTickerScreener,
+} from '@/background/ticker-recommendation-handlers';
+import {
   handlePutAdFlag,
   handleQueryAdFlags,
   handleRemoveAdFlag,
@@ -372,6 +376,10 @@ export default defineBackground({
             return handleGetActivityFeed(message.before);
           case 'getActivityFeedPosts':
             return handleGetActivityFeedPosts(message.before);
+          case 'getTickerRecommendations':
+            return handleGetTickerRecommendations(message.limit);
+          case 'getTickerScreener':
+            return handleGetTickerScreener(message.tickers);
 
           case 'getSocialCard':
             return handleGetSocialCard(message.twitterId, message.candidates);

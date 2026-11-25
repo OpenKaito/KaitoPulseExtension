@@ -149,6 +149,7 @@ export function formatXError(body: unknown): string | undefined {
 }
 
 const PREFETCH_COOLDOWN_MS = 45_000;
+const PREFETCH_RATE_LIMIT_BACKOFF_MS = 120_000;
 
 const FIRST_PREFETCH_DELAY_MS = 2_000;
 
@@ -166,6 +167,8 @@ const resolvedQueryIds = new Map<
   { id: string; source: 'bundle' | 'pinned'; bundles: number }
 >();
 const lastFiredAt = new Map<string, number>();
+const rateLimitedUntil = new Map<string, number>();
+const forceRetryScheduled = new Set<string>();
 const pending = new Set<string>();
 const diagnostics = new Map<string, PrefetchDiagnostics>();
 const attempts = new Map<string, number>();
@@ -310,6 +313,7 @@ async function fire(
   attempt = attempts.get(operation.name) ?? 0,
   allowPublicBearer = false,
 ): Promise<void> {
+  if (Date.now() < (rateLimitedUntil.get(operation.name) ?? 0)) return;
   const auth =
     captured ??
     (allowPublicBearer && !operation.requiresTransactionId
@@ -363,6 +367,9 @@ async function fire(
     throw error;
   }
   result.status = response.status;
+  if (response.status === 429) {
+    rateLimitedUntil.set(operation.name, Date.now() + PREFETCH_RATE_LIMIT_BACKOFF_MS);
+  }
   const contentLength = Number(response.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > 0) result.bytes = contentLength;
   noteDiagnostics(operation.name, {});
@@ -384,6 +391,7 @@ export function armGraphqlPrefetch(operationName: string): void {
   if (pending.has(operationName)) return;
   if (!hasCredentialsFor(operation)) return;
 
+  if (Date.now() < (rateLimitedUntil.get(operationName) ?? 0)) return;
   const last = lastFiredAt.get(operationName) ?? 0;
   if (last !== 0 && Date.now() - last < PREFETCH_COOLDOWN_MS) return;
 
@@ -402,6 +410,17 @@ export function armGraphqlPrefetch(operationName: string): void {
 export function forceGraphqlPrefetch(operationName: string): void {
   const operation = OPERATIONS[operationName];
   if (!operation) return;
+  const backoffUntil = rateLimitedUntil.get(operationName) ?? 0;
+  if (Date.now() < backoffUntil) {
+    if (!forceRetryScheduled.has(operationName)) {
+      forceRetryScheduled.add(operationName);
+      window.setTimeout(() => {
+        forceRetryScheduled.delete(operationName);
+        forceGraphqlPrefetch(operationName);
+      }, backoffUntil - Date.now());
+    }
+    return;
+  }
   const attempt = (attempts.get(operationName) ?? 0) + 1;
   attempts.set(operationName, attempt);
   noteDiagnostics(operationName, { skip: 'waiting_for_auth' }, attempt);
@@ -427,6 +446,8 @@ export function resetGraphqlPrefetchStateForTest(): void {
   captured = undefined;
   resolvedQueryIds.clear();
   lastFiredAt.clear();
+  rateLimitedUntil.clear();
+  forceRetryScheduled.clear();
   pending.clear();
   diagnostics.clear();
   attempts.clear();

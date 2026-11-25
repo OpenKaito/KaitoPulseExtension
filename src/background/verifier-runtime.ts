@@ -1,4 +1,5 @@
 import { logDev } from '@/lib/env';
+import { retryTransientTab } from '@/background/transient-tab-error';
 import { PROOF_RUNTIME_TEARDOWN_EVENT } from '@/shared/proof-arming';
 import { optionalPatternsForUrl, PROOF_TARGETS } from '@/shared/proof-targets';
 import {
@@ -284,7 +285,7 @@ export async function activateVerifierRuntime(guideUrl: string): Promise<Verifie
             tabId,
             at: tabUrl ? navigationTargetForLog(tabUrl, guideUrl) : 'unknown',
           });
-          await chrome.tabs.update(tabId, { url: guideUrl });
+          await retryTransientTab(() => chrome.tabs.update(tabId, { url: guideUrl }));
           return;
         }
         throw new Error(

@@ -2180,6 +2180,7 @@ function classifyProofError(message: string, reason?: string, status?: number): 
     text.includes('unstable connection')
   )
     return 'network_error';
+  if (text.includes('primus_start_failed')) return 'proof_initialization_failed';
   return 'unknown_error';
 }
 

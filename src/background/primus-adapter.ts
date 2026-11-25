@@ -174,6 +174,7 @@ async function runAttestationAttempts(
   options: RunAttestationOptions,
 ): Promise<Attestation> {
   let lastError: unknown;
+  let boundedBudgetUsed = false;
 
   for (let attempt = 0; attempt <= RUN_ATTESTATION_RETRIES; attempt += 1) {
     if (options.isCanceled?.()) {
@@ -228,14 +229,18 @@ async function runAttestationAttempts(
     } catch (error) {
       stopCaptureTrace();
       lastError = error;
-      const maxRetriesForError = isSlowTimeoutAttestationError(error)
+      boundedBudgetUsed =
+        boundedBudgetUsed ||
+        isSlowTimeoutAttestationError(error) ||
+        isTransientInitAttestationError(error);
+      const maxRetriesForError = boundedBudgetUsed
         ? TIMEOUT_ATTESTATION_RETRIES
         : RUN_ATTESTATION_RETRIES;
-      if (
-        options.isCanceled?.() ||
-        (!isTransientFrameError(error) && !isRetryableAttestationError(error)) ||
-        attempt >= maxRetriesForError
-      ) {
+      const retryable =
+        isTransientFrameError(error) ||
+        isRetryableAttestationError(error) ||
+        isTransientInitAttestationError(error);
+      if (options.isCanceled?.() || !retryable || attempt >= maxRetriesForError) {
         throw error;
       }
 
@@ -2652,6 +2657,11 @@ function isRetryableAttestationError(error: unknown): boolean {
 function isSlowTimeoutAttestationError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /\b00014\b/.test(message);
+}
+
+function isTransientInitAttestationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('primus_algorithm_not_initialized');
 }
 
 function unwrapInjectionResult<T>(result: ExecuteResult<T> | undefined, fallback: string): T {
