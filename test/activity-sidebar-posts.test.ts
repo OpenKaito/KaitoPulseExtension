@@ -169,3 +169,66 @@ test('a missing stream (failed or not deployed) leaves the other as is', () => {
   );
   assert.equal(loadMore, 'trades');
 });
+
+// Distinct authors so the 2-per-author cap never trims a boosted run.
+const callPost = (eventId: string, postedAt: string, asset: string, handle: string) =>
+  post({
+    eventId,
+    postedAt,
+    actor: { twitterId: eventId, handle, avatarUrl: '', name: handle },
+    tags: [
+      { assetId: `crypto:${asset}`, asset: `$${asset}`, direction: 'bullish', claimType: 'forward_view', text: `Bullish on $${asset}` },
+    ],
+  });
+
+test('calls on the viewer’s watched tickers float to the top; time order holds within each group', () => {
+  const { rows } = mergeFeedStreams(
+    { items: [trade('t1', '2026-11-04T07:00:00Z')], nextBefore: null },
+    {
+      items: [
+        callPost('p-nvda', '2026-11-04T08:00:00Z', 'NVDA', 'sg_nvda'), // newest, not watched
+        callPost('p-eth', '2026-11-04T06:00:00Z', 'ETH', 'sg_eth'), // watched
+        callPost('p-btc', '2026-11-04T05:00:00Z', 'BTC', 'sg_btc'), // watched, oldest
+      ],
+      nextBefore: null,
+    },
+    // No `$` here — exercises the normalisation against the posts' `$BTC`/`$ETH`.
+    new Set(['BTC', 'ETH']),
+  );
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    ['post:p-eth', 'post:p-btc', 'post:p-nvda', 't1'],
+  );
+});
+
+test('boosting never drops a watched call via the author cap (cap runs before the boost)', () => {
+  // Alice's 3 BTC calls interleave in time with Bob's 2 ETH, so none is a
+  // consecutive run — all 5 survive the 2-per-author cap. Boosting BTC must keep
+  // all three of Alice's and float them up, not cluster them into a run the cap trims.
+  const { rows } = mergeFeedStreams(null, {
+    items: [
+      callPost('a1', '2026-11-04T09:00:00Z', 'BTC', 'alice'),
+      callPost('b1', '2026-11-04T08:00:00Z', 'ETH', 'bob'),
+      callPost('a2', '2026-11-04T07:00:00Z', 'BTC', 'alice'),
+      callPost('b2', '2026-11-04T06:00:00Z', 'ETH', 'bob'),
+      callPost('a3', '2026-11-04T05:00:00Z', 'BTC', 'alice'),
+    ],
+    nextBefore: null,
+  }, new Set(['BTC']));
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    ['post:a1', 'post:a2', 'post:a3', 'post:b1', 'post:b2'],
+  );
+});
+
+test('an empty watch set leaves the feed in plain reverse-chronological order', () => {
+  const { rows } = mergeFeedStreams(
+    { items: [trade('t1', '2026-11-04T07:00:00Z')], nextBefore: null },
+    { items: [callPost('p-btc', '2026-11-04T05:00:00Z', 'BTC', 'sg_btc')], nextBefore: null },
+    new Set(),
+  );
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    ['t1', 'post:p-btc'],
+  );
+});

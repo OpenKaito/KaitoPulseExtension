@@ -14,6 +14,7 @@ import {
   fitTagCount,
   formatShortAgo,
   mergeFeedStreams,
+  normalizeTicker,
   type SidebarFeedRow,
   type SidebarPostRow,
   type SidebarPostTag,
@@ -284,6 +285,7 @@ function ActivitySidebar(props: { refreshSeconds: number; onClose: () => void })
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [now, setNow] = createSignal(Date.now());
   const [atBottom, setAtBottom] = createSignal(true);
+  const [boostAssets, setBoostAssets] = createSignal<ReadonlySet<string>>(new Set());
   let scroller: HTMLDivElement | undefined;
   const loadedMore: Record<StreamKey, boolean> = { trades: false, posts: false };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -393,8 +395,30 @@ function ActivitySidebar(props: { refreshSeconds: number; onClose: () => void })
     else schedule();
   };
 
+  // Viewer's own frequently-viewed tickers, to float matching calls to the top.
+  // Only the personalised list reorders; the trending 'fallback' leaves order alone.
+  const loadBoostTickers = async (): Promise<void> => {
+    try {
+      const response = await sendKaitoMessage({
+        target: 'kaitoExtension',
+        action: 'getTickerRecommendations',
+      });
+      const reco = response.result;
+      if (disposed || !reco || reco.source !== 'personal') return;
+      const assets = new Set(
+        reco.items
+          .map((item) => (typeof item.ticker === 'string' ? normalizeTicker(item.ticker) : ''))
+          .filter((ticker) => ticker.length > 0),
+      );
+      if (assets.size > 0) setBoostAssets(assets);
+    } catch {
+      // No signal ⇒ the feed stays reverse-chronological; never block the feed on it.
+    }
+  };
+
   onMount(() => {
     void load(true);
+    void loadBoostTickers();
     document.addEventListener('visibilitychange', onVisibility);
     const clock = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
     onCleanup(() => {
@@ -411,7 +435,7 @@ function ActivitySidebar(props: { refreshSeconds: number; onClose: () => void })
   };
   const rows = () => {
     const current = page();
-    return current ? mergeFeedStreams(current.trades, current.posts).rows : [];
+    return current ? mergeFeedStreams(current.trades, current.posts, boostAssets()).rows : [];
   };
 
   const measure = (el: HTMLDivElement): void => {

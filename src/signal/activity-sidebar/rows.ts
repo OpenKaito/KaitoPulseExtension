@@ -220,21 +220,55 @@ function edgeOf<T>(stream: FeedStream<T> | null, time: (item: T) => string): num
   return timeOf(time(stream.items[stream.items.length - 1]));
 }
 
+const EMPTY_BOOST: ReadonlySet<string> = new Set();
+
+// Feed tags carry `$BTC`, the recommendation signal carries `BTC`; both sides
+// normalise through this before comparing, or the match silently never fires.
+export function normalizeTicker(raw: string): string {
+  return raw.trim().replace(/^\$/, '').toUpperCase();
+}
+
+// Boosted when a tag names a watched ticker. Empty set ⇒ feed unchanged.
+function postMatchesBoost(post: ActivityFeedPost, boostAssets: ReadonlySet<string>): boolean {
+  if (boostAssets.size === 0) return false;
+  return post.tags.some((tag) => {
+    const asset = typeof tag.asset === 'string' ? normalizeTicker(tag.asset) : '';
+    return asset.length > 0 && boostAssets.has(asset);
+  });
+}
+
 export function mergeFeedStreams(
   trades: FeedStream<ActivityFeedItem> | null,
   posts: FeedStream<ActivityFeedPost> | null,
+  boostAssets: ReadonlySet<string> = EMPTY_BOOST,
 ): { rows: SidebarFeedRow[]; loadMore: StreamKey | null } {
   const tradeEdge = edgeOf(trades, (item) => item.eventTime);
   const postEdge = edgeOf(posts, (item) => item.postedAt);
   const cutoff = Math.max(tradeEdge, postEdge);
-  const sorted: SidebarFeedRow[] = [
-    ...toSidebarRows(trades?.items ?? []),
-    ...(posts?.items ?? []).map(toPostRow),
+  const ranked: { row: SidebarFeedRow; boosted: boolean }[] = [
+    ...toSidebarRows(trades?.items ?? []).map((row) => ({ row, boosted: false })),
+    ...(posts?.items ?? []).map((post) => ({
+      row: toPostRow(post),
+      boosted: postMatchesBoost(post, boostAssets),
+    })),
   ]
-    .filter((row) => timeOf(row.eventTime) >= cutoff)
-    .sort((a, b) => timeOf(b.eventTime) - timeOf(a.eventTime));
-  const rows = capConsecutiveByAuthor(sorted, MAX_CONSECUTIVE_PER_AUTHOR, (row) =>
-    row.kind === 'trade' ? row.notional : 0,
+    .filter(({ row }) => timeOf(row.eventTime) >= cutoff)
+    .sort((a, b) => timeOf(b.row.eventTime) - timeOf(a.row.eventTime));
+  const boostedByKey = new Map(ranked.map(({ row, boosted }) => [row.key, boosted]));
+  // Cap consecutive same-author runs on the CHRONOLOGICAL order — its actual
+  // purpose — THEN float watched calls to the top. Capping after the boost would
+  // let the boost cluster one author into a fake run and drop a watched call that
+  // would otherwise show. With no boost the second sort is a no-op, so the feed is
+  // identical to the plain chronological one. Time is the tiebreak, so the order is
+  // deterministic regardless of sort stability.
+  const rows = capConsecutiveByAuthor(
+    ranked.map(({ row }) => row),
+    MAX_CONSECUTIVE_PER_AUTHOR,
+    (row) => (row.kind === 'trade' ? row.notional : 0),
+  ).sort(
+    (a, b) =>
+      Number(boostedByKey.get(b.key) ?? false) - Number(boostedByKey.get(a.key) ?? false) ||
+      timeOf(b.eventTime) - timeOf(a.eventTime),
   );
   const loadMore =
     cutoff === Number.NEGATIVE_INFINITY ? null : tradeEdge >= postEdge ? 'trades' : 'posts';

@@ -8,6 +8,15 @@ import {
 
 const DAY_MS = 86_400_000;
 
+// The audience breakdown (age/gender/geo) is pulled over a 90-day reach window,
+// not the overview's 7. X serves the demographic query at any range (7/28/90 all
+// measured 2026-11-20) and collapses the whole window to one row per bucket, so a
+// 90-day body is the same size as a 7-day one — no attestation-size regression.
+// A wider window is a more representative audience picture for brand matching.
+// KEBS `assertAudienceWindow` accepts this span (and still the legacy 7-day one
+// from installs that predate this build); the overview window stays 7 days.
+const AUDIENCE_WINDOW_DAYS = 90;
+
 type XGraphqlOperation = {
   name: string;
 
@@ -67,7 +76,7 @@ function audienceOverviewVariables(): Record<string, unknown> {
   const midnight = new Date();
   midnight.setUTCHours(0, 0, 0, 0);
   const to = midnight.getTime() + DAY_MS;
-  const from = to - 7 * DAY_MS;
+  const from = to - AUDIENCE_WINDOW_DAYS * DAY_MS;
   const iso = (ms: number) => new Date(ms).toISOString();
   return {
     dimensions: ['Age', 'Gender', 'EngagementType'],
